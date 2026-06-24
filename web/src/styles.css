@@ -244,7 +244,6 @@ textarea {
 
 .analysis-summary button,
 .candidate-row,
-.chart-point-list button,
 .bad-move {
   min-height: 32px;
   border: 1px solid #c3c9c1;
@@ -255,14 +254,12 @@ textarea {
 }
 
 .candidate-list,
-.bad-move-list,
-.chart-point-list {
+.bad-move-list {
   display: grid;
   gap: 6px;
 }
 
 .candidate-row,
-.chart-point-list button,
 .bad-move {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -287,18 +284,83 @@ textarea {
 }
 
 .chart-body {
-  display: grid;
-  grid-template-rows: 96px minmax(0, 1fr);
-  gap: 6px;
+  min-height: 0;
 }
 
 .winrate-chart {
   width: 100%;
-  height: 96px;
+  height: 100%;
+  min-height: 132px;
   display: block;
   background: #fffdf8;
   border: 1px solid #c3c9c1;
   border-radius: 6px;
+}
+
+.chart-plot-bg {
+  fill: #fbfaf4;
+}
+
+.chart-grid-line {
+  stroke: #d8ded5;
+  stroke-width: 1;
+}
+
+.chart-zero-line {
+  stroke: #aeb9b0;
+  stroke-dasharray: 4 4;
+}
+
+.chart-axis-line,
+.chart-tick-line {
+  stroke: #9eaaa2;
+  stroke-width: 1;
+}
+
+.chart-axis-label,
+.chart-tick-label {
+  fill: #637069;
+  font-size: 10px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.chart-axis-label.left {
+  text-anchor: end;
+}
+
+.chart-axis-label.right {
+  text-anchor: start;
+}
+
+.chart-tick-label {
+  text-anchor: middle;
+}
+
+.chart-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.winrate-line {
+  stroke: #2f5d50;
+  stroke-width: 3;
+}
+
+.score-line {
+  stroke: #b45f3a;
+  stroke-width: 2;
+}
+
+.chart-current-marker {
+  stroke: #172026;
+  stroke-width: 1.5;
+}
+
+.chart-hit-target {
+  fill: transparent;
+  cursor: pointer;
 }
 
 .candidate-row.low-visits {

@@ -211,7 +211,7 @@ export default function App() {
           onStop={stopAnalysis}
           onRestart={restartAnalysis}
         />
-        <AnalysisCharts points={chartPoints} onJump={(moveNumber) => void gotoMove(moveNumber)} />
+        <AnalysisCharts points={chartPoints} currentMoveNumber={snapshot?.moveNumber} onJump={(moveNumber) => void gotoMove(moveNumber)} />
         <BadMoveList badMoves={badMoves} onJump={(moveNumber) => void gotoMove(moveNumber)} />
         <CandidateList candidates={snapshot?.analysis?.candidates ?? []} onCandidateClick={playMove} />
       </aside>
