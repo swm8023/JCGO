@@ -19,6 +19,7 @@ type Workspace struct {
 	mu             sync.Mutex
 	games          map[string]*game.Game
 	analysis       map[string]game.AnalysisResult
+	analysisState  map[string]AnalysisState
 	selectedGameID string
 }
 
@@ -35,9 +36,17 @@ func (s *WorkspaceStore) ForToken(token string) *Workspace {
 	if ws := s.workspaces[key]; ws != nil {
 		return ws
 	}
-	ws := &Workspace{games: map[string]*game.Game{}, analysis: map[string]game.AnalysisResult{}}
+	ws := newWorkspace()
 	s.workspaces[key] = ws
 	return ws
+}
+
+func newWorkspace() *Workspace {
+	return &Workspace{
+		games:         map[string]*game.Game{},
+		analysis:      map[string]game.AnalysisResult{},
+		analysisState: map[string]AnalysisState{},
+	}
 }
 
 func (w *Workspace) LoadGame(gameID string, doc game.SGFDocument) error {
@@ -49,6 +58,7 @@ func (w *Workspace) LoadGame(gameID string, doc game.SGFDocument) error {
 	defer w.mu.Unlock()
 	w.games[gameID] = g
 	w.clearAnalysisLocked(gameID)
+	w.analysisState[gameID] = AnalysisIdle
 	w.selectedGameID = gameID
 	return nil
 }
@@ -64,6 +74,7 @@ func (w *Workspace) RemoveGame(gameID string) {
 	defer w.mu.Unlock()
 	delete(w.games, gameID)
 	w.clearAnalysisLocked(gameID)
+	delete(w.analysisState, gameID)
 	if w.selectedGameID == gameID {
 		w.selectedGameID = ""
 	}
@@ -109,6 +120,7 @@ func (w *Workspace) Play(gameID string, gtp string) (game.Snapshot, error) {
 	if err != nil {
 		return game.Snapshot{}, err
 	}
+	w.selectedGameID = gameID
 	color := g.CurrentSnapshot().ToPlay
 	snapshot, err := g.PlayVariation(color, gtp)
 	return w.withAnalysisLocked(gameID, snapshot), err
@@ -125,6 +137,7 @@ func (w *Workspace) BackToMain(gameID string) (game.Snapshot, error) {
 	if err != nil {
 		return game.Snapshot{}, err
 	}
+	w.selectedGameID = gameID
 	snapshot, err := g.BackToMain()
 	return w.withAnalysisLocked(gameID, snapshot), err
 }
@@ -136,8 +149,10 @@ func (w *Workspace) DeleteVariationNode(gameID string) (game.Snapshot, error) {
 	if err != nil {
 		return game.Snapshot{}, err
 	}
+	w.selectedGameID = gameID
 	snapshot, err := g.DeleteCurrentVariationNode()
 	w.clearAnalysisLocked(gameID)
+	w.analysisState[gameID] = AnalysisIdle
 	return w.withAnalysisLocked(gameID, snapshot), err
 }
 
@@ -148,8 +163,10 @@ func (w *Workspace) ClearVariation(gameID string) (game.Snapshot, error) {
 	if err != nil {
 		return game.Snapshot{}, err
 	}
+	w.selectedGameID = gameID
 	snapshot, err := g.ClearCurrentVariation()
 	w.clearAnalysisLocked(gameID)
+	w.analysisState[gameID] = AnalysisIdle
 	return w.withAnalysisLocked(gameID, snapshot), err
 }
 
@@ -157,6 +174,25 @@ func (w *Workspace) SetAnalysis(gameID string, nodeID string, result game.Analys
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.analysis[analysisCacheKey(gameID, nodeID)] = result
+	if w.analysisCompleteLocked(gameID) {
+		w.analysisState[gameID] = AnalysisComplete
+		return
+	}
+	if w.analysisState[gameID] != AnalysisStopped {
+		w.analysisState[gameID] = AnalysisRunning
+	}
+}
+
+func (w *Workspace) MarkAnalysisStarted(gameID string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.analysisState[gameID] = AnalysisRunning
+}
+
+func (w *Workspace) MarkAnalysisStopped(gameID string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.analysisState[gameID] = AnalysisStopped
 }
 
 func (w *Workspace) ClearAnalysisAndVariations(gameID string, fallbackNodeID string) (game.Snapshot, error) {
@@ -167,6 +203,7 @@ func (w *Workspace) ClearAnalysisAndVariations(gameID string, fallbackNodeID str
 		return game.Snapshot{}, err
 	}
 	w.clearAnalysisLocked(gameID)
+	w.analysisState[gameID] = AnalysisIdle
 	snapshot, err := g.ClearCurrentVariation()
 	if err != nil {
 		return game.Snapshot{}, err
@@ -178,6 +215,58 @@ func (w *Workspace) ClearAnalysisAndVariations(gameID string, fallbackNodeID str
 		}
 	}
 	return w.withAnalysisLocked(gameID, snapshot), err
+}
+
+func (w *Workspace) SelectedGameID() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.selectedGameID
+}
+
+func (w *Workspace) SelectedSnapshot() (*game.Snapshot, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.selectedGameID == "" {
+		return nil, nil
+	}
+	g, err := w.game(w.selectedGameID)
+	if err != nil {
+		return nil, err
+	}
+	snapshot := w.withAnalysisLocked(w.selectedGameID, g.CurrentSnapshot())
+	return &snapshot, nil
+}
+
+func (w *Workspace) AnalysisView(gameID string) ([]game.ChartPoint, []game.BadMove, AnalysisState, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	g, err := w.game(gameID)
+	if err != nil {
+		return nil, nil, AnalysisIdle, err
+	}
+	points := make([]game.ChartPoint, 0)
+	badMoves := make([]game.BadMove, 0)
+	for _, node := range g.MainlineAnalysisInputs() {
+		analysis, ok := w.analysis[analysisCacheKey(gameID, node.NodeID)]
+		if !ok {
+			break
+		}
+		points = append(points, game.ChartPoint{
+			MoveNumber: node.MoveNumber,
+			Winrate:    analysis.Winrate,
+			ScoreLead:  analysis.ScoreLead,
+		})
+		if candidate, ok := firstBadCandidate(analysis); ok {
+			badMoves = append(badMoves, game.BadMove{
+				NodeID:     node.NodeID,
+				MoveNumber: node.MoveNumber,
+				Move:       candidate.Move,
+				PointLoss:  candidate.PointLoss,
+				Class:      game.MistakeClass(candidate.PointLoss),
+			})
+		}
+	}
+	return points, badMoves, w.analysisStateLocked(gameID), nil
 }
 
 func (w *Workspace) MainlineAnalysisInputs(gameID string) []NodeInput {
@@ -214,6 +303,43 @@ func (w *Workspace) clearAnalysisLocked(gameID string) {
 	}
 }
 
+func (w *Workspace) analysisStateLocked(gameID string) AnalysisState {
+	state := w.analysisState[gameID]
+	if state == "" {
+		state = AnalysisIdle
+	}
+	if state == AnalysisRunning && w.analysisCompleteLocked(gameID) {
+		return AnalysisComplete
+	}
+	return state
+}
+
+func (w *Workspace) analysisCompleteLocked(gameID string) bool {
+	g := w.games[gameID]
+	if g == nil {
+		return false
+	}
+	inputs := g.MainlineAnalysisInputs()
+	if len(inputs) == 0 {
+		return false
+	}
+	for _, node := range inputs {
+		if _, ok := w.analysis[analysisCacheKey(gameID, node.NodeID)]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func analysisCacheKey(gameID, nodeID string) string {
 	return gameID + ":" + nodeID
+}
+
+func firstBadCandidate(analysis game.AnalysisResult) (game.CandidateMove, bool) {
+	for _, candidate := range analysis.Candidates {
+		if game.IsBadMove(candidate.PointLoss) {
+			return candidate, true
+		}
+	}
+	return game.CandidateMove{}, false
 }

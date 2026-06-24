@@ -86,6 +86,8 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.deleteVariationNode(ctx, token, params)
 	case "game.clearVariation":
 		return h.clearVariation(ctx, token, params)
+	case "workspace.state":
+		return h.workspaceState(ctx, token)
 	case "workspace.snapshot":
 		return h.workspaceSnapshot(ctx, token, params)
 	case "analysis.start":
@@ -102,18 +104,23 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 func (h *Handler) ServeWS(token string, conn *websocket.Conn) {
 	defer conn.Close()
 	var writeMu sync.Mutex
+	ctx := context.Background()
 	if h.analysis != nil {
 		unsubscribe := h.analysis.Subscribe(func(event Event) {
 			if event.Token != token {
 				return
 			}
+			h.workspaces.ForToken(event.Token).SetAnalysis(event.GameID, event.NodeID, event.Analysis)
+			state, err := h.workspaceState(ctx, token)
+			if err != nil {
+				return
+			}
 			writeMu.Lock()
 			defer writeMu.Unlock()
-			_ = conn.WriteJSON(server.Notify("analysis.node", event))
+			_ = conn.WriteJSON(server.Notify("analysis.update", state))
 		})
 		defer unsubscribe()
 	}
-	ctx := context.Background()
 	for {
 		var req server.Request
 		if err := conn.ReadJSON(&req); err != nil {
@@ -335,9 +342,11 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 	}
 	switch action {
 	case "start":
+		ws.MarkAnalysisStarted(in.GameID)
 		h.analysis.StartGame(input)
 	case "stop":
 		h.analysis.StopGame(token, in.GameID)
+		ws.MarkAnalysisStopped(in.GameID)
 	case "restart":
 		snapshot, err = ws.ClearAnalysisAndVariations(in.GameID, snapshot.NodeID)
 		if err != nil {
@@ -345,6 +354,7 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 		}
 		input.FocusNodeID = snapshot.NodeID
 		input.Nodes = ws.MainlineAnalysisInputs(in.GameID)
+		ws.MarkAnalysisStarted(in.GameID)
 		h.analysis.RestartGame(input)
 	}
 	return SnapshotResult{Snapshot: snapshot}, err

@@ -61,6 +61,8 @@ export interface AnalysisResult {
   candidates: CandidateMove[]
 }
 
+export type AnalysisState = 'idle' | 'running' | 'stopped' | 'complete' | 'unavailable'
+
 export interface ImportResult {
   game: GameRecord
   snapshot: Snapshot
@@ -72,13 +74,6 @@ export interface ListResult {
 
 export interface SnapshotResult {
   snapshot: Snapshot
-}
-
-export interface AnalysisNodeEvent {
-  gameId: string
-  nodeId: string
-  moveNumber: number
-  analysis: AnalysisResult
 }
 
 export interface ChartPoint {
@@ -93,4 +88,13 @@ export interface BadMove {
   move: string
   pointLoss: number
   class: number
+}
+
+export interface WorkspaceState {
+  games: GameRecord[]
+  selectedGameId?: string
+  snapshot?: Snapshot
+  chartPoints: ChartPoint[]
+  badMoves: BadMove[]
+  analysisState: AnalysisState
 }

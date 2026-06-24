@@ -64,3 +64,23 @@ func TestWorkspaceStoresAnalysisOnSnapshot(t *testing.T) {
 		t.Fatalf("inputs = %#v", inputs)
 	}
 }
+
+func TestAnalysisViewOnlyReturnsContiguousChartFromMoveZero(t *testing.T) {
+	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd];W[dd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := NewWorkspaceStore().ForToken("secret")
+	if err := ws.LoadGame("game-1", doc); err != nil {
+		t.Fatal(err)
+	}
+	ws.SetAnalysis("game-1", "main:1", game.AnalysisResult{Winrate: 0.56})
+
+	points, badMoves, _, err := ws.AnalysisView("game-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(points) != 0 || len(badMoves) != 0 {
+		t.Fatalf("analysis view = %#v %#v", points, badMoves)
+	}
+}

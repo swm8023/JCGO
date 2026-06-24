@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RPCClient } from './api/jsonrpc'
-import type { AnalysisNodeEvent, BadMove, CandidateMove, ChartPoint, GameRecord, ImportResult, ListResult, Snapshot, SnapshotResult } from './api/types'
+import type { AnalysisState, BadMove, CandidateMove, ChartPoint, GameRecord, Snapshot, WorkspaceState } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
 import { AnalysisPanel } from './components/AnalysisPanel'
 import { BadMoveList } from './components/BadMoveList'
@@ -21,28 +21,31 @@ export default function App() {
   const [activePV, setActivePV] = useState<string[]>()
   const [chartPoints, setChartPoints] = useState<ChartPoint[]>([])
   const [badMoves, setBadMoves] = useState<BadMove[]>([])
-  const [analysisState, setAnalysisState] = useState<'idle' | 'running' | 'stopped' | 'complete' | 'unavailable'>('idle')
+  const [analysisState, setAnalysisState] = useState<AnalysisState>('idle')
   const [showImport, setShowImport] = useState(false)
   const [gameListOpen, setGameListOpen] = useState(false)
   const [error, setError] = useState<string>()
   const wsUrl = useMemo(() => websocketURL(), [])
 
+  const applyWorkspaceState = (state: WorkspaceState) => {
+    setGames(state.games)
+    setSelectedGameId(state.selectedGameId)
+    setSnapshot(state.snapshot)
+    setChartPoints(state.chartPoints)
+    setBadMoves(state.badMoves)
+    setAnalysisState(state.analysisState)
+  }
+
   useEffect(() => {
     if (!token) return
     const nextClient = new RPCClient()
     setClient(nextClient)
-    nextClient.on('analysis.node', (params) => {
-      const event = params as AnalysisNodeEvent
-      setChartPoints((current) => upsertChartPoint(current, event))
-      setBadMoves((current) => upsertBadMove(current, event))
-      setSnapshot((current) => (current?.gameId === event.gameId && current.nodeId === event.nodeId ? { ...current, analysis: event.analysis } : current))
-      setAnalysisState('running')
-    })
+    nextClient.on('analysis.update', (params) => applyWorkspaceState(params as WorkspaceState))
     nextClient
       .connect(wsUrl, token)
       .then(async () => {
-        const result = await nextClient.call<ListResult>('game.list')
-        setGames(result.games)
+        const state = await nextClient.call<WorkspaceState>('workspace.state')
+        applyWorkspaceState(state)
       })
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : String(reason)))
   }, [token, wsUrl])
@@ -64,14 +67,16 @@ export default function App() {
 
   if (!token) return <TokenGate onSubmit={setToken} />
 
+  const refreshWorkspaceState = async (activeClient = client) => {
+    if (!activeClient) return
+    const state = await activeClient.call<WorkspaceState>('workspace.state')
+    applyWorkspaceState(state)
+  }
+
   const importGame = async (displayName: string, originalFilename: string, sgfText: string) => {
     if (!client) return
-    const result = await client.call<ImportResult>('game.importSgf', { displayName, originalFilename, sgfText })
-    setGames((current) => [result.game, ...current.filter((game) => game.gameId !== result.game.gameId)])
-    setSelectedGameId(result.game.gameId)
-    setSnapshot(result.snapshot)
-    setChartPoints([])
-    setBadMoves([])
+    await client.call('game.importSgf', { displayName, originalFilename, sgfText })
+    await refreshWorkspaceState()
     setActivePV(undefined)
     setShowImport(false)
     setGameListOpen(true)
@@ -79,9 +84,8 @@ export default function App() {
 
   const selectGame = async (gameId: string) => {
     if (!client) return
-    const result = await client.call<SnapshotResult>('game.select', { gameId })
-    setSelectedGameId(gameId)
-    setSnapshot(result.snapshot)
+    await client.call('game.select', { gameId })
+    await refreshWorkspaceState()
     setActivePV(undefined)
     setGameListOpen(false)
   }
@@ -89,26 +93,20 @@ export default function App() {
   const renameGame = async (gameId: string, displayName: string) => {
     if (!client) return
     await client.call('game.rename', { gameId, displayName })
-    const result = await client.call<ListResult>('game.list')
-    setGames(result.games)
+    await refreshWorkspaceState()
   }
 
   const deleteGame = async (gameId: string) => {
     if (!client) return
     await client.call('game.delete', { gameId })
-    setGames((current) => current.filter((game) => game.gameId !== gameId))
-    if (selectedGameId === gameId) {
-      setSelectedGameId(undefined)
-      setSnapshot(undefined)
-      setChartPoints([])
-      setBadMoves([])
-    }
+    await refreshWorkspaceState()
+    setActivePV(undefined)
   }
 
   const gotoMove = async (moveNumber: number) => {
     if (!client || !selectedGameId) return
-    const result = await client.call<SnapshotResult>('game.goto', { gameId: selectedGameId, moveNumber })
-    setSnapshot(result.snapshot)
+    await client.call('game.goto', { gameId: selectedGameId, moveNumber })
+    await refreshWorkspaceState()
     setActivePV(undefined)
   }
 
@@ -117,34 +115,34 @@ export default function App() {
 
   const playMove = async (move: string) => {
     if (!client || !selectedGameId) return
-    const result = await client.call<SnapshotResult>('game.play', { gameId: selectedGameId, move })
-    setSnapshot(result.snapshot)
+    await client.call('game.play', { gameId: selectedGameId, move })
+    await refreshWorkspaceState()
     setActivePV(undefined)
   }
 
   const pass = async () => {
     if (!client || !selectedGameId) return
-    const result = await client.call<SnapshotResult>('game.pass', { gameId: selectedGameId })
-    setSnapshot(result.snapshot)
+    await client.call('game.pass', { gameId: selectedGameId })
+    await refreshWorkspaceState()
   }
 
   const backToMain = async () => {
     if (!client || !selectedGameId) return
-    const result = await client.call<SnapshotResult>('game.backToMain', { gameId: selectedGameId })
-    setSnapshot(result.snapshot)
+    await client.call('game.backToMain', { gameId: selectedGameId })
+    await refreshWorkspaceState()
     setActivePV(undefined)
   }
 
   const deleteVariationNode = async () => {
     if (!client || !selectedGameId) return
-    const result = await client.call<SnapshotResult>('game.deleteVariationNode', { gameId: selectedGameId })
-    setSnapshot(result.snapshot)
+    await client.call('game.deleteVariationNode', { gameId: selectedGameId })
+    await refreshWorkspaceState()
   }
 
   const clearVariation = async () => {
     if (!client || !selectedGameId) return
-    const result = await client.call<SnapshotResult>('game.clearVariation', { gameId: selectedGameId })
-    setSnapshot(result.snapshot)
+    await client.call('game.clearVariation', { gameId: selectedGameId })
+    await refreshWorkspaceState()
   }
 
   const previewPV = (candidate: CandidateMove) => setActivePV(candidate.pv)
@@ -154,6 +152,7 @@ export default function App() {
     setAnalysisState('running')
     try {
       await client.call('analysis.start', { gameId: selectedGameId })
+      await refreshWorkspaceState()
     } catch (reason) {
       setAnalysisState('unavailable')
       setError(reason instanceof Error ? reason.message : 'analysis unavailable')
@@ -163,15 +162,14 @@ export default function App() {
   const stopAnalysis = async () => {
     if (!client || !selectedGameId) return
     await client.call('analysis.stop', { gameId: selectedGameId })
-    setAnalysisState('stopped')
+    await refreshWorkspaceState()
   }
 
   const restartAnalysis = async () => {
     if (!client || !selectedGameId) return
-    setChartPoints([])
-    setBadMoves([])
     setAnalysisState('running')
     await client.call('analysis.restart', { gameId: selectedGameId })
+    await refreshWorkspaceState()
   }
 
   return (
@@ -222,35 +220,6 @@ export default function App() {
       <RotatePrompt />
     </>
   )
-}
-
-function upsertChartPoint(points: ChartPoint[], event: AnalysisNodeEvent): ChartPoint[] {
-  const next = points.filter((point) => point.moveNumber !== event.moveNumber)
-  next.push({ moveNumber: event.moveNumber, winrate: event.analysis.winrate, scoreLead: event.analysis.scoreLead })
-  return next.sort((a, b) => a.moveNumber - b.moveNumber)
-}
-
-function upsertBadMove(moves: BadMove[], event: AnalysisNodeEvent): BadMove[] {
-  const candidate = event.analysis.candidates.find((move) => move.pointLoss > 1.5)
-  const next = moves.filter((move) => move.nodeId !== event.nodeId)
-  if (candidate) {
-    next.push({
-      nodeId: event.nodeId,
-      moveNumber: event.moveNumber,
-      move: candidate.move,
-      pointLoss: candidate.pointLoss,
-      class: mistakeClass(candidate.pointLoss),
-    })
-  }
-  return next.sort((a, b) => a.moveNumber - b.moveNumber)
-}
-
-function mistakeClass(pointLoss: number) {
-  if (pointLoss >= 12) return 0
-  if (pointLoss >= 6) return 1
-  if (pointLoss >= 3) return 2
-  if (pointLoss > 1.5) return 3
-  return 4
 }
 
 function websocketURL() {
