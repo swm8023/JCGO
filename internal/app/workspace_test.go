@@ -38,3 +38,29 @@ func TestVariationSurvivesReconnectInProcess(t *testing.T) {
 		t.Fatalf("snapshot = %#v", snap)
 	}
 }
+
+func TestWorkspaceStoresAnalysisOnSnapshot(t *testing.T) {
+	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := NewWorkspaceStore().ForToken("secret")
+	if err := ws.LoadGame("game-1", doc); err != nil {
+		t.Fatal(err)
+	}
+	ws.SetAnalysis("game-1", "main:0", game.AnalysisResult{
+		Visits:     500,
+		Candidates: []game.CandidateMove{{Move: "Q16"}},
+	})
+	snap, err := ws.CurrentSnapshot("game-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Analysis == nil || len(snap.Analysis.Candidates) != 1 {
+		t.Fatalf("snapshot = %#v", snap)
+	}
+	inputs := ws.MainlineAnalysisInputs("game-1")
+	if len(inputs) != 2 || inputs[1].NodeID != "main:1" {
+		t.Fatalf("inputs = %#v", inputs)
+	}
+}

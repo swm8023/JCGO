@@ -2160,17 +2160,18 @@ git commit -m "feat: normalize analysis results"
 ### Task 11: Single Analysis Queue and Notifications
 
 **Files:**
-- Create: `internal/analysis/scheduler.go`
-- Create: `internal/analysis/scheduler_test.go`
-- Modify: `internal/workspace/workspace.go`
-- Modify: `internal/rpc/handlers.go`
+- Create: `internal/app/scheduler.go`
+- Create: `internal/app/scheduler_test.go`
+- Modify: `internal/app/workspace.go`
+- Modify: `internal/app/handlers.go`
+- Modify: `internal/game/analysis.go`
 
-- [ ] **Step 1: Write scheduler tests**
+- [x] **Step 1: Write scheduler tests**
 
-Create `internal/analysis/scheduler_test.go`:
+Create `internal/app/scheduler_test.go`:
 
 ```go
-package analysis
+package app
 
 import (
 	"context"
@@ -2221,22 +2222,22 @@ func TestSchedulerStopsPendingTasks(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
 ```powershell
-go test .\internal\analysis -run TestScheduler -count=1
+go test .\internal\app -run TestScheduler -count=1
 ```
 
 Expected: FAIL because `NewScheduler` is undefined.
 
-- [ ] **Step 3: Implement scheduler types**
+- [x] **Step 3: Implement scheduler types**
 
-Create `internal/analysis/scheduler.go` with:
+Create `internal/app/scheduler.go` with:
 
 ```go
-package analysis
+package app
 
 import (
 	"context"
@@ -2283,9 +2284,9 @@ type Scheduler struct {
 
 Implement `NewScheduler`, `Subscribe`, `StartGame`, `AnalyzeNow`, `StopGame`, `RestartGame`, `Close`, and a single worker goroutine. Use key `token + "\x00" + gameID` for stop state. When a result arrives, normalize it with `Normalize(node.ToPlay, result)` and call subscribers.
 
-- [ ] **Step 4: Store analysis in workspace**
+- [x] **Step 4: Store analysis in workspace**
 
-Modify `internal/workspace/workspace.go` to add:
+Modify `internal/app/workspace.go` to add:
 
 ```go
 func (w *Workspace) SetAnalysis(gameID string, nodeID string, result domain.AnalysisResult)
@@ -2295,29 +2296,29 @@ func (w *Workspace) MainlineAnalysisInputs(gameID string) []analysis.NodeInput
 
 The implementation stores analysis by `gameID + ":" + nodeID` and clears entries for a game on restart or variation deletion.
 
-- [ ] **Step 5: Wire analysis methods in RPC**
+- [x] **Step 5: Wire analysis methods in RPC**
 
-Modify `internal/rpc/handlers.go` so:
+Modify `internal/app/handlers.go` so:
 
 - `analysis.start` calls scheduler `StartGame`.
 - `analysis.stop` calls scheduler `StopGame`.
 - `analysis.restart` clears workspace analysis/variations and calls scheduler `StartGame`.
 - Scheduler events are emitted to connected clients as JSON-RPC notifications named `analysis.node`.
 
-- [ ] **Step 6: Verify scheduler tests pass**
+- [x] **Step 6: Verify scheduler tests pass**
 
 Run:
 
 ```powershell
-go test .\internal\analysis .\internal\workspace .\internal\rpc -count=1
+go test .\internal\app .\internal\game -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
-git add internal/analysis internal/workspace internal/rpc
+git add internal/app internal/game
 git commit -m "feat: add analysis scheduler"
 ```
 

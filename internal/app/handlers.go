@@ -5,18 +5,22 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/websocket"
 
 	"jcgo/internal/game"
+	"jcgo/internal/katago"
 	"jcgo/internal/server"
 	"jcgo/internal/store"
 )
 
 type AnalysisController interface {
-	Start(gameID string, focusNodeID string) error
-	Stop(gameID string) error
-	Restart(gameID string, focusNodeID string) error
+	StartGame(StartInput)
+	StopGame(token, gameID string)
+	RestartGame(StartInput)
+	Subscribe(Subscriber) func()
+	Status() katago.Status
 }
 
 type Handler struct {
@@ -48,7 +52,13 @@ type DeleteResult struct {
 }
 
 func NewHandler(repo *store.Repository, files store.FileStore, workspaces *WorkspaceStore, analysis AnalysisController) *Handler {
-	return &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis}
+	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis}
+	if analysis != nil {
+		analysis.Subscribe(func(event Event) {
+			h.workspaces.ForToken(event.Token).SetAnalysis(event.GameID, event.NodeID, event.Analysis)
+		})
+	}
+	return h
 }
 
 func (h *Handler) Call(ctx context.Context, token string, method string, params json.RawMessage) (any, error) {
@@ -91,6 +101,18 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 
 func (h *Handler) ServeWS(token string, conn *websocket.Conn) {
 	defer conn.Close()
+	var writeMu sync.Mutex
+	if h.analysis != nil {
+		unsubscribe := h.analysis.Subscribe(func(event Event) {
+			if event.Token != token {
+				return
+			}
+			writeMu.Lock()
+			defer writeMu.Unlock()
+			_ = conn.WriteJSON(server.Notify("analysis.node", event))
+		})
+		defer unsubscribe()
+	}
 	ctx := context.Background()
 	for {
 		var req server.Request
@@ -99,11 +121,14 @@ func (h *Handler) ServeWS(token string, conn *websocket.Conn) {
 		}
 		id := requestID(req.ID)
 		result, err := h.Call(ctx, token, req.Method, req.Params)
+		writeMu.Lock()
 		if err != nil {
 			_ = conn.WriteJSON(server.ErrorResponse(id, server.CodeInternalError, err.Error()))
+			writeMu.Unlock()
 			continue
 		}
 		_ = conn.WriteJSON(server.ResultResponse(id, result))
+		writeMu.Unlock()
 	}
 }
 
@@ -291,6 +316,9 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 	if err := decodeParams(params, &in); err != nil {
 		return SnapshotResult{}, err
 	}
+	if h.analysis == nil {
+		return SnapshotResult{}, errors.New("analysis is unavailable")
+	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
 		return SnapshotResult{}, err
@@ -299,16 +327,25 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 	if err != nil {
 		return SnapshotResult{}, err
 	}
-	if h.analysis == nil {
-		return SnapshotResult{}, errors.New("analysis is unavailable")
+	input := StartInput{
+		Token:       token,
+		GameID:      in.GameID,
+		FocusNodeID: snapshot.NodeID,
+		Nodes:       ws.MainlineAnalysisInputs(in.GameID),
 	}
 	switch action {
 	case "start":
-		err = h.analysis.Start(in.GameID, snapshot.NodeID)
+		h.analysis.StartGame(input)
 	case "stop":
-		err = h.analysis.Stop(in.GameID)
+		h.analysis.StopGame(token, in.GameID)
 	case "restart":
-		err = h.analysis.Restart(in.GameID, snapshot.NodeID)
+		snapshot, err = ws.ClearAnalysisAndVariations(in.GameID, snapshot.NodeID)
+		if err != nil {
+			return SnapshotResult{}, err
+		}
+		input.FocusNodeID = snapshot.NodeID
+		input.Nodes = ws.MainlineAnalysisInputs(in.GameID)
+		h.analysis.RestartGame(input)
 	}
 	return SnapshotResult{Snapshot: snapshot}, err
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"jcgo/internal/store"
 )
@@ -74,5 +75,45 @@ func TestImportRejectsEmptyDisplayName(t *testing.T) {
 	_, err = handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":" ","originalFilename":"demo.sgf","sgfText":"(;GM[1]FF[4]SZ[19];B[pd])"}`))
 	if err == nil {
 		t.Fatal("expected empty display name rejection")
+	}
+}
+
+func TestAnalysisStartStoresResultInWorkspace(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	workspaces := NewWorkspaceStore()
+	scheduler := NewScheduler(&fakeAnalyzer{}, 500)
+	defer scheduler.Close()
+	handler := NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), workspaces, scheduler)
+
+	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","sgfText":"(;GM[1]FF[4]SZ[19];B[pd])"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gameID := result.(ImportResult).Game.ID
+	if _, err := handler.Call(ctx, "secret", "analysis.start", json.RawMessage(`{"gameId":"`+gameID+`"}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	deadline := time.After(time.Second)
+	for {
+		snap, err := workspaces.ForToken("secret").CurrentSnapshot(gameID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if snap.Analysis != nil && len(snap.Analysis.Candidates) == 1 {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("analysis not stored in snapshot: %#v", snap)
+		default:
+			time.Sleep(10 * time.Millisecond)
+		}
 	}
 }
