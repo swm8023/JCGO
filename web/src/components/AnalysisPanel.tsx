@@ -8,15 +8,15 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
   return (
     <div className="analysis-summary" aria-label="当前局面">
       <span className="summary-metric">
-        <small>黑胜率</small>
+        黑胜率{' '}
         <strong>{analysis ? `${(analysis.winrate * 100).toFixed(1)}%` : '-'}</strong>
       </span>
       <span className="summary-metric">
-        <small>目差</small>
+        目差{' '}
         <strong>{analysis ? formatScore(analysis.scoreLead) : '-'}</strong>
       </span>
       <span className="summary-metric">
-        <small>访问</small>
+        访问{' '}
         <strong>{analysis ? `${analysis.visits}v` : '0v'}</strong>
       </span>
     </div>
