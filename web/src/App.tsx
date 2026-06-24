@@ -2,10 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { RPCClient } from './api/jsonrpc'
 import type { AnalysisState, BadMove, CandidateMove, ChartPoint, GameRecord, Snapshot, WorkspaceState } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
+import { AnalysisDetailTabs } from './components/AnalysisDetailTabs'
 import { AnalysisPanel } from './components/AnalysisPanel'
-import { BadMoveList } from './components/BadMoveList'
 import { Board } from './components/Board'
-import { CandidateList } from './components/CandidateList'
 import { GameSidebar } from './components/GameSidebar'
 import { ImportDialog } from './components/ImportDialog'
 import { NavigationControls } from './components/NavigationControls'
@@ -213,8 +212,7 @@ export default function App() {
           <AnalysisPanel analysis={snapshot?.analysis} />
           <AnalysisCharts points={chartPoints} currentMoveNumber={snapshot?.moveNumber} onJump={(moveNumber) => void gotoMove(moveNumber)} />
         </section>
-        <BadMoveList badMoves={badMoves} onJump={(moveNumber) => void gotoMove(moveNumber)} />
-        <CandidateList candidates={snapshot?.analysis?.candidates ?? []} onCandidateClick={playMove} />
+        <AnalysisDetailTabs badMoves={badMoves} candidates={snapshot?.analysis?.candidates ?? []} onJump={(moveNumber) => void gotoMove(moveNumber)} onCandidateClick={playMove} />
       </aside>
       {showImport && <ImportDialog onImport={importGame} onCancel={() => setShowImport(false)} />}
       </main>

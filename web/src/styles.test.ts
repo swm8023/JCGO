@@ -8,11 +8,13 @@ describe('responsive layout CSS', () => {
   it('fixes the application shell to the viewport and scrolls only rail panes', () => {
     expect(styles).toContain('body {\n  height: 100%;\n  margin: 0;\n  overflow: hidden;')
     expect(styles).toContain('.app-layout {\n  height: 100dvh;')
-    expect(styles).toContain('.analysis-rail {\n  display: grid;\n  grid-template-rows: minmax(160px, 0.9fr) minmax(0, 0.8fr) minmax(0, 1fr);')
+    expect(styles).toContain('.analysis-rail {\n  display: grid;\n  grid-template-rows: minmax(172px, 240px) minmax(0, 1fr);')
     expect(styles).toContain('.analysis-overview {\n  grid-template-rows: 18px minmax(0, 1fr);\n  gap: 2px;')
     expect(styles).toContain('.analysis-summary {\n  display: flex;')
     expect(styles).toContain('line-height: 1;')
     expect(styles).toContain('.winrate-chart {\n  width: 100%;\n  height: 100%;\n  min-height: 112px;')
+    expect(styles).toContain('.analysis-detail-tabs {\n  grid-template-rows: 30px minmax(0, 1fr);')
+    expect(styles).toContain('.analysis-tab-list {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(0, 1fr));')
     expect(styles).toContain('.rail-section-body')
   })
 

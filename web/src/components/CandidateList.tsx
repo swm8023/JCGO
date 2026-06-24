@@ -3,17 +3,28 @@ import type { CandidateMove } from '../api/types'
 interface CandidateListProps {
   candidates: CandidateMove[]
   onCandidateClick(move: string): void
+  emptyLabel?: string
 }
 
-export function CandidateList({ candidates, onCandidateClick }: CandidateListProps) {
+export function CandidateList({ candidates, onCandidateClick, emptyLabel }: CandidateListProps) {
   return (
     <section className="candidate-list-section rail-section" aria-label="候选点">
-      <div className="rail-section-body candidate-list">
-        {candidates.map((candidate) => (
-          <CandidateRow key={candidate.move} candidate={candidate} onClick={() => onCandidateClick(candidate.move)} />
-        ))}
+      <div className="rail-section-body">
+        <CandidateListContent candidates={candidates} onCandidateClick={onCandidateClick} emptyLabel={emptyLabel} />
       </div>
     </section>
+  )
+}
+
+export function CandidateListContent({ candidates, onCandidateClick, emptyLabel = '暂无推荐点' }: CandidateListProps) {
+  if (candidates.length === 0) return <p className="empty-list">{emptyLabel}</p>
+
+  return (
+    <div className="candidate-list">
+      {candidates.map((candidate) => (
+        <CandidateRow key={candidate.move} candidate={candidate} onClick={() => onCandidateClick(candidate.move)} />
+      ))}
+    </div>
   )
 }
 

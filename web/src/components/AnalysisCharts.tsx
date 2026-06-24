@@ -12,14 +12,14 @@ const chart = {
   left: 34,
   right: 34,
   top: 8,
-  bottom: 32,
+  bottom: 44,
 }
 
 const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
 const plotBottom = chart.height - chart.bottom
 const scoreMidY = chart.top + plotHeight / 2
-const tickLabelY = chart.height - 16
+const tickLabelY = chart.height - 24
 
 export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisChartsProps) {
   const geometry = buildChartGeometry(points, currentMoveNumber)

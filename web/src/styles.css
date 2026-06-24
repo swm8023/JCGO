@@ -226,8 +226,8 @@ textarea {
 
 .analysis-rail {
   display: grid;
-  grid-template-rows: minmax(160px, 0.9fr) minmax(0, 0.8fr) minmax(0, 1fr);
-  gap: 12px;
+  grid-template-rows: minmax(172px, 240px) minmax(0, 1fr);
+  gap: 8px;
   color: #405047;
   overflow: hidden;
   max-height: calc(100dvh - 24px);
@@ -309,6 +309,13 @@ textarea {
   gap: 6px;
 }
 
+.empty-list {
+  margin: 0;
+  padding: 8px 2px;
+  color: #637069;
+  font-size: 12px;
+}
+
 .candidate-row,
 .bad-move {
   display: grid;
@@ -335,6 +342,7 @@ textarea {
 
 .chart-body {
   min-height: 0;
+  overflow: hidden;
 }
 
 .winrate-chart {
@@ -343,6 +351,7 @@ textarea {
   min-height: 112px;
   display: block;
   background: transparent;
+  overflow: visible;
 }
 
 .chart-plot-bg {
@@ -413,6 +422,51 @@ textarea {
 
 .candidate-row.low-visits {
   opacity: 0.55;
+}
+
+.analysis-detail-tabs {
+  grid-template-rows: 30px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.analysis-tab-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.analysis-tab {
+  min-width: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid #c3c9c1;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #405047;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.analysis-tab[aria-selected='true'] {
+  border-color: #7c9886;
+  background: #dce8df;
+  color: #172026;
+  font-weight: 650;
+}
+
+.analysis-tab-count {
+  color: #637069;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.analysis-tab-panel {
+  min-height: 0;
+  overflow: auto;
 }
 
 .engine-error {
