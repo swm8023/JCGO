@@ -8,20 +8,13 @@ import (
 	"unicode"
 )
 
-type Color string
-
-const (
-	Black Color = "B"
-	White Color = "W"
-)
-
 type Move struct {
 	Player Color
 	GTP    string
 	Pass   bool
 }
 
-type Stone struct {
+type SetupStone struct {
 	Player Color
 	GTP    string
 }
@@ -31,7 +24,7 @@ type SGFDocument struct {
 	Rules         string
 	Komi          float64
 	Result        string
-	InitialStones []Stone
+	InitialStones []SetupStone
 	Mainline      []Move
 }
 
@@ -77,7 +70,7 @@ func ParseSGF(input string) (SGFDocument, error) {
 		if pass {
 			return SGFDocument{}, fmt.Errorf("invalid setup stone %q", raw)
 		}
-		doc.InitialStones = append(doc.InitialStones, Stone{Player: Black, GTP: gtp})
+		doc.InitialStones = append(doc.InitialStones, SetupStone{Player: Black, GTP: gtp})
 	}
 	for _, raw := range root["AW"] {
 		gtp, pass, err := sgfCoordToGTP(raw, doc.BoardSize)
@@ -87,7 +80,7 @@ func ParseSGF(input string) (SGFDocument, error) {
 		if pass {
 			return SGFDocument{}, fmt.Errorf("invalid setup stone %q", raw)
 		}
-		doc.InitialStones = append(doc.InitialStones, Stone{Player: White, GTP: gtp})
+		doc.InitialStones = append(doc.InitialStones, SetupStone{Player: White, GTP: gtp})
 	}
 
 	for i, node := range nodes[1:] {

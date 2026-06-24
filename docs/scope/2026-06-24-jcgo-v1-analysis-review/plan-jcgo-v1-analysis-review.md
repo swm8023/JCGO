@@ -1169,12 +1169,12 @@ git commit -m "feat: parse v1 sgf mainline"
 ### Task 6: Game Rules, Snapshots, and Mainline Navigation
 
 **Files:**
-- Create: `internal/domain/types.go`
+- Create: `internal/game/types.go`
 - Create: `internal/game/board.go`
 - Create: `internal/game/game.go`
 - Create: `internal/game/game_test.go`
 
-- [ ] **Step 1: Write game rules tests**
+- [x] **Step 1: Write game rules tests**
 
 Create `internal/game/game_test.go`:
 
@@ -1229,7 +1229,7 @@ func mustPlay(t *testing.T, g *Game, color string, gtp string) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -1239,12 +1239,12 @@ go test .\internal\game -count=1
 
 Expected: FAIL because `NewFromSGF`, `NewEmpty`, and `Game` are undefined.
 
-- [ ] **Step 3: Create shared domain types**
+- [x] **Step 3: Create shared game types**
 
-Create `internal/domain/types.go`:
+Create `internal/game/types.go`:
 
 ```go
-package domain
+package game
 
 type Color string
 
@@ -1291,7 +1291,7 @@ type Snapshot struct {
 }
 ```
 
-- [ ] **Step 4: Implement board legality**
+- [x] **Step 4: Implement board legality**
 
 Create `internal/game/board.go` with:
 
@@ -1334,7 +1334,7 @@ func (b board) stones() []domain.Stone {
 
 Extend this file in the same task to remove opponent groups with zero liberties, reject suicide, and track captures. Use a flood-fill group helper over four orthogonal neighbors. Preserve Ko state as a single forbidden point for the immediately following move.
 
-- [ ] **Step 5: Implement game model and snapshots**
+- [x] **Step 5: Implement game model and snapshots**
 
 Create `internal/game/game.go` with exported API:
 
@@ -1403,7 +1403,7 @@ func NewFromSGF(id string, doc sgf.Document) (*Game, error) {
 
 Complete this file with `GotoMain`, `CurrentSnapshot`, `PlayVariation`, `ParseGTP`, `FormatGTP`, and `opponent`. Use node IDs `main:<moveNumber>` for mainline and branch IDs added in Task 7.
 
-- [ ] **Step 6: Verify game tests pass**
+- [x] **Step 6: Verify game tests pass**
 
 Run:
 
@@ -1413,10 +1413,10 @@ go test .\internal\game -count=1
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
-git add internal/domain internal/game
+git add internal/game
 git commit -m "feat: add game rules snapshots"
 ```
 
