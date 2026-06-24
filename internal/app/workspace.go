@@ -50,6 +50,32 @@ func (w *Workspace) LoadGame(gameID string, doc game.SGFDocument) error {
 	return nil
 }
 
+func (w *Workspace) HasGame(gameID string) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.games[gameID] != nil
+}
+
+func (w *Workspace) RemoveGame(gameID string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	delete(w.games, gameID)
+	if w.selectedGameID == gameID {
+		w.selectedGameID = ""
+	}
+}
+
+func (w *Workspace) SelectGame(gameID string) (game.Snapshot, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	g, err := w.game(gameID)
+	if err != nil {
+		return game.Snapshot{}, err
+	}
+	w.selectedGameID = gameID
+	return g.CurrentSnapshot(), nil
+}
+
 func (w *Workspace) CurrentSnapshot(gameID string) (game.Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -58,6 +84,17 @@ func (w *Workspace) CurrentSnapshot(gameID string) (game.Snapshot, error) {
 		return game.Snapshot{}, err
 	}
 	return g.CurrentSnapshot(), nil
+}
+
+func (w *Workspace) GotoMain(gameID string, moveNumber int) (game.Snapshot, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	g, err := w.game(gameID)
+	if err != nil {
+		return game.Snapshot{}, err
+	}
+	w.selectedGameID = gameID
+	return g.GotoMain(moveNumber)
 }
 
 func (w *Workspace) Play(gameID string, gtp string) (game.Snapshot, error) {
@@ -71,6 +108,10 @@ func (w *Workspace) Play(gameID string, gtp string) (game.Snapshot, error) {
 	return g.PlayVariation(color, gtp)
 }
 
+func (w *Workspace) Pass(gameID string) (game.Snapshot, error) {
+	return w.Play(gameID, "pass")
+}
+
 func (w *Workspace) BackToMain(gameID string) (game.Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
@@ -79,6 +120,26 @@ func (w *Workspace) BackToMain(gameID string) (game.Snapshot, error) {
 		return game.Snapshot{}, err
 	}
 	return g.BackToMain()
+}
+
+func (w *Workspace) DeleteVariationNode(gameID string) (game.Snapshot, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	g, err := w.game(gameID)
+	if err != nil {
+		return game.Snapshot{}, err
+	}
+	return g.DeleteCurrentVariationNode()
+}
+
+func (w *Workspace) ClearVariation(gameID string) (game.Snapshot, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	g, err := w.game(gameID)
+	if err != nil {
+		return game.Snapshot{}, err
+	}
+	return g.ClearCurrentVariation()
 }
 
 func (w *Workspace) game(gameID string) (*game.Game, error) {

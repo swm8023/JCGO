@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -51,18 +52,19 @@ func (r *Repository) CreateGame(ctx context.Context, input CreateGameInput) (Gam
 	if input.DisplayName == "" {
 		return GameRecord{}, errors.New("display name is required")
 	}
-	if input.SGFFilename == "" {
-		return GameRecord{}, errors.New("sgf filename is required")
-	}
 	id, err := newID()
 	if err != nil {
 		return GameRecord{}, err
+	}
+	sgfFilename := filepath.Base(strings.TrimSpace(input.SGFFilename))
+	if sgfFilename == "" || sgfFilename == "." {
+		sgfFilename = id + ".sgf"
 	}
 	game := GameRecord{
 		ID:          id,
 		DisplayName: input.DisplayName,
 		Result:      input.Result,
-		SGFFilename: filepath.Base(input.SGFFilename),
+		SGFFilename: sgfFilename,
 		CreatedAt:   time.Now().UTC(),
 	}
 	_, err = r.db.ExecContext(ctx, `

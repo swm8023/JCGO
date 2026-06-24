@@ -1585,17 +1585,18 @@ git commit -m "feat: add token workspace variations"
 ### Task 8: Game JSON-RPC Handlers
 
 **Files:**
-- Create: `internal/rpc/handlers.go`
-- Create: `internal/rpc/handlers_test.go`
-- Modify: `internal/httpserver/server.go`
+- Create: `internal/app/handlers.go`
+- Create: `internal/app/handlers_test.go`
+- Modify: `internal/app/workspace.go`
+- Modify: `internal/store/repository.go`
 - Modify: `cmd/jcgo/main.go`
 
-- [ ] **Step 1: Write handler tests**
+- [x] **Step 1: Write handler tests**
 
-Create `internal/rpc/handlers_test.go`:
+Create `internal/app/handlers_test.go`:
 
 ```go
-package rpc
+package app
 
 import (
 	"context"
@@ -1639,22 +1640,22 @@ func TestImportListRenameDeleteGame(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run handler tests to verify they fail**
+- [x] **Step 2: Run handler tests to verify they fail**
 
 Run:
 
 ```powershell
-go test .\internal\rpc -count=1
+go test .\internal\app -count=1
 ```
 
 Expected: FAIL because `New` is undefined.
 
-- [ ] **Step 3: Implement handler service**
+- [x] **Step 3: Implement handler service**
 
-Create `internal/rpc/handlers.go` with:
+Create `internal/app/handlers.go` with:
 
 ```go
-package rpc
+package app
 
 import (
 	"context"
@@ -1713,9 +1714,9 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 
 Implement `importSGF`, `rename`, `delete`, `game.select`, `game.goto`, `game.play`, `game.pass`, `game.backToMain`, `game.deleteVariationNode`, `game.clearVariation`, `analysis.start`, `analysis.stop`, `analysis.restart`, and `workspace.snapshot`. Reject trimmed empty display names. For import, parse SGF first, create a storage record, write `<game_id>.sgf`, then load the parsed game into the token workspace.
 
-- [ ] **Step 4: Connect JSON-RPC loop to WebSocket**
+- [x] **Step 4: Connect JSON-RPC loop to WebSocket**
 
-Modify `internal/httpserver/server.go` so a successful connection passes the accepted token to a connection handler. Use this interface:
+Use the existing `internal/server` WebSocket token handoff interface:
 
 ```go
 type RPCHandler interface {
@@ -1723,7 +1724,7 @@ type RPCHandler interface {
 }
 ```
 
-Implement request read loop in `internal/rpc/handlers.go`:
+Implement request read loop in `internal/app/handlers.go`:
 
 ```go
 func (h *Handler) ServeWS(token string, conn *websocket.Conn) {
@@ -1746,20 +1747,20 @@ func (h *Handler) ServeWS(token string, conn *websocket.Conn) {
 }
 ```
 
-- [ ] **Step 5: Verify handler tests pass**
+- [x] **Step 5: Verify handler tests pass**
 
 Run:
 
 ```powershell
-go test .\internal\rpc .\internal\httpserver -count=1
+go test .\internal\app .\internal\server -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
-git add cmd internal/rpc internal/httpserver
+git add cmd internal/app internal/store internal/server
 git commit -m "feat: add game jsonrpc handlers"
 ```
 
