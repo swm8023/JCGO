@@ -2,21 +2,28 @@ import type { GameRecord } from '../api/types'
 
 interface GameSidebarProps {
   games: GameRecord[]
+  listOpen: boolean
   selectedGameId?: string
+  onToggleList(): void
   onImport(): void
   onSelect(gameId: string): void
   onRename(gameId: string, displayName: string): void
   onDelete(gameId: string): void
 }
 
-export function GameSidebar({ games, selectedGameId, onImport, onSelect, onRename, onDelete }: GameSidebarProps) {
+export function GameSidebar({ games, listOpen, selectedGameId, onToggleList, onImport, onSelect, onRename, onDelete }: GameSidebarProps) {
   return (
-    <aside className="game-sidebar">
+    <aside className={listOpen ? 'game-sidebar expanded' : 'game-sidebar'}>
       <div className="sidebar-header">
         <h1>JCGO</h1>
-        <button className="icon-button" onClick={onImport} aria-label="Import SGF">
-          +
-        </button>
+        <div className="sidebar-actions">
+          <button className="icon-button" onClick={onToggleList} aria-label="Show game list">
+            ☰
+          </button>
+          <button className="icon-button" onClick={onImport} aria-label="Import SGF">
+            +
+          </button>
+        </div>
       </div>
       <div className="game-list">
         {games.map((game) => (

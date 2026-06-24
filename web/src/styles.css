@@ -90,6 +90,11 @@ textarea {
   justify-content: space-between;
 }
 
+.sidebar-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .icon-button {
   width: 32px;
   height: 32px;
@@ -296,6 +301,8 @@ textarea {
   }
 
   .game-sidebar {
+    position: relative;
+    z-index: 4;
     grid-template-rows: 44px 1fr;
   }
 
@@ -307,6 +314,10 @@ textarea {
     justify-content: center;
   }
 
+  .sidebar-actions {
+    flex-direction: column;
+  }
+
   .icon-button {
     width: 40px;
     height: 40px;
@@ -314,6 +325,22 @@ textarea {
 
   .game-list {
     display: none;
+  }
+
+  .game-sidebar.expanded .game-list {
+    position: fixed;
+    left: 8px;
+    top: 56px;
+    z-index: 12;
+    width: min(300px, calc(100vw - 16px));
+    max-height: calc(100vh - 64px);
+    display: grid;
+    padding: 8px;
+    box-sizing: border-box;
+    border: 1px solid #c3c9c1;
+    border-radius: 8px;
+    background: #fffdf8;
+    box-shadow: 0 16px 42px rgb(23 32 38 / 0.24);
   }
 
   .board-stage {

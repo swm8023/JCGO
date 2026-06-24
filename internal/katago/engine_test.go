@@ -2,6 +2,8 @@ package katago
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -26,6 +28,33 @@ func TestBuildQueryUsesBlackPerspectiveAndInitialStones(t *testing.T) {
 	}
 	if !query.IncludePolicy || query.InitialPlayer != "B" || query.BoardXSize != 19 || query.BoardYSize != 19 {
 		t.Fatalf("query flags = %#v", query)
+	}
+	if query.ReportDuringSearchEvery != 1 {
+		t.Fatalf("ReportDuringSearchEvery = %v, want 1", query.ReportDuringSearchEvery)
+	}
+	raw, err := json.Marshal(query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"initialStones":null`) || strings.Contains(string(raw), `"moves":null`) {
+		t.Fatalf("query JSON contains null arrays: %s", raw)
+	}
+}
+
+func TestBuildQueryEncodesEmptyListsAsArrays(t *testing.T) {
+	query := BuildQuery(BuildInput{
+		ID:          "root",
+		Rules:       "chinese",
+		Komi:        7.5,
+		MaxVisits:   500,
+		AnalyzeTurn: 0,
+	})
+	raw, err := json.Marshal(query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"initialStones":null`) || strings.Contains(string(raw), `"moves":null`) {
+		t.Fatalf("query JSON contains null arrays: %s", raw)
 	}
 }
 

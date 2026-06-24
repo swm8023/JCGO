@@ -40,6 +40,10 @@ type Analyzer interface {
 	Close() error
 }
 
+type ProgressAnalyzer interface {
+	AnalyzeWithProgress(context.Context, Query, func(Result)) (Result, error)
+}
+
 type Status struct {
 	Available bool   `json:"available"`
 	Error     string `json:"error,omitempty"`
@@ -94,6 +98,10 @@ func StartLocal(ctx context.Context, katagoPath, modelPath, configPath string) (
 }
 
 func (e *localEngine) Analyze(ctx context.Context, query Query) (Result, error) {
+	return e.AnalyzeWithProgress(ctx, query, nil)
+}
+
+func (e *localEngine) AnalyzeWithProgress(ctx context.Context, query Query, progress func(Result)) (Result, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -120,6 +128,9 @@ func (e *localEngine) Analyze(ctx context.Context, query Query) (Result, error) 
 			return Result{}, errors.New(result.Error)
 		}
 		if result.IsDuringSearch {
+			if progress != nil {
+				progress(result)
+			}
 			continue
 		}
 		return result, nil

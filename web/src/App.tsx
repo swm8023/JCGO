@@ -22,6 +22,7 @@ export default function App() {
   const [badMoves, setBadMoves] = useState<BadMove[]>([])
   const [analysisState, setAnalysisState] = useState<'idle' | 'running' | 'stopped' | 'complete' | 'unavailable'>('idle')
   const [showImport, setShowImport] = useState(false)
+  const [gameListOpen, setGameListOpen] = useState(false)
   const [error, setError] = useState<string>()
   const wsUrl = useMemo(() => websocketURL(), [])
 
@@ -72,6 +73,7 @@ export default function App() {
     setBadMoves([])
     setActivePV(undefined)
     setShowImport(false)
+    setGameListOpen(true)
   }
 
   const selectGame = async (gameId: string) => {
@@ -80,6 +82,7 @@ export default function App() {
     setSelectedGameId(gameId)
     setSnapshot(result.snapshot)
     setActivePV(undefined)
+    setGameListOpen(false)
   }
 
   const renameGame = async (gameId: string, displayName: string) => {
@@ -175,7 +178,9 @@ export default function App() {
       <main className="app-layout">
       <GameSidebar
         games={games}
+        listOpen={gameListOpen}
         selectedGameId={selectedGameId}
+        onToggleList={() => setGameListOpen((open) => !open)}
         onImport={() => setShowImport(true)}
         onSelect={selectGame}
         onRename={renameGame}

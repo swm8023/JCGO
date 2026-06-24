@@ -120,19 +120,25 @@ func (s *Scheduler) run() {
 				Moves:         task.node.Moves,
 				AnalyzeTurn:   task.node.MoveNumber,
 			})
-			result, err := s.engine.Analyze(context.Background(), query)
+			result, err := s.analyze(context.Background(), task, query)
 			if err != nil || s.isStopped(task.token, task.gameID) {
 				continue
 			}
-			s.publish(Event{
-				Token:      task.token,
-				GameID:     task.gameID,
-				NodeID:     task.node.NodeID,
-				MoveNumber: task.node.MoveNumber,
-				Analysis:   game.NormalizeAnalysis(task.node.ToPlay, result),
-			})
+			s.publishAnalysis(task, result)
 		}
 	}
+}
+
+func (s *Scheduler) analyze(ctx context.Context, task task, query katago.Query) (katago.Result, error) {
+	if engine, ok := s.engine.(katago.ProgressAnalyzer); ok {
+		return engine.AnalyzeWithProgress(ctx, query, func(result katago.Result) {
+			if s.isStopped(task.token, task.gameID) {
+				return
+			}
+			s.publishAnalysis(task, result)
+		})
+	}
+	return s.engine.Analyze(ctx, query)
 }
 
 func (s *Scheduler) enqueue(task task) {
@@ -140,6 +146,16 @@ func (s *Scheduler) enqueue(task task) {
 	case s.tasks <- task:
 	case <-s.closed:
 	}
+}
+
+func (s *Scheduler) publishAnalysis(task task, result katago.Result) {
+	s.publish(Event{
+		Token:      task.token,
+		GameID:     task.gameID,
+		NodeID:     task.node.NodeID,
+		MoveNumber: task.node.MoveNumber,
+		Analysis:   game.NormalizeAnalysis(task.node.ToPlay, result),
+	})
 }
 
 func (s *Scheduler) publish(event Event) {
