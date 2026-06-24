@@ -1,4 +1,4 @@
-import type { AnalysisResult, CandidateMove } from '../api/types'
+import type { AnalysisResult } from '../api/types'
 
 interface EngineStatus {
   available: boolean
@@ -12,10 +12,9 @@ interface AnalysisPanelProps {
   onStart(): void
   onStop(): void
   onRestart(): void
-  onCandidateClick(move: string): void
 }
 
-export function AnalysisPanel({ engineStatus, analysis, analysisState, onStart, onStop, onRestart, onCandidateClick }: AnalysisPanelProps) {
+export function AnalysisPanel({ engineStatus, analysis, analysisState, onStart, onStop, onRestart }: AnalysisPanelProps) {
   const action =
     analysisState === 'running' ? (
       <button onClick={onStop}>Stop analysis</button>
@@ -28,7 +27,8 @@ export function AnalysisPanel({ engineStatus, analysis, analysisState, onStart, 
     )
 
   return (
-    <aside className="analysis-panel">
+    <section className="analysis-panel rail-section">
+      <h2>当前局面</h2>
       {!engineStatus.available && <div className="engine-error">Engine unavailable: {engineStatus.error}</div>}
       <div className="analysis-summary">
         <strong>{analysis ? `${(analysis.winrate * 100).toFixed(1)}%` : '-'}</strong>
@@ -36,24 +36,7 @@ export function AnalysisPanel({ engineStatus, analysis, analysisState, onStart, 
         <span>{analysis?.visits ?? 0} visits</span>
         {action}
       </div>
-      <div className="candidate-list">
-        {(analysis?.candidates ?? []).map((candidate) => (
-          <CandidateRow key={candidate.move} candidate={candidate} onClick={() => onCandidateClick(candidate.move)} />
-        ))}
-      </div>
-    </aside>
-  )
-}
-
-function CandidateRow({ candidate, onClick }: { candidate: CandidateMove; onClick(): void }) {
-  return (
-    <button className={candidate.lowVisits ? 'candidate-row low-visits' : 'candidate-row'} onClick={onClick}>
-      <span>{candidate.move}</span>
-      <span>{candidate.visits}</span>
-      <span>{(candidate.winrate * 100).toFixed(1)}%</span>
-      <span>{formatScore(candidate.scoreLead)}</span>
-      <span>{candidate.pointLoss.toFixed(1)}</span>
-    </button>
+    </section>
   )
 }
 

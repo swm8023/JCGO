@@ -8,8 +8,15 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html,
+#root {
+  height: 100%;
+}
+
 body {
+  height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 button,
@@ -64,18 +71,21 @@ textarea {
 }
 
 .app-layout {
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(64px, 260px) minmax(420px, 1fr) minmax(320px, 420px);
   gap: 12px;
   padding: 12px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .game-sidebar,
 .analysis-rail,
 .board-stage {
   min-width: 0;
+  min-height: 0;
 }
 
 .game-sidebar {
@@ -152,6 +162,8 @@ textarea {
   align-content: center;
   justify-items: center;
   gap: 10px;
+  max-height: calc(100dvh - 24px);
+  overflow: hidden;
   background: #efe7d8;
   border: 1px solid #d8cebd;
   border-radius: 8px;
@@ -159,8 +171,8 @@ textarea {
 }
 
 .go-board {
-  width: min(76vh, 100%);
-  max-height: 78vh;
+  width: min(72dvh, 100%);
+  max-height: calc(100dvh - 92px);
   aspect-ratio: 1;
   touch-action: manipulation;
 }
@@ -189,25 +201,50 @@ textarea {
 
 .analysis-rail {
   display: grid;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 1fr);
   gap: 12px;
   color: #405047;
+  overflow: hidden;
+  max-height: calc(100dvh - 24px);
+}
+
+.rail-section {
+  display: grid;
+  min-height: 0;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.rail-section h2 {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 650;
+  color: #172026;
+}
+
+.rail-section-body {
+  min-height: 0;
   overflow: auto;
 }
 
 .analysis-panel {
-  display: grid;
-  gap: 10px;
+  align-content: start;
 }
 
 .analysis-summary {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+}
+
+.analysis-summary button {
+  grid-column: 1 / -1;
 }
 
 .analysis-summary button,
 .candidate-row,
-.analysis-charts button,
+.chart-point-list button,
 .bad-move {
   min-height: 32px;
   border: 1px solid #c3c9c1;
@@ -218,14 +255,14 @@ textarea {
 }
 
 .candidate-list,
-.analysis-charts,
-.bad-move-list {
+.bad-move-list,
+.chart-point-list {
   display: grid;
   gap: 6px;
 }
 
 .candidate-row,
-.analysis-charts button,
+.chart-point-list button,
 .bad-move {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -235,7 +272,33 @@ textarea {
 }
 
 .candidate-row {
-  grid-template-columns: 1fr 0.8fr 0.9fr 1fr 0.8fr;
+  grid-template-columns: minmax(44px, 0.9fr) minmax(38px, 0.8fr) minmax(50px, 0.9fr);
+  grid-auto-rows: minmax(16px, auto);
+}
+
+.candidate-row span:nth-child(n + 4) {
+  grid-column: span 1;
+  color: #637069;
+  font-size: 12px;
+}
+
+.candidate-move {
+  font-weight: 650;
+}
+
+.chart-body {
+  display: grid;
+  grid-template-rows: 96px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.winrate-chart {
+  width: 100%;
+  height: 96px;
+  display: block;
+  background: #fffdf8;
+  border: 1px solid #c3c9c1;
+  border-radius: 6px;
 }
 
 .candidate-row.low-visits {

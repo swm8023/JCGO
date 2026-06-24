@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { AnalysisPanel } from './AnalysisPanel'
 
 describe('AnalysisPanel', () => {
-  it('shows black winrate score lead and candidates', () => {
+  it('shows current position summary without candidate rows', () => {
     render(
       <AnalysisPanel
         engineStatus={{ available: true }}
@@ -20,11 +20,11 @@ describe('AnalysisPanel', () => {
         onStart={vi.fn()}
         onStop={vi.fn()}
         onRestart={vi.fn()}
-        onCandidateClick={vi.fn()}
       />,
     )
+    expect(screen.getByText('当前局面')).toBeInTheDocument()
     expect(screen.getByText('62.5%')).toBeInTheDocument()
     expect(screen.getByText('B +4.2')).toBeInTheDocument()
-    expect(screen.getByText('Q16')).toBeInTheDocument()
+    expect(screen.queryByText('Q16')).not.toBeInTheDocument()
   })
 })

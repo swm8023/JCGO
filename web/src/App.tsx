@@ -5,6 +5,7 @@ import { AnalysisCharts } from './components/AnalysisCharts'
 import { AnalysisPanel } from './components/AnalysisPanel'
 import { BadMoveList } from './components/BadMoveList'
 import { Board } from './components/Board'
+import { CandidateList } from './components/CandidateList'
 import { GameSidebar } from './components/GameSidebar'
 import { ImportDialog } from './components/ImportDialog'
 import { NavigationControls } from './components/NavigationControls'
@@ -211,10 +212,10 @@ export default function App() {
           onStart={startAnalysis}
           onStop={stopAnalysis}
           onRestart={restartAnalysis}
-          onCandidateClick={playMove}
         />
         <AnalysisCharts points={chartPoints} onJump={(moveNumber) => void gotoMove(moveNumber)} />
         <BadMoveList badMoves={badMoves} onJump={(moveNumber) => void gotoMove(moveNumber)} />
+        <CandidateList candidates={snapshot?.analysis?.candidates ?? []} onCandidateClick={playMove} />
       </aside>
       {showImport && <ImportDialog onImport={importGame} onCancel={() => setShowImport(false)} />}
       </main>
