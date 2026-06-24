@@ -45,7 +45,7 @@ func TestMistakeThresholdsMatchKaTrain(t *testing.T) {
 	if MistakeClass(12.0) != 0 || MistakeClass(6.0) != 1 || MistakeClass(3.0) != 2 || MistakeClass(1.5) != 3 {
 		t.Fatal("threshold classes do not match KaTrain default order")
 	}
-	if !IsBadMove(1.6) || IsBadMove(1.5) {
-		t.Fatal("bad move threshold should be greater than 1.5")
+	if !IsBadMove(3.1) || IsBadMove(3.0) {
+		t.Fatal("mistake threshold should be greater than KaTrain eval_thresholds[-4]")
 	}
 }

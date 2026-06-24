@@ -11,6 +11,8 @@ var KaTrainThresholds = []float64{12, 6, 3, 1.5, 0.5, 0}
 type AnalysisInput struct {
 	NodeID        string
 	MoveNumber    int
+	MoveColor     Color
+	Move          string
 	ToPlay        Color
 	Rules         string
 	Komi          float64
@@ -71,7 +73,7 @@ func MistakeClass(pointsLost float64) int {
 }
 
 func IsBadMove(pointsLost float64) bool {
-	return pointsLost > 1.5
+	return pointsLost > KaTrainThresholds[len(KaTrainThresholds)-4]
 }
 
 func (g *Game) MainlineAnalysisInputs() []AnalysisInput {
@@ -89,6 +91,8 @@ func (g *Game) MainlineAnalysisInputs() []AnalysisInput {
 		inputs = append(inputs, AnalysisInput{
 			NodeID:        node.id,
 			MoveNumber:    node.moveNumber,
+			MoveColor:     node.color,
+			Move:          node.gtp,
 			ToPlay:        node.toPlay,
 			Rules:         g.rules,
 			Komi:          g.komi,

@@ -14,8 +14,8 @@ type DetailTab = 'black-bad' | 'white-bad' | 'candidates'
 
 export function AnalysisDetailTabs({ badMoves, candidates, onJump, onCandidateClick }: AnalysisDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<DetailTab>('candidates')
-  const blackBadMoves = useMemo(() => badMoves.filter((move) => move.moveNumber % 2 === 1), [badMoves])
-  const whiteBadMoves = useMemo(() => badMoves.filter((move) => move.moveNumber % 2 === 0), [badMoves])
+  const blackBadMoves = useMemo(() => badMoves.filter((move) => move.color === 'B'), [badMoves])
+  const whiteBadMoves = useMemo(() => badMoves.filter((move) => move.color === 'W'), [badMoves])
   const tabs = [
     { id: 'black-bad' as const, label: '黑恶手', count: blackBadMoves.length },
     { id: 'white-bad' as const, label: '白恶手', count: whiteBadMoves.length },

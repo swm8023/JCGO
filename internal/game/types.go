@@ -68,6 +68,7 @@ type CandidateMove struct {
 type BadMove struct {
 	NodeID     string  `json:"nodeId"`
 	MoveNumber int     `json:"moveNumber"`
+	Color      Color   `json:"color"`
 	Move       string  `json:"move"`
 	PointLoss  float64 `json:"pointLoss"`
 	Class      int     `json:"class"`

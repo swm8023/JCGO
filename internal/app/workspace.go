@@ -246,6 +246,8 @@ func (w *Workspace) AnalysisView(gameID string) ([]game.ChartPoint, []game.BadMo
 	}
 	points := make([]game.ChartPoint, 0)
 	badMoves := make([]game.BadMove, 0)
+	var previousAnalysis game.AnalysisResult
+	hasPreviousAnalysis := false
 	for _, node := range g.MainlineAnalysisInputs() {
 		analysis, ok := w.analysis[analysisCacheKey(gameID, node.NodeID)]
 		if !ok {
@@ -256,17 +258,31 @@ func (w *Workspace) AnalysisView(gameID string) ([]game.ChartPoint, []game.BadMo
 			Winrate:    analysis.Winrate,
 			ScoreLead:  analysis.ScoreLead,
 		})
-		if candidate, ok := firstBadCandidate(analysis); ok {
-			badMoves = append(badMoves, game.BadMove{
-				NodeID:     node.NodeID,
-				MoveNumber: node.MoveNumber,
-				Move:       candidate.Move,
-				PointLoss:  candidate.PointLoss,
-				Class:      game.MistakeClass(candidate.PointLoss),
-			})
+		if hasPreviousAnalysis && node.Move != "" {
+			pointsLost := playedMovePointLoss(node.MoveColor, previousAnalysis.ScoreLead, analysis.ScoreLead)
+			if game.IsBadMove(pointsLost) {
+				badMoves = append(badMoves, game.BadMove{
+					NodeID:     node.NodeID,
+					MoveNumber: node.MoveNumber,
+					Color:      node.MoveColor,
+					Move:       node.Move,
+					PointLoss:  pointsLost,
+					Class:      game.MistakeClass(pointsLost),
+				})
+			}
 		}
+		previousAnalysis = analysis
+		hasPreviousAnalysis = true
 	}
 	return points, badMoves, w.analysisStateLocked(gameID), nil
+}
+
+func playedMovePointLoss(color game.Color, parentScore float64, score float64) float64 {
+	sign := 1.0
+	if color == game.White {
+		sign = -1
+	}
+	return sign * (parentScore - score)
 }
 
 func (w *Workspace) MainlineAnalysisInputs(gameID string) []NodeInput {
@@ -333,13 +349,4 @@ func (w *Workspace) analysisCompleteLocked(gameID string) bool {
 
 func analysisCacheKey(gameID, nodeID string) string {
 	return gameID + ":" + nodeID
-}
-
-func firstBadCandidate(analysis game.AnalysisResult) (game.CandidateMove, bool) {
-	for _, candidate := range analysis.Candidates {
-		if game.IsBadMove(candidate.PointLoss) {
-			return candidate, true
-		}
-	}
-	return game.CandidateMove{}, false
 }

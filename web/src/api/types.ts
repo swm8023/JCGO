@@ -85,6 +85,7 @@ export interface ChartPoint {
 export interface BadMove {
   nodeId: string
   moveNumber: number
+  color: Color
   move: string
   pointLoss: number
   class: number

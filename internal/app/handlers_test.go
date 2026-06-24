@@ -171,18 +171,19 @@ func TestWorkspaceStateRestoresSelectedSnapshotAndAnalysisView(t *testing.T) {
 	ws := workspaces.ForToken("secret")
 	ws.SetAnalysis(gameID, "main:0", game.AnalysisResult{
 		Winrate:   0.42,
-		ScoreLead: -2.1,
+		ScoreLead: 2.1,
 		Visits:    500,
 		Candidates: []game.CandidateMove{
-			{Move: "Q16", Order: 0, Visits: 500, Winrate: 0.42, ScoreLead: -2.1},
+			{Move: "Q16", Order: 0, Visits: 500, Winrate: 0.42, ScoreLead: 2.1, PointLoss: 0},
+			{Move: "D4", Order: 1, Visits: 50, Winrate: 0.30, ScoreLead: -10, PointLoss: 12},
 		},
 	})
 	ws.SetAnalysis(gameID, "main:1", game.AnalysisResult{
 		Winrate:   0.56,
-		ScoreLead: 1.4,
+		ScoreLead: -1.4,
 		Visits:    500,
 		Candidates: []game.CandidateMove{
-			{Move: "D4", Order: 0, Visits: 500, Winrate: 0.56, ScoreLead: 1.4, PointLoss: 2.4},
+			{Move: "D4", Order: 0, Visits: 500, Winrate: 0.56, ScoreLead: -1.4, PointLoss: 0},
 		},
 	})
 
@@ -199,7 +200,7 @@ func TestWorkspaceStateRestoresSelectedSnapshotAndAnalysisView(t *testing.T) {
 	if len(state.ChartPoints) != 2 || state.ChartPoints[0].MoveNumber != 0 || state.ChartPoints[1].MoveNumber != 1 {
 		t.Fatalf("chart points = %#v", state.ChartPoints)
 	}
-	if len(state.BadMoves) != 1 || state.BadMoves[0].MoveNumber != 1 || state.BadMoves[0].PointLoss != 2.4 {
+	if len(state.BadMoves) != 1 || state.BadMoves[0].MoveNumber != 1 || state.BadMoves[0].Move != "Q16" || state.BadMoves[0].Color != game.Black || state.BadMoves[0].PointLoss != 3.5 {
 		t.Fatalf("bad moves = %#v", state.BadMoves)
 	}
 }
