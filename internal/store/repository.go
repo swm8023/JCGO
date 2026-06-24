@@ -88,7 +88,7 @@ func (r *Repository) ListGames(ctx context.Context) ([]GameRecord, error) {
 	}
 	defer rows.Close()
 
-	var games []GameRecord
+	games := make([]GameRecord, 0)
 	for rows.Next() {
 		game, err := scanGame(rows)
 		if err != nil {

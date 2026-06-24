@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,6 +60,29 @@ func TestImportListRenameDeleteGame(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "games", imported.Game.SGFFilename)); !os.IsNotExist(err) {
 		t.Fatalf("expected sgf deletion, stat err = %v", err)
+	}
+}
+
+func TestGameListEncodesEmptyGamesAsArray(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	handler := NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil)
+
+	result, err := handler.Call(ctx, "secret", "game.list", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(result)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"games":[]`) {
+		t.Fatalf("empty game list JSON = %s, want games array", raw)
 	}
 }
 
