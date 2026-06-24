@@ -25,5 +25,8 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.game-sidebar h1 {\n    display: none;')
     expect(styles).toContain('.game-sidebar.expanded .game-list')
     expect(styles).toContain('.navigation-controls {\n    grid-column: 2;')
+    expect(styles).toContain('.analysis-rail {\n    grid-template-rows: minmax(168px, 188px) minmax(0, 1fr);\n    gap: 6px;')
+    expect(styles).toContain('.analysis-overview {\n    grid-template-rows: 16px minmax(0, auto);')
+    expect(styles).toContain('.winrate-chart {\n    height: auto;\n    min-height: 0;\n    aspect-ratio: 320 / 156;')
   })
 })

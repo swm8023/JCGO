@@ -642,6 +642,32 @@ textarea {
   }
 
   .analysis-rail {
+    grid-template-rows: minmax(168px, 188px) minmax(0, 1fr);
+    gap: 6px;
     max-height: calc(100vh - 16px);
+  }
+
+  .analysis-overview {
+    grid-template-rows: 16px minmax(0, auto);
+    gap: 1px;
+    padding: 4px 6px 5px;
+  }
+
+  .analysis-summary {
+    gap: 8px;
+  }
+
+  .summary-metric {
+    font-size: 10px;
+  }
+
+  .chart-body {
+    overflow: hidden;
+  }
+
+  .winrate-chart {
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 320 / 156;
   }
 }
