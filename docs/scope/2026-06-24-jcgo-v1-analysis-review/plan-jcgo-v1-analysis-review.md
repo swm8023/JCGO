@@ -414,7 +414,7 @@ git commit -m "feat: add runtime config"
 - Create: `internal/httpserver/server_test.go`
 - Modify: `cmd/jcgo/main.go`
 
-- [ ] **Step 1: Write JSON-RPC tests**
+- [x] **Step 1: Write JSON-RPC tests**
 
 Create `internal/protocol/jsonrpc_test.go`:
 
@@ -450,7 +450,7 @@ func TestErrorResponseShape(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement JSON-RPC types**
+- [x] **Step 2: Implement JSON-RPC types**
 
 Create `internal/protocol/jsonrpc.go`:
 
@@ -507,7 +507,7 @@ func Notify(method string, params any) Notification {
 }
 ```
 
-- [ ] **Step 3: Write WebSocket handshake tests**
+- [x] **Step 3: Write WebSocket handshake tests**
 
 Create `internal/httpserver/server_test.go`:
 
@@ -549,7 +549,7 @@ func TestWebSocketAcceptsTokenSubprotocol(t *testing.T) {
 }
 ```
 
-- [ ] **Step 4: Run tests to verify they fail**
+- [x] **Step 4: Run tests to verify they fail**
 
 Run:
 
@@ -559,7 +559,7 @@ go test .\internal\protocol .\internal\httpserver -count=1
 
 Expected: protocol tests pass after Step 2; httpserver package fails because `New` and `Config` are undefined.
 
-- [ ] **Step 5: Install Gorilla WebSocket and implement the server**
+- [x] **Step 5: Install Gorilla WebSocket and implement the server**
 
 Run:
 
@@ -646,7 +646,7 @@ func validSubprotocol(values []string, token string) bool {
 }
 ```
 
-- [ ] **Step 6: Wire HTTP server in `main`**
+- [x] **Step 6: Wire HTTP server in `main`**
 
 Replace `cmd/jcgo/main.go`:
 
@@ -675,7 +675,7 @@ func main() {
 }
 ```
 
-- [ ] **Step 7: Verify tests pass**
+- [x] **Step 7: Verify tests pass**
 
 Run:
 
@@ -685,7 +685,7 @@ go test .\internal\protocol .\internal\httpserver -count=1
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add go.mod go.sum cmd internal/protocol internal/httpserver

@@ -1,10 +1,11 @@
 package main
 
 import (
-	"fmt"
 	"log"
+	"net/http"
 
 	"jcgo/internal/config"
+	"jcgo/internal/server"
 )
 
 func main() {
@@ -15,5 +16,7 @@ func main() {
 	if err := config.EnsureDirs(cfg); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("jcgo listening on %s\n", cfg.ListenAddr)
+	srv := server.New(server.Config{AccessToken: cfg.AccessToken}, nil)
+	log.Printf("jcgo listening on %s", cfg.ListenAddr)
+	log.Fatal(http.ListenAndServe(cfg.ListenAddr, srv.Handler()))
 }
