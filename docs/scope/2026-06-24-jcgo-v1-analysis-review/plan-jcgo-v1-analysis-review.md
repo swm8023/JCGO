@@ -236,7 +236,7 @@ git commit -m "chore: scaffold jcgo toolchain"
 - Create: `internal/config/config_test.go`
 - Modify: `cmd/jcgo/main.go`
 
-- [ ] **Step 1: Write the failing config test**
+- [x] **Step 1: Write the failing config test**
 
 Create `internal/config/config_test.go`:
 
@@ -279,7 +279,7 @@ func TestLoadRejectsMissingToken(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run:
 
@@ -289,7 +289,7 @@ go test .\internal\config -run TestLoad -count=1
 
 Expected: FAIL because `Load` is undefined.
 
-- [ ] **Step 3: Implement config loading**
+- [x] **Step 3: Implement config loading**
 
 Create `internal/config/config.go`:
 
@@ -362,7 +362,7 @@ func envInt(key string, fallback int) int {
 }
 ```
 
-- [ ] **Step 4: Wire config into `main`**
+- [x] **Step 4: Wire config into `main`**
 
 Replace `cmd/jcgo/main.go`:
 
@@ -388,7 +388,7 @@ func main() {
 }
 ```
 
-- [ ] **Step 5: Verify config tests pass**
+- [x] **Step 5: Verify config tests pass**
 
 Run:
 
@@ -398,7 +398,7 @@ go test .\internal\config -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add cmd internal/config
