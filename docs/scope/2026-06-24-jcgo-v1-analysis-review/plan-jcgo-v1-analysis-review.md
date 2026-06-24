@@ -3329,7 +3329,7 @@ git commit -m "feat: add analysis panels"
 - Modify: `web/src/styles.css`
 - Modify: `web/index.html`
 
-- [ ] **Step 1: Add mobile rotation prompt component**
+- [x] **Step 1: Add mobile rotation prompt component**
 
 Create `web/src/components/RotatePrompt.tsx`:
 
@@ -3344,7 +3344,7 @@ export function RotatePrompt() {
 }
 ```
 
-- [ ] **Step 2: Add responsive CSS**
+- [x] **Step 2: Add responsive CSS**
 
 Append to `web/src/styles.css`:
 
@@ -3393,7 +3393,7 @@ Append to `web/src/styles.css`:
 }
 ```
 
-- [ ] **Step 3: Add manifest and service worker**
+- [x] **Step 3: Add manifest and service worker**
 
 Create `web/public/manifest.webmanifest`:
 
@@ -3437,7 +3437,7 @@ export function registerServiceWorker() {
 }
 ```
 
-- [ ] **Step 4: Register PWA shell**
+- [x] **Step 4: Register PWA shell**
 
 Modify `web/index.html` to include:
 
@@ -3463,7 +3463,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 registerServiceWorker()
 ```
 
-- [ ] **Step 5: Verify PWA build**
+- [x] **Step 5: Verify PWA build**
 
 Run:
 
@@ -3474,7 +3474,7 @@ npm run build
 
 Expected: `web/dist/manifest.webmanifest` and `web/dist/sw.js` exist.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add web/public web/src/pwa web/src/components/RotatePrompt.tsx web/src/main.tsx web/src/styles.css web/index.html

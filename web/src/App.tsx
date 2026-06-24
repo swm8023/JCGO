@@ -8,6 +8,7 @@ import { Board } from './components/Board'
 import { GameSidebar } from './components/GameSidebar'
 import { ImportDialog } from './components/ImportDialog'
 import { NavigationControls } from './components/NavigationControls'
+import { RotatePrompt } from './components/RotatePrompt'
 import { TokenGate } from './components/TokenGate'
 
 export default function App() {
@@ -170,7 +171,8 @@ export default function App() {
   }
 
   return (
-    <main className="app-layout">
+    <>
+      <main className="app-layout">
       <GameSidebar
         games={games}
         selectedGameId={selectedGameId}
@@ -210,7 +212,9 @@ export default function App() {
         <BadMoveList badMoves={badMoves} onJump={(moveNumber) => void gotoMove(moveNumber)} />
       </aside>
       {showImport && <ImportDialog onImport={importGame} onCancel={() => setShowImport(false)} />}
-    </main>
+      </main>
+      <RotatePrompt />
+    </>
   )
 }
 
