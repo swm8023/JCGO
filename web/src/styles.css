@@ -668,18 +668,28 @@ textarea {
   }
 
   .winrate-chart {
-    height: clamp(118px, 30vh, 136px);
+    height: clamp(126px, 32vh, 144px);
     min-height: 0;
   }
 
   .analysis-detail-tabs {
-    grid-template-rows: 28px minmax(0, 1fr);
-    gap: 5px;
+    grid-template-rows: 24px minmax(0, 1fr);
+    gap: 3px;
+  }
+
+  .analysis-tab-list {
+    gap: 2px;
   }
 
   .analysis-tab {
-    height: 28px;
+    height: 24px;
+    border-radius: 4px;
     font-size: 11px;
+    padding: 0 2px;
+  }
+
+  .analysis-tab-count {
+    font-size: 10px;
   }
 
   .candidate-list,
@@ -689,8 +699,8 @@ textarea {
 
   .candidate-row,
   .bad-move {
-    min-height: 28px;
-    gap: 4px;
+    min-height: 26px;
+    gap: 3px;
     font-size: 12px;
   }
 }

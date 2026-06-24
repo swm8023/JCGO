@@ -8,25 +8,25 @@ interface AnalysisChartsProps {
 
 const chart = {
   width: 320,
-  height: 156,
+  height: 144,
   left: 34,
   right: 34,
   top: 8,
-  bottom: 44,
+  bottom: 30,
 }
 
 const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
 const plotBottom = chart.height - chart.bottom
 const scoreMidY = chart.top + plotHeight / 2
-const tickLabelY = chart.height - 24
+const tickLabelY = chart.height - 7
 
 export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisChartsProps) {
   const geometry = buildChartGeometry(points, currentMoveNumber)
   return (
     <div className="analysis-charts" aria-label="胜率曲线">
       <div className="rail-section-body chart-body">
-        <svg className="winrate-chart" viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label="Winrate curve">
+        <svg className="winrate-chart" viewBox={`0 0 ${chart.width} ${chart.height}`} preserveAspectRatio="none" role="img" aria-label="Winrate curve">
           <rect className="chart-plot-bg" x={chart.left} y={chart.top} width={plotWidth} height={plotHeight} />
           <line className="chart-grid-line" x1={chart.left} y1={chart.top} x2={chart.width - chart.right} y2={chart.top} />
           <line className="chart-grid-line chart-zero-line" x1={chart.left} y1={scoreMidY} x2={chart.width - chart.right} y2={scoreMidY} />
