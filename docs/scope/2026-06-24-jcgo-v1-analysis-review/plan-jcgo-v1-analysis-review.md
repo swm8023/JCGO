@@ -2326,11 +2326,11 @@ git commit -m "feat: add analysis scheduler"
 
 **Files:**
 - Modify: `cmd/jcgo/main.go`
-- Modify: `internal/httpserver/server.go`
+- Modify: `internal/server/server.go`
 - Create: `internal/app/app.go`
 - Create: `internal/app/app_test.go`
 
-- [ ] **Step 1: Write app composition test**
+- [x] **Step 1: Write app composition test**
 
 Create `internal/app/app_test.go`:
 
@@ -2364,7 +2364,7 @@ func TestNewAppStartsWithUnavailableEngineWhenPathsMissing(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Implement app composition**
+- [x] **Step 2: Implement app composition**
 
 Create `internal/app/app.go`:
 
@@ -2426,9 +2426,9 @@ func startEngine(ctx context.Context, cfg config.Config) (katago.Analyzer, error
 }
 ```
 
-- [ ] **Step 3: Serve frontend static assets with SPA fallback**
+- [x] **Step 3: Serve frontend static assets with SPA fallback**
 
-Modify `internal/httpserver/server.go` so `Config.StaticDir` is used when present:
+Modify `internal/server/server.go` so `Config.StaticDir` is used when present:
 
 ```go
 func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
@@ -2446,7 +2446,7 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-- [ ] **Step 4: Wire `main` to app and server**
+- [x] **Step 4: Wire `main` to app and server**
 
 Modify `cmd/jcgo/main.go`:
 
@@ -2486,7 +2486,7 @@ func main() {
 }
 ```
 
-- [ ] **Step 5: Verify backend tests pass**
+- [x] **Step 5: Verify backend tests pass**
 
 Run:
 
@@ -2496,10 +2496,10 @@ go test .\internal\... .\cmd\jcgo -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
-git add cmd internal/app internal/httpserver
+git add cmd internal/app internal/server
 git commit -m "feat: compose backend service"
 ```
 

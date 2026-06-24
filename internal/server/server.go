@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -28,11 +30,25 @@ func New(cfg Config, handler RPCHandler) *Server {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", s.handleWS)
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/", s.serveStatic)
+	return mux
+}
+
+func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.StaticDir == "" {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("JCGO"))
-	})
-	return mux
+		return
+	}
+	clean := filepath.Clean(strings.TrimPrefix(r.URL.Path, "/"))
+	if clean != "." {
+		path := filepath.Join(s.cfg.StaticDir, clean)
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			http.ServeFile(w, r, path)
+			return
+		}
+	}
+	http.ServeFile(w, r, filepath.Join(s.cfg.StaticDir, "index.html"))
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
