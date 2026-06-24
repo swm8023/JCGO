@@ -1975,16 +1975,16 @@ git commit -m "feat: add katago process wrapper"
 ### Task 10: Analysis Normalization, Cache, and Bad Move Thresholds
 
 **Files:**
-- Create: `internal/analysis/normalize.go`
-- Create: `internal/analysis/normalize_test.go`
-- Modify: `internal/domain/types.go`
+- Create: `internal/game/analysis.go`
+- Create: `internal/game/analysis_test.go`
+- Modify: `internal/game/types.go`
 
-- [ ] **Step 1: Write normalization tests**
+- [x] **Step 1: Write normalization tests**
 
-Create `internal/analysis/normalize_test.go`:
+Create `internal/game/analysis_test.go`:
 
 ```go
-package analysis
+package game
 
 import (
 	"testing"
@@ -2019,19 +2019,19 @@ func TestMistakeThresholdsMatchKaTrain(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
 ```powershell
-go test .\internal\analysis -count=1
+go test .\internal\game -count=1
 ```
 
 Expected: FAIL because analysis package is missing.
 
-- [ ] **Step 3: Add analysis types to domain**
+- [x] **Step 3: Add analysis types to game**
 
-Append to `internal/domain/types.go`:
+Append to `internal/game/types.go`:
 
 ```go
 type AnalysisResult struct {
@@ -2069,12 +2069,12 @@ type ChartPoint struct {
 }
 ```
 
-- [ ] **Step 4: Implement normalization**
+- [x] **Step 4: Implement normalization**
 
-Create `internal/analysis/normalize.go`:
+Create `internal/game/analysis.go`:
 
 ```go
-package analysis
+package game
 
 import (
 	"sort"
@@ -2140,20 +2140,20 @@ func IsBadMove(pointsLost float64) bool {
 }
 ```
 
-- [ ] **Step 5: Verify normalization tests pass**
+- [x] **Step 5: Verify normalization tests pass**
 
 Run:
 
 ```powershell
-go test .\internal\analysis .\internal\domain -count=1
+go test .\internal\game -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
-git add internal/analysis internal/domain
+git add internal/game
 git commit -m "feat: normalize analysis results"
 ```
 
