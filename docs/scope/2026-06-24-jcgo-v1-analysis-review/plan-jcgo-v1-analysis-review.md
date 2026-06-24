@@ -1770,9 +1770,8 @@ git commit -m "feat: add game jsonrpc handlers"
 - Create: `internal/katago/query.go`
 - Create: `internal/katago/engine.go`
 - Create: `internal/katago/engine_test.go`
-- Create: `internal/testutil/fake_katago.go`
 
-- [ ] **Step 1: Write engine tests with a fake process**
+- [x] **Step 1: Write engine tests**
 
 Create `internal/katago/engine_test.go`:
 
@@ -1814,7 +1813,7 @@ func TestUnavailableEngineReturnsError(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run engine tests to verify they fail**
+- [x] **Step 2: Run engine tests to verify they fail**
 
 Run:
 
@@ -1824,7 +1823,7 @@ go test .\internal\katago -count=1
 
 Expected: FAIL because package types are undefined.
 
-- [ ] **Step 3: Implement query structs**
+- [x] **Step 3: Implement query structs**
 
 Create `internal/katago/query.go`:
 
@@ -1888,7 +1887,7 @@ func BuildQuery(in BuildInput) Query {
 }
 ```
 
-- [ ] **Step 4: Implement engine interface**
+- [x] **Step 4: Implement engine interface**
 
 Create `internal/katago/engine.go`:
 
@@ -1956,7 +1955,7 @@ func (u unavailable) Close() error { return nil }
 
 In the same file, implement `StartLocal(ctx, katagoPath, modelPath, configPath string) (Analyzer, error)` using `exec.CommandContext(katagoPath, "analysis", "-model", modelPath, "-config", configPath)`. Maintain a mutex around stdin writes and stdout reads because v1 uses a single global queue. Decode one JSON line per `Analyze` call and return a non-partial final result.
 
-- [ ] **Step 5: Verify engine tests pass**
+- [x] **Step 5: Verify engine tests pass**
 
 Run:
 
@@ -1966,10 +1965,10 @@ go test .\internal\katago -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
-git add internal/katago internal/testutil
+git add internal/katago
 git commit -m "feat: add katago process wrapper"
 ```
 
