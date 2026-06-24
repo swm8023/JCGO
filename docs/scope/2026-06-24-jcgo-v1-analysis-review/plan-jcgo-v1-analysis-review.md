@@ -3489,7 +3489,7 @@ git commit -m "feat: add responsive pwa shell"
 - Modify: `README.md`
 - Modify: `web/package.json`
 
-- [ ] **Step 1: Add Playwright config**
+- [x] **Step 1: Add Playwright config**
 
 Create `playwright.config.ts`:
 
@@ -3510,7 +3510,7 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 2: Add smoke e2e test**
+- [x] **Step 2: Add smoke e2e test**
 
 Create `e2e/jcgo.spec.ts`:
 
@@ -3524,7 +3524,7 @@ test('loads token gate', async ({ page }) => {
 })
 ```
 
-- [ ] **Step 3: Add npm script**
+- [x] **Step 3: Add npm script**
 
 Modify `web/package.json` scripts:
 
@@ -3541,7 +3541,7 @@ Modify `web/package.json` scripts:
 
 If the generated file already contains these keys, keep the generated values and add only missing keys.
 
-- [ ] **Step 4: Update README with local and server usage**
+- [x] **Step 4: Update README with local and server usage**
 
 Replace `README.md`:
 
