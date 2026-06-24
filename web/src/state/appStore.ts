@@ -32,5 +32,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, snapshot: action.snapshot }
     case 'error':
       return { ...state, error: action.error }
+    default:
+      return state
   }
 }

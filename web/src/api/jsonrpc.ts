@@ -23,9 +23,14 @@ export class RPCClient {
   private seq = 0
   private pending = new Map<string, PendingCall>()
 
-  connect(url: string, token: string) {
+  connect(url: string, token: string): Promise<void> {
     this.ws = new WebSocket(url, buildProtocols(token))
     this.ws.onmessage = (event) => this.handleMessage(event.data)
+    return new Promise((resolve, reject) => {
+      if (!this.ws) return reject(new Error('websocket not initialized'))
+      this.ws.onopen = () => resolve()
+      this.ws.onerror = () => reject(new Error('websocket connection failed'))
+    })
   }
 
   call<T>(method: string, params?: unknown): Promise<T> {

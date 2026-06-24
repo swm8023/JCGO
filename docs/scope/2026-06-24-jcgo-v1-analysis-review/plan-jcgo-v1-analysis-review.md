@@ -2737,7 +2737,7 @@ git commit -m "feat: add frontend rpc token gate"
 - Modify: `web/src/App.tsx`
 - Modify: `web/src/styles.css`
 
-- [ ] **Step 1: Write sidebar tests**
+- [x] **Step 1: Write sidebar tests**
 
 Create `web/src/components/GameSidebar.test.tsx`:
 
@@ -2767,7 +2767,7 @@ describe('GameSidebar', () => {
 })
 ```
 
-- [ ] **Step 2: Implement sidebar**
+- [x] **Step 2: Implement sidebar**
 
 Create `web/src/components/GameSidebar.tsx`:
 
@@ -2824,7 +2824,7 @@ export function GameSidebar({ games, selectedGameId, onImport, onSelect, onRenam
 }
 ```
 
-- [ ] **Step 3: Implement import dialog**
+- [x] **Step 3: Implement import dialog**
 
 Create `web/src/components/ImportDialog.tsx`:
 
@@ -2856,7 +2856,7 @@ export function ImportDialog({ onImport }: ImportDialogProps) {
 }
 ```
 
-- [ ] **Step 4: Wire App methods to RPC client**
+- [x] **Step 4: Wire App methods to RPC client**
 
 Modify `web/src/App.tsx` to maintain `games`, `selectedGameId`, and `snapshot` state. Call:
 
@@ -2870,7 +2870,7 @@ client.call('game.select', { gameId })
 
 After `game.importSgf`, set the returned game as selected and render the returned snapshot.
 
-- [ ] **Step 5: Verify frontend tests pass**
+- [x] **Step 5: Verify frontend tests pass**
 
 Run:
 
@@ -2882,7 +2882,7 @@ npm run build
 
 Expected: both commands pass.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add web/src/components web/src/state web/src/App.tsx web/src/styles.css
