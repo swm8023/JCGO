@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { Board } from './Board'
 
 describe('Board', () => {
-  it('renders stones and candidate labels', () => {
+  it('renders board coordinates, star points, stones, current move, and next-move candidates', () => {
     render(
       <Board
         snapshot={{
@@ -14,6 +14,7 @@ describe('Board', () => {
           totalMoves: 1,
           branchMode: 'main',
           stones: [{ x: 15, y: 3, color: 'B' }],
+          lastMove: { nodeId: 'main:1', moveNumber: 1, color: 'B', gtp: 'Q16', pass: false },
           toPlay: 'W',
           rules: 'chinese',
           komi: 7.5,
@@ -47,6 +48,18 @@ describe('Board', () => {
         onClearPV={vi.fn()}
       />,
     )
-    expect(screen.getByLabelText('Go board')).toBeInTheDocument()
+    const board = screen.getByLabelText('Go board')
+    expect(board).toBeInTheDocument()
+    expect(board.querySelectorAll('.board-coordinate.file')).toHaveLength(19)
+    expect(board.querySelectorAll('.board-coordinate.rank')).toHaveLength(19)
+    expect(board).toHaveTextContent('A')
+    expect(board).toHaveTextContent('T')
+    expect(board).not.toHaveTextContent('I')
+    expect(board).toHaveTextContent('19')
+    expect(board).toHaveTextContent('1')
+    expect(board.querySelectorAll('.star-point')).toHaveLength(9)
+    expect(board.querySelector('.star-point.tengen')).toBeInTheDocument()
+    expect(screen.getByLabelText('Current move Q16')).toBeInTheDocument()
+    expect(screen.getByLabelText('Recommended next move D16')).toBeInTheDocument()
   })
 })
