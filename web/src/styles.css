@@ -287,10 +287,84 @@ textarea {
 
 @media (orientation: landscape) and (max-height: 520px) {
   .app-layout {
-    grid-template-columns: 64px minmax(360px, 1fr) 56px minmax(260px, 340px);
+    height: 100vh;
+    min-height: 0;
+    grid-template-columns: 56px minmax(0, 1fr) minmax(240px, 320px);
+    gap: 8px;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .game-sidebar {
+    grid-template-rows: 44px 1fr;
+  }
+
+  .game-sidebar h1 {
+    display: none;
+  }
+
+  .sidebar-header {
+    justify-content: center;
+  }
+
+  .icon-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .game-list {
+    display: none;
+  }
+
+  .board-stage {
+    grid-template-columns: minmax(0, 1fr) 44px;
+    grid-template-rows: 1fr;
+    align-content: stretch;
+    align-items: center;
+    justify-items: center;
+    gap: 6px;
+    padding: 4px;
+    box-sizing: border-box;
+    max-height: calc(100vh - 16px);
+    overflow: hidden;
+  }
+
+  .go-board {
+    grid-column: 1;
+    width: min(calc(100vh - 24px), 100%);
+    max-height: calc(100vh - 24px);
   }
 
   .navigation-controls {
+    grid-column: 2;
+    grid-row: 1;
+    display: grid;
     flex-direction: column;
+    align-content: center;
+    justify-content: center;
+    gap: 4px;
+    width: 44px;
+    max-height: calc(100vh - 24px);
+    overflow-y: auto;
+  }
+
+  .navigation-controls button {
+    width: 40px;
+    min-width: 0;
+    height: 34px;
+    padding: 0 2px;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 11px;
+  }
+
+  .navigation-controls span {
+    width: 40px;
+    text-align: center;
+    font-size: 11px;
+  }
+
+  .analysis-rail {
+    max-height: calc(100vh - 16px);
   }
 }
