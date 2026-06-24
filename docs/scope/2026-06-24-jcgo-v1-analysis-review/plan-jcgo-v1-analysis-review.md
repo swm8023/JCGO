@@ -2514,7 +2514,7 @@ git commit -m "feat: compose backend service"
 - Create: `web/src/components/TokenGate.test.tsx`
 - Modify: `web/src/App.tsx`
 
-- [ ] **Step 1: Write JSON-RPC client tests**
+- [x] **Step 1: Write JSON-RPC client tests**
 
 Create `web/src/api/jsonrpc.test.ts`:
 
@@ -2538,7 +2538,7 @@ describe('jsonrpc helpers', () => {
 })
 ```
 
-- [ ] **Step 2: Implement shared frontend types**
+- [x] **Step 2: Implement shared frontend types**
 
 Create `web/src/api/types.ts`:
 
@@ -2607,7 +2607,7 @@ export interface AnalysisResult {
 }
 ```
 
-- [ ] **Step 3: Implement JSON-RPC client helpers**
+- [x] **Step 3: Implement JSON-RPC client helpers**
 
 Create `web/src/api/jsonrpc.ts`:
 
@@ -2658,7 +2658,7 @@ export class RPCClient {
 }
 ```
 
-- [ ] **Step 4: Create token gate**
+- [x] **Step 4: Create token gate**
 
 Create `web/src/components/TokenGate.tsx`:
 
@@ -2693,7 +2693,7 @@ export function TokenGate({ onSubmit }: TokenGateProps) {
 }
 ```
 
-- [ ] **Step 5: Wire App to token gate**
+- [x] **Step 5: Wire App to token gate**
 
 Replace `web/src/App.tsx`:
 
@@ -2709,7 +2709,7 @@ export default function App() {
 }
 ```
 
-- [ ] **Step 6: Verify frontend tests pass**
+- [x] **Step 6: Verify frontend tests pass**
 
 Run:
 
@@ -2720,7 +2720,7 @@ npm test -- --run
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add web/src/api web/src/state web/src/components web/src/App.tsx

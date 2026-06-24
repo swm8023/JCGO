@@ -18,26 +18,75 @@ textarea {
   font: inherit;
 }
 
-.app-shell {
+.token-gate {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  text-align: center;
+  padding: 24px;
 }
 
-.intro {
+.token-form {
+  width: min(360px, 100%);
   display: grid;
-  gap: 8px;
+  gap: 14px;
 }
 
-.intro h1 {
+.token-form h1,
+.game-sidebar h1 {
   margin: 0;
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 650;
   letter-spacing: 0;
 }
 
-.intro p {
-  margin: 0;
-  color: #50605a;
+.token-form label {
+  display: grid;
+  gap: 6px;
+  color: #405047;
+}
+
+.token-form input {
+  height: 40px;
+  border: 1px solid #b9c0b8;
+  border-radius: 6px;
+  padding: 0 10px;
+  background: #fffdf8;
+  color: #172026;
+}
+
+.token-form button {
+  height: 40px;
+  border: 0;
+  border-radius: 6px;
+  background: #2f5d50;
+  color: #fff;
+  cursor: pointer;
+}
+
+.app-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(64px, 260px) minmax(420px, 1fr) minmax(320px, 420px);
+  gap: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.game-sidebar,
+.analysis-rail,
+.board-stage {
+  min-width: 0;
+}
+
+.board-stage {
+  display: grid;
+  place-items: center;
+  background: #efe7d8;
+  border: 1px solid #d8cebd;
+  border-radius: 8px;
+  color: #405047;
+}
+
+.analysis-rail {
+  color: #405047;
 }
