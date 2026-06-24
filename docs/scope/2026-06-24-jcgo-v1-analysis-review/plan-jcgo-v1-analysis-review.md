@@ -699,7 +699,7 @@ git commit -m "feat: add jsonrpc websocket handshake"
 - Create: `internal/storage/files.go`
 - Create: `internal/storage/storage_test.go`
 
-- [ ] **Step 1: Write storage tests**
+- [x] **Step 1: Write storage tests**
 
 Create `internal/storage/storage_test.go`:
 
@@ -779,7 +779,7 @@ func TestFileStoreWritesAndDeletesSGF(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
@@ -789,7 +789,7 @@ go test .\internal\storage -count=1
 
 Expected: FAIL because storage types are undefined.
 
-- [ ] **Step 3: Add SQLite dependency and repository implementation**
+- [x] **Step 3: Add SQLite dependency and repository implementation**
 
 Run:
 
@@ -917,7 +917,7 @@ func newID() (string, error) {
 }
 ```
 
-- [ ] **Step 4: Implement SGF file store**
+- [x] **Step 4: Implement SGF file store**
 
 Create `internal/storage/files.go`:
 
@@ -962,7 +962,7 @@ func (s FileStore) DeleteSGF(filename string) error {
 }
 ```
 
-- [ ] **Step 5: Verify storage tests pass**
+- [x] **Step 5: Verify storage tests pass**
 
 Run:
 
@@ -972,7 +972,7 @@ go test .\internal\storage -count=1
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add go.mod go.sum internal/storage
