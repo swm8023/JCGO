@@ -7,8 +7,7 @@ interface BadMoveListProps {
 
 export function BadMoveList({ badMoves, onJump }: BadMoveListProps) {
   return (
-    <section className="bad-move-list-section rail-section">
-      <h2>坏棋列表</h2>
+    <section className="bad-move-list-section rail-section" aria-label="坏棋列表">
       <div className="rail-section-body bad-move-list">
         {badMoves.map((move) => (
           <button key={move.nodeId} className={`bad-move class-${move.class}`} onClick={() => onJump(move.moveNumber)}>

@@ -1,42 +1,25 @@
 import type { AnalysisResult } from '../api/types'
 
-interface EngineStatus {
-  available: boolean
-  error?: string
-}
-
 interface AnalysisPanelProps {
-  engineStatus: EngineStatus
   analysis?: AnalysisResult
-  analysisState: 'idle' | 'running' | 'stopped' | 'complete' | 'unavailable'
-  onStart(): void
-  onStop(): void
-  onRestart(): void
 }
 
-export function AnalysisPanel({ engineStatus, analysis, analysisState, onStart, onStop, onRestart }: AnalysisPanelProps) {
-  const action =
-    analysisState === 'running' ? (
-      <button onClick={onStop}>Stop analysis</button>
-    ) : analysisState === 'complete' ? (
-      <button onClick={onRestart}>Re-analyze</button>
-    ) : (
-      <button onClick={onStart} disabled={!engineStatus.available}>
-        Start analysis
-      </button>
-    )
-
+export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
   return (
-    <section className="analysis-panel rail-section">
-      <h2>当前局面</h2>
-      {!engineStatus.available && <div className="engine-error">Engine unavailable: {engineStatus.error}</div>}
-      <div className="analysis-summary">
+    <div className="analysis-summary" aria-label="当前局面">
+      <span className="summary-metric">
+        <small>黑胜率</small>
         <strong>{analysis ? `${(analysis.winrate * 100).toFixed(1)}%` : '-'}</strong>
+      </span>
+      <span className="summary-metric">
+        <small>目差</small>
         <strong>{analysis ? formatScore(analysis.scoreLead) : '-'}</strong>
-        <span>{analysis?.visits ?? 0} visits</span>
-        {action}
-      </div>
-    </section>
+      </span>
+      <span className="summary-metric">
+        <small>访问</small>
+        <strong>{analysis ? `${analysis.visits}v` : '0v'}</strong>
+      </span>
+    </div>
   )
 }
 

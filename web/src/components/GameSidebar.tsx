@@ -1,17 +1,41 @@
-import type { GameRecord } from '../api/types'
+import type { AnalysisState, GameRecord } from '../api/types'
 
 interface GameSidebarProps {
   games: GameRecord[]
   listOpen: boolean
   selectedGameId?: string
+  analysisAvailable: boolean
+  analysisError?: string
+  analysisState: AnalysisState
   onToggleList(): void
   onImport(): void
   onSelect(gameId: string): void
   onRename(gameId: string, displayName: string): void
   onDelete(gameId: string): void
+  onStartAnalysis(): void
+  onStopAnalysis(): void
+  onRestartAnalysis(): void
 }
 
-export function GameSidebar({ games, listOpen, selectedGameId, onToggleList, onImport, onSelect, onRename, onDelete }: GameSidebarProps) {
+export function GameSidebar({
+  games,
+  listOpen,
+  selectedGameId,
+  analysisAvailable,
+  analysisError,
+  analysisState,
+  onToggleList,
+  onImport,
+  onSelect,
+  onRename,
+  onDelete,
+  onStartAnalysis,
+  onStopAnalysis,
+  onRestartAnalysis,
+}: GameSidebarProps) {
+  const analysisAction = analysisButton(analysisState, onStartAnalysis, onStopAnalysis, onRestartAnalysis)
+  const disabled = !selectedGameId || (!analysisAvailable && analysisState !== 'running')
+
   return (
     <aside className={listOpen ? 'game-sidebar expanded' : 'game-sidebar'}>
       <div className="sidebar-header">
@@ -24,6 +48,13 @@ export function GameSidebar({ games, listOpen, selectedGameId, onToggleList, onI
             +
           </button>
         </div>
+      </div>
+      <div className="sidebar-analysis">
+        <button className="analysis-action-button" aria-label={analysisAction.label} onClick={analysisAction.onClick} disabled={disabled}>
+          <span className="wide-label">{analysisAction.text}</span>
+          <span className="narrow-label">{analysisAction.shortText}</span>
+        </button>
+        {!analysisAvailable && analysisError && <small className="engine-error">{analysisError}</small>}
       </div>
       <div className="game-list">
         {games.map((game) => (
@@ -56,4 +87,14 @@ export function GameSidebar({ games, listOpen, selectedGameId, onToggleList, onI
       </div>
     </aside>
   )
+}
+
+function analysisButton(analysisState: AnalysisState, onStart: () => void, onStop: () => void, onRestart: () => void) {
+  if (analysisState === 'running') {
+    return { label: 'Stop analysis', text: 'Stop analysis', shortText: 'Stop', onClick: onStop }
+  }
+  if (analysisState === 'complete') {
+    return { label: 'Re-analyze', text: 'Re-analyze', shortText: 'Again', onClick: onRestart }
+  }
+  return { label: 'Start analysis', text: 'Start analysis', shortText: 'Run', onClick: onStart }
 }

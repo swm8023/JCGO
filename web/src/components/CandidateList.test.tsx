@@ -15,7 +15,8 @@ describe('CandidateList', () => {
       />,
     )
 
-    screen.getByText('候选点').click()
+    expect(screen.getByLabelText('候选点')).toBeInTheDocument()
+    expect(screen.queryByText('候选点')).not.toBeInTheDocument()
     screen.getByText('Q16').click()
     expect(screen.getByText('400v')).toBeInTheDocument()
     expect(screen.getByText('63.0%')).toBeInTheDocument()

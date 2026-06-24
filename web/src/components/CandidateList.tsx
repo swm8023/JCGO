@@ -7,8 +7,7 @@ interface CandidateListProps {
 
 export function CandidateList({ candidates, onCandidateClick }: CandidateListProps) {
   return (
-    <section className="candidate-list-section rail-section">
-      <h2>候选点</h2>
+    <section className="candidate-list-section rail-section" aria-label="候选点">
       <div className="rail-section-body candidate-list">
         {candidates.map((candidate) => (
           <CandidateRow key={candidate.move} candidate={candidate} onClick={() => onCandidateClick(candidate.move)} />

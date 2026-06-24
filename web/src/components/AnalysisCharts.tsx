@@ -23,8 +23,7 @@ const scoreMidY = chart.top + plotHeight / 2
 export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisChartsProps) {
   const geometry = buildChartGeometry(points, currentMoveNumber)
   return (
-    <section className="analysis-charts rail-section">
-      <h2>胜率曲线</h2>
+    <div className="analysis-charts" aria-label="胜率曲线">
       <div className="rail-section-body chart-body">
         <svg className="winrate-chart" viewBox={`0 0 ${chart.width} ${chart.height}`} role="img" aria-label="Winrate curve">
           <rect className="chart-plot-bg" x={chart.left} y={chart.top} width={plotWidth} height={plotHeight} />
@@ -78,7 +77,7 @@ export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisCh
           ))}
         </svg>
       </div>
-    </section>
+    </div>
   )
 }
 

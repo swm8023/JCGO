@@ -18,7 +18,7 @@ describe('AnalysisCharts', () => {
       />,
     )
 
-    expect(screen.getByText('胜率曲线')).toBeInTheDocument()
+    expect(screen.queryByText('胜率曲线')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Winrate curve')).toBeInTheDocument()
     expect(screen.getByLabelText('Black winrate line')).toBeInTheDocument()
     expect(screen.getByLabelText('Score lead line')).toBeInTheDocument()

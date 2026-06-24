@@ -179,11 +179,17 @@ export default function App() {
         games={games}
         listOpen={gameListOpen}
         selectedGameId={selectedGameId}
+        analysisAvailable={analysisState !== 'unavailable'}
+        analysisError={error}
+        analysisState={analysisState}
         onToggleList={() => setGameListOpen((open) => !open)}
         onImport={() => setShowImport(true)}
         onSelect={selectGame}
         onRename={renameGame}
         onDelete={deleteGame}
+        onStartAnalysis={startAnalysis}
+        onStopAnalysis={stopAnalysis}
+        onRestartAnalysis={restartAnalysis}
       />
       <section className="board-stage">
         <Board snapshot={snapshot} activePV={activePV} onPlay={playMove} onPreviewPV={previewPV} onClearPV={() => setActivePV(undefined)} />
@@ -203,15 +209,10 @@ export default function App() {
         {error && <p className="app-error">{error}</p>}
       </section>
       <aside className="analysis-rail">
-        <AnalysisPanel
-          engineStatus={{ available: analysisState !== 'unavailable', error }}
-          analysis={snapshot?.analysis}
-          analysisState={analysisState}
-          onStart={startAnalysis}
-          onStop={stopAnalysis}
-          onRestart={restartAnalysis}
-        />
-        <AnalysisCharts points={chartPoints} currentMoveNumber={snapshot?.moveNumber} onJump={(moveNumber) => void gotoMove(moveNumber)} />
+        <section className="analysis-overview rail-section" aria-label="局面曲线">
+          <AnalysisPanel analysis={snapshot?.analysis} />
+          <AnalysisCharts points={chartPoints} currentMoveNumber={snapshot?.moveNumber} onJump={(moveNumber) => void gotoMove(moveNumber)} />
+        </section>
         <BadMoveList badMoves={badMoves} onJump={(moveNumber) => void gotoMove(moveNumber)} />
         <CandidateList candidates={snapshot?.analysis?.candidates ?? []} onCandidateClick={playMove} />
       </aside>
