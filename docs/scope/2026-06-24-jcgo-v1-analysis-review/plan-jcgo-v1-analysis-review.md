@@ -1423,16 +1423,16 @@ git commit -m "feat: add game rules snapshots"
 ### Task 7: Token Workspace and Variation State
 
 **Files:**
-- Create: `internal/workspace/workspace.go`
-- Create: `internal/workspace/workspace_test.go`
+- Create: `internal/app/workspace.go`
+- Create: `internal/app/workspace_test.go`
 - Modify: `internal/game/game.go`
 
-- [ ] **Step 1: Write workspace tests**
+- [x] **Step 1: Write workspace tests**
 
-Create `internal/workspace/workspace_test.go`:
+Create `internal/app/workspace_test.go`:
 
 ```go
-package workspace
+package app
 
 import (
 	"testing"
@@ -1471,22 +1471,22 @@ func TestVariationSurvivesReconnectInProcess(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run:
 
 ```powershell
-go test .\internal\workspace -count=1
+go test .\internal\app -count=1
 ```
 
 Expected: FAIL because workspace package is missing.
 
-- [ ] **Step 3: Implement workspace store**
+- [x] **Step 3: Implement workspace store**
 
-Create `internal/workspace/workspace.go`:
+Create `internal/app/workspace.go`:
 
 ```go
-package workspace
+package app
 
 import (
 	"crypto/sha256"
@@ -1553,7 +1553,7 @@ func (w *Workspace) Play(gameID string, gtp string) (domain.Snapshot, error) {
 }
 ```
 
-- [ ] **Step 4: Extend game variations**
+- [x] **Step 4: Extend game variations**
 
 Modify `internal/game/game.go` so `Game` stores variation nodes in memory and supports:
 
@@ -1565,20 +1565,20 @@ func (g *Game) ClearCurrentVariation() (domain.Snapshot, error)
 
 Use branch node IDs in the form `var:<counter>`. Store the mainline fork move number on each variation node so `BackToMain` and `ClearCurrentVariation` return to the correct `main:<n>` node.
 
-- [ ] **Step 5: Verify workspace and game tests pass**
+- [x] **Step 5: Verify workspace and game tests pass**
 
 Run:
 
 ```powershell
-go test .\internal\game .\internal\workspace -count=1
+go test .\internal\game .\internal\app -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
-git add internal/game internal/workspace
+git add internal/game internal/app
 git commit -m "feat: add token workspace variations"
 ```
 

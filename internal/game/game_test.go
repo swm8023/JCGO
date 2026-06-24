@@ -91,6 +91,56 @@ func TestRejectsImmediateKoRecapture(t *testing.T) {
 	}
 }
 
+func TestPlayVariationFromMainNodeAndBackToMain(t *testing.T) {
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd];W[dd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := NewFromSGF("game-1", doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap, err := g.PlayVariation(Black, "D4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.BranchMode != "variation" || !snap.CanBackToMain || snap.MoveNumber != 1 {
+		t.Fatalf("variation snapshot = %#v", snap)
+	}
+
+	snap, err = g.BackToMain()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.BranchMode != "main" || snap.MoveNumber != 0 || snap.CanBackToMain {
+		t.Fatalf("main snapshot = %#v", snap)
+	}
+}
+
+func TestDeleteAndClearVariation(t *testing.T) {
+	g := NewEmpty("game-1", "chinese", 7.5)
+	if _, err := g.PlayVariation(Black, "D4"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.PlayVariation(White, "Q16"); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := g.DeleteCurrentVariationNode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.BranchMode != "variation" || snap.MoveNumber != 1 {
+		t.Fatalf("delete snapshot = %#v", snap)
+	}
+	snap, err = g.ClearCurrentVariation()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.BranchMode != "main" || snap.MoveNumber != 0 || snap.CanBackToMain {
+		t.Fatalf("clear snapshot = %#v", snap)
+	}
+}
+
 func mustPlay(t *testing.T, g *Game, color Color, gtp string) {
 	t.Helper()
 	if _, err := g.PlayVariation(color, gtp); err != nil {
