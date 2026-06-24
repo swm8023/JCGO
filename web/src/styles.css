@@ -517,7 +517,8 @@ textarea {
   }
 }
 
-@media (orientation: landscape) and (max-height: 520px) {
+@media (orientation: landscape) and (max-height: 520px),
+  (orientation: landscape) and (max-width: 1100px) and (pointer: coarse) {
   .app-layout {
     height: 100vh;
     min-height: 0;
@@ -642,15 +643,16 @@ textarea {
   }
 
   .analysis-rail {
-    grid-template-rows: minmax(168px, 188px) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
     gap: 6px;
     max-height: calc(100vh - 16px);
   }
 
   .analysis-overview {
-    grid-template-rows: 16px minmax(0, auto);
+    grid-template-rows: 16px auto;
     gap: 1px;
     padding: 4px 6px 5px;
+    align-content: start;
   }
 
   .analysis-summary {
@@ -666,8 +668,29 @@ textarea {
   }
 
   .winrate-chart {
-    height: auto;
+    height: clamp(118px, 30vh, 136px);
     min-height: 0;
-    aspect-ratio: 320 / 156;
+  }
+
+  .analysis-detail-tabs {
+    grid-template-rows: 28px minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .analysis-tab {
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .candidate-list,
+  .bad-move-list {
+    gap: 4px;
+  }
+
+  .candidate-row,
+  .bad-move {
+    min-height: 28px;
+    gap: 4px;
+    font-size: 12px;
   }
 }
