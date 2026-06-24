@@ -982,21 +982,20 @@ git commit -m "feat: add game storage"
 ### Task 5: SGF Parser and v1 Import Validation
 
 **Files:**
-- Create: `internal/sgf/parser.go`
-- Create: `internal/sgf/parser_test.go`
-- Modify: `internal/testutil/fixtures.go`
+- Create: `internal/game/sgf.go`
+- Create: `internal/game/sgf_test.go`
 
-- [ ] **Step 1: Write parser tests**
+- [x] **Step 1: Write parser tests**
 
-Create `internal/sgf/parser_test.go`:
+Create `internal/game/sgf_test.go`:
 
 ```go
-package sgf
+package game
 
 import "testing"
 
 func TestParseMainlineSimple19(t *testing.T) {
-	doc, err := Parse(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese]PB[Black]PW[White]RE[B+R];B[pd];W[dd](;B[qq])(;B[pp]))`)
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese]PB[Black]PW[White]RE[B+R];B[pd];W[dd](;B[qq])(;B[pp]))`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1012,7 +1011,7 @@ func TestParseMainlineSimple19(t *testing.T) {
 }
 
 func TestParseDefaultsRulesAndKomi(t *testing.T) {
-	doc, err := Parse(`(;GM[1]FF[4]SZ[19];B[pd])`)
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd])`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1022,14 +1021,14 @@ func TestParseDefaultsRulesAndKomi(t *testing.T) {
 }
 
 func TestParseRejectsNonRootSetup(t *testing.T) {
-	_, err := Parse(`(;GM[1]FF[4]SZ[19];B[pd]AB[dd])`)
+	_, err := ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd]AB[dd])`)
 	if err == nil {
 		t.Fatal("expected non-root setup rejection")
 	}
 }
 
 func TestParseRootSetup(t *testing.T) {
-	doc, err := Parse(`(;GM[1]FF[4]SZ[19]HA[2]AB[dd][pp];W[pd])`)
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]HA[2]AB[dd][pp];W[pd])`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1039,22 +1038,22 @@ func TestParseRootSetup(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run parser tests to verify they fail**
+- [x] **Step 2: Run parser tests to verify they fail**
 
 Run:
 
 ```powershell
-go test .\internal\sgf -count=1
+go test .\internal\game -count=1
 ```
 
 Expected: FAIL because parser types are undefined.
 
-- [ ] **Step 3: Implement v1 SGF parser**
+- [x] **Step 3: Implement v1 SGF parser**
 
-Create `internal/sgf/parser.go` with these exported types:
+Create `internal/game/sgf.go` with these exported types:
 
 ```go
-package sgf
+package game
 
 import (
 	"errors"
@@ -1082,7 +1081,7 @@ type Stone struct {
 	GTP    string
 }
 
-type Document struct {
+type SGFDocument struct {
 	BoardSize     int
 	Rules         string
 	Komi          float64
@@ -1095,16 +1094,16 @@ type Document struct {
 Then implement:
 
 ```go
-func Parse(input string) (Document, error) {
+func ParseSGF(input string) (SGFDocument, error) {
 	nodes, err := parseNodes(input)
 	if err != nil {
-		return Document{}, err
+		return SGFDocument{}, err
 	}
 	if len(nodes) == 0 {
-		return Document{}, errors.New("sgf contains no nodes")
+		return SGFDocument{}, errors.New("sgf contains no nodes")
 	}
 	root := nodes[0]
-	doc := Document{
+	doc := SGFDocument{
 		BoardSize: 19,
 		Rules:     "chinese",
 		Komi:      7.5,
@@ -1113,7 +1112,7 @@ func Parse(input string) (Document, error) {
 	if size := first(root["SZ"]); size != "" {
 		parsed, err := strconv.Atoi(size)
 		if err != nil || parsed != 19 {
-			return Document{}, fmt.Errorf("only 19x19 SGF is supported")
+			return SGFDocument{}, fmt.Errorf("only 19x19 SGF is supported")
 		}
 		doc.BoardSize = parsed
 	}
@@ -1123,7 +1122,7 @@ func Parse(input string) (Document, error) {
 	if komi := first(root["KM"]); komi != "" {
 		parsed, err := strconv.ParseFloat(komi, 64)
 		if err != nil {
-			return Document{}, fmt.Errorf("invalid komi %q", komi)
+			return SGFDocument{}, fmt.Errorf("invalid komi %q", komi)
 		}
 		doc.Komi = parsed
 	}
@@ -1135,7 +1134,7 @@ func Parse(input string) (Document, error) {
 	}
 	for i, node := range nodes[1:] {
 		if len(node["AB"]) > 0 || len(node["AW"]) > 0 || len(node["AE"]) > 0 {
-			return Document{}, fmt.Errorf("unsupported setup property outside root at node %d", i+1)
+			return SGFDocument{}, fmt.Errorf("unsupported setup property outside root at node %d", i+1)
 		}
 		if values := node["B"]; len(values) > 0 {
 			doc.Mainline = append(doc.Mainline, Move{Player: Black, GTP: sgfCoordToGTP(values[0]), Pass: values[0] == ""})
@@ -1148,22 +1147,22 @@ func Parse(input string) (Document, error) {
 }
 ```
 
-Implement `parseNodes` as a mainline-only SGF scanner: enter the first branch after `(`, read sequential `;` nodes, recurse into the first child branch when the current mainline reaches a branch point, and skip sibling branches. Preserve escaped `\]` inside property values. Use KaTrain `sgf_parser.py` lines around `SGF._parse_branch` as behavior reference.
+Implement `parseNodes` as a mainline-only SGF scanner: enter the first game tree after `(`, read sequential `;` nodes, and skip SGF child branches once the imported mainline reaches a branch point. Preserve escaped `\]` inside property values. Use KaTrain `sgf_parser.py` lines around `SGF._parse_branch` as behavior reference.
 
-- [ ] **Step 4: Verify parser tests pass**
+- [x] **Step 4: Verify parser tests pass**
 
 Run:
 
 ```powershell
-go test .\internal\sgf -count=1
+go test .\internal\game -count=1
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
-git add internal/sgf internal/testutil
+git add internal/game
 git commit -m "feat: parse v1 sgf mainline"
 ```
 
