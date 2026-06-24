@@ -8,17 +8,18 @@ interface AnalysisChartsProps {
 
 const chart = {
   width: 320,
-  height: 150,
+  height: 156,
   left: 34,
   right: 34,
-  top: 12,
-  bottom: 28,
+  top: 8,
+  bottom: 32,
 }
 
 const plotWidth = chart.width - chart.left - chart.right
 const plotHeight = chart.height - chart.top - chart.bottom
 const plotBottom = chart.height - chart.bottom
 const scoreMidY = chart.top + plotHeight / 2
+const tickLabelY = chart.height - 16
 
 export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisChartsProps) {
   const geometry = buildChartGeometry(points, currentMoveNumber)
@@ -58,7 +59,7 @@ export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisCh
           {geometry.ticks.map((tick) => (
             <g key={tick.value}>
               <line className="chart-tick-line" x1={tick.x} y1={plotBottom} x2={tick.x} y2={plotBottom + 4} />
-              <text className="chart-tick-label" x={tick.x} y={chart.height - 8}>
+              <text className="chart-tick-label" x={tick.x} y={tickLabelY}>
                 {tick.value}
               </text>
             </g>

@@ -27,6 +27,9 @@ describe('AnalysisCharts', () => {
     expect(screen.getByText('50')).toBeInTheDocument()
     expect(screen.getByText('100')).toBeInTheDocument()
     expect(screen.getByText('200')).toBeInTheDocument()
+    for (const tickLabel of screen.getByLabelText('Winrate curve').querySelectorAll('.chart-tick-label')) {
+      expect(Number(tickLabel.getAttribute('y'))).toBeLessThanOrEqual(140)
+    }
     expect(screen.queryByText('42.0%')).not.toBeInTheDocument()
     expect(screen.queryByText('5.2')).not.toBeInTheDocument()
   })

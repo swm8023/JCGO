@@ -253,9 +253,9 @@ textarea {
 }
 
 .analysis-overview {
-  grid-template-rows: 22px minmax(0, 1fr);
-  gap: 4px;
-  padding: 6px;
+  grid-template-rows: 18px minmax(0, 1fr);
+  gap: 2px;
+  padding: 5px 6px 6px;
   border: 1px solid #c3c9c1;
   border-radius: 6px;
   background: #fffdf8;
@@ -269,6 +269,7 @@ textarea {
   min-height: 0;
   overflow: hidden;
   white-space: nowrap;
+  line-height: 1;
 }
 
 .summary-metric {
