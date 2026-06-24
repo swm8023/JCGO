@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RPCClient } from './api/jsonrpc'
-import type { GameRecord, ImportResult, ListResult, Snapshot, SnapshotResult } from './api/types'
+import type { CandidateMove, GameRecord, ImportResult, ListResult, Snapshot, SnapshotResult } from './api/types'
+import { Board } from './components/Board'
 import { GameSidebar } from './components/GameSidebar'
 import { ImportDialog } from './components/ImportDialog'
+import { NavigationControls } from './components/NavigationControls'
 import { TokenGate } from './components/TokenGate'
 
 export default function App() {
@@ -11,6 +13,7 @@ export default function App() {
   const [games, setGames] = useState<GameRecord[]>([])
   const [selectedGameId, setSelectedGameId] = useState<string>()
   const [snapshot, setSnapshot] = useState<Snapshot>()
+  const [activePV, setActivePV] = useState<string[]>()
   const [showImport, setShowImport] = useState(false)
   const [error, setError] = useState<string>()
   const wsUrl = useMemo(() => websocketURL(), [])
@@ -28,6 +31,21 @@ export default function App() {
       .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : String(reason)))
   }, [token, wsUrl])
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
+      if (event.key === 'ArrowLeft') void goPrevious()
+      if (event.key === 'ArrowRight') void goNext()
+      if (event.key === 'Escape') {
+        if (activePV?.length) setActivePV(undefined)
+        else if (snapshot?.canBackToMain) void backToMain()
+        else if (showImport) setShowImport(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  })
+
   if (!token) return <TokenGate onSubmit={setToken} />
 
   const importGame = async (displayName: string, originalFilename: string, sgfText: string) => {
@@ -36,6 +54,7 @@ export default function App() {
     setGames((current) => [result.game, ...current.filter((game) => game.gameId !== result.game.gameId)])
     setSelectedGameId(result.game.gameId)
     setSnapshot(result.snapshot)
+    setActivePV(undefined)
     setShowImport(false)
   }
 
@@ -44,6 +63,7 @@ export default function App() {
     const result = await client.call<SnapshotResult>('game.select', { gameId })
     setSelectedGameId(gameId)
     setSnapshot(result.snapshot)
+    setActivePV(undefined)
   }
 
   const renameGame = async (gameId: string, displayName: string) => {
@@ -63,6 +83,50 @@ export default function App() {
     }
   }
 
+  const gotoMove = async (moveNumber: number) => {
+    if (!client || !selectedGameId) return
+    const result = await client.call<SnapshotResult>('game.goto', { gameId: selectedGameId, moveNumber })
+    setSnapshot(result.snapshot)
+    setActivePV(undefined)
+  }
+
+  const goPrevious = () => gotoMove(Math.max(0, (snapshot?.moveNumber ?? 0) - 1))
+  const goNext = () => gotoMove(Math.min(snapshot?.totalMoves ?? 0, (snapshot?.moveNumber ?? 0) + 1))
+
+  const playMove = async (move: string) => {
+    if (!client || !selectedGameId) return
+    const result = await client.call<SnapshotResult>('game.play', { gameId: selectedGameId, move })
+    setSnapshot(result.snapshot)
+    setActivePV(undefined)
+  }
+
+  const pass = async () => {
+    if (!client || !selectedGameId) return
+    const result = await client.call<SnapshotResult>('game.pass', { gameId: selectedGameId })
+    setSnapshot(result.snapshot)
+  }
+
+  const backToMain = async () => {
+    if (!client || !selectedGameId) return
+    const result = await client.call<SnapshotResult>('game.backToMain', { gameId: selectedGameId })
+    setSnapshot(result.snapshot)
+    setActivePV(undefined)
+  }
+
+  const deleteVariationNode = async () => {
+    if (!client || !selectedGameId) return
+    const result = await client.call<SnapshotResult>('game.deleteVariationNode', { gameId: selectedGameId })
+    setSnapshot(result.snapshot)
+  }
+
+  const clearVariation = async () => {
+    if (!client || !selectedGameId) return
+    const result = await client.call<SnapshotResult>('game.clearVariation', { gameId: selectedGameId })
+    setSnapshot(result.snapshot)
+  }
+
+  const previewPV = (candidate: CandidateMove) => setActivePV(candidate.pv)
+
   return (
     <main className="app-layout">
       <GameSidebar
@@ -74,7 +138,20 @@ export default function App() {
         onDelete={deleteGame}
       />
       <section className="board-stage">
-        {snapshot ? `${snapshot.moveNumber} / ${snapshot.totalMoves}` : 'Workspace connected'}
+        <Board snapshot={snapshot} activePV={activePV} onPlay={playMove} onPreviewPV={previewPV} onClearPV={() => setActivePV(undefined)} />
+        <NavigationControls
+          moveNumber={snapshot?.moveNumber ?? 0}
+          totalMoves={snapshot?.totalMoves ?? 0}
+          canBackToMain={snapshot?.canBackToMain ?? false}
+          onFirst={() => void gotoMove(0)}
+          onPrevious={() => void goPrevious()}
+          onNext={() => void goNext()}
+          onLast={() => void gotoMove(snapshot?.totalMoves ?? 0)}
+          onBackToMain={() => void backToMain()}
+          onPass={() => void pass()}
+          onDeleteVariationNode={() => void deleteVariationNode()}
+          onClearVariation={() => void clearVariation()}
+        />
         {error && <p className="app-error">{error}</p>}
       </section>
       <aside className="analysis-rail">Analysis</aside>

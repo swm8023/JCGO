@@ -2898,7 +2898,7 @@ git commit -m "feat: add game library ui"
 - Modify: `web/src/App.tsx`
 - Modify: `web/src/styles.css`
 
-- [ ] **Step 1: Write board rendering test**
+- [x] **Step 1: Write board rendering test**
 
 Create `web/src/components/Board.test.tsx`:
 
@@ -2943,7 +2943,7 @@ describe('Board', () => {
 })
 ```
 
-- [ ] **Step 2: Implement SVG board**
+- [x] **Step 2: Implement SVG board**
 
 Create `web/src/components/Board.tsx`:
 
@@ -3028,7 +3028,7 @@ function gtpToPoint(gtp: string): { x: number; y: number } | null {
 }
 ```
 
-- [ ] **Step 3: Implement navigation controls**
+- [x] **Step 3: Implement navigation controls**
 
 Create `web/src/components/NavigationControls.tsx`:
 
@@ -3066,7 +3066,7 @@ export function NavigationControls(props: NavigationControlsProps) {
 }
 ```
 
-- [ ] **Step 4: Wire RPC calls and keyboard shortcuts**
+- [x] **Step 4: Wire RPC calls and keyboard shortcuts**
 
 In `web/src/App.tsx`, wire board/navigation to:
 
@@ -3088,7 +3088,7 @@ if (event.key === 'ArrowRight') goNext()
 if (event.key === 'Escape') clearPVOrBackToMainOrCloseLayer()
 ```
 
-- [ ] **Step 5: Verify board tests and build pass**
+- [x] **Step 5: Verify board tests and build pass**
 
 Run:
 
@@ -3100,7 +3100,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add web/src/components web/src/App.tsx web/src/styles.css
