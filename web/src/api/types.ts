@@ -73,3 +73,24 @@ export interface ListResult {
 export interface SnapshotResult {
   snapshot: Snapshot
 }
+
+export interface AnalysisNodeEvent {
+  gameId: string
+  nodeId: string
+  moveNumber: number
+  analysis: AnalysisResult
+}
+
+export interface ChartPoint {
+  moveNumber: number
+  winrate: number
+  scoreLead: number
+}
+
+export interface BadMove {
+  nodeId: string
+  moveNumber: number
+  move: string
+  pointLoss: number
+  class: number
+}

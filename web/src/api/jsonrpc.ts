@@ -10,6 +10,8 @@ interface PendingCall {
   reject(reason: unknown): void
 }
 
+type NotificationHandler = (params: unknown) => void
+
 export function buildProtocols(token: string): string[] {
   return ['jcgo-jsonrpc', `token.${token}`]
 }
@@ -22,6 +24,7 @@ export class RPCClient {
   private ws?: WebSocket
   private seq = 0
   private pending = new Map<string, PendingCall>()
+  private notifications = new Map<string, NotificationHandler[]>()
 
   connect(url: string, token: string): Promise<void> {
     this.ws = new WebSocket(url, buildProtocols(token))
@@ -42,8 +45,18 @@ export class RPCClient {
     })
   }
 
+  on(method: string, handler: NotificationHandler) {
+    const list = this.notifications.get(method) ?? []
+    list.push(handler)
+    this.notifications.set(method, list)
+  }
+
   private handleMessage(raw: string) {
     const message = JSON.parse(raw)
+    if (message.method && !message.id) {
+      for (const handler of this.notifications.get(String(message.method)) ?? []) handler(message.params)
+      return
+    }
     if (!message.id) return
     const pending = this.pending.get(String(message.id))
     if (!pending) return

@@ -3117,7 +3117,7 @@ git commit -m "feat: add board navigation variations"
 - Modify: `web/src/App.tsx`
 - Modify: `web/src/styles.css`
 
-- [ ] **Step 1: Write analysis panel test**
+- [x] **Step 1: Write analysis panel test**
 
 Create `web/src/components/AnalysisPanel.test.tsx`:
 
@@ -3151,7 +3151,7 @@ describe('AnalysisPanel', () => {
 })
 ```
 
-- [ ] **Step 2: Implement analysis panel**
+- [x] **Step 2: Implement analysis panel**
 
 Create `web/src/components/AnalysisPanel.tsx`:
 
@@ -3214,7 +3214,7 @@ function formatScore(scoreLead: number) {
 }
 ```
 
-- [ ] **Step 3: Implement charts**
+- [x] **Step 3: Implement charts**
 
 Create `web/src/components/AnalysisCharts.tsx`:
 
@@ -3249,7 +3249,7 @@ export function AnalysisCharts({ points, onJump }: AnalysisChartsProps) {
 }
 ```
 
-- [ ] **Step 4: Implement bad move list**
+- [x] **Step 4: Implement bad move list**
 
 Create `web/src/components/BadMoveList.tsx`:
 
@@ -3282,7 +3282,7 @@ export function BadMoveList({ badMoves, onJump }: BadMoveListProps) {
 }
 ```
 
-- [ ] **Step 5: Wire analysis notifications**
+- [x] **Step 5: Wire analysis notifications**
 
 Modify `web/src/api/jsonrpc.ts` to support notification listeners:
 
@@ -3299,7 +3299,7 @@ on(method: string, handler: NotificationHandler) {
 
 In `handleMessage`, when `message.method` exists and `message.id` is absent, call registered handlers. In `App.tsx`, handle `analysis.node` by updating a map keyed by `nodeId`, rebuilding chart points and bad move list.
 
-- [ ] **Step 6: Verify frontend analysis tests pass**
+- [x] **Step 6: Verify frontend analysis tests pass**
 
 Run:
 
@@ -3311,7 +3311,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add web/src/components web/src/api web/src/App.tsx web/src/styles.css

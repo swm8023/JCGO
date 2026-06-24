@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RPCClient } from './api/jsonrpc'
-import type { CandidateMove, GameRecord, ImportResult, ListResult, Snapshot, SnapshotResult } from './api/types'
+import type { AnalysisNodeEvent, BadMove, CandidateMove, ChartPoint, GameRecord, ImportResult, ListResult, Snapshot, SnapshotResult } from './api/types'
+import { AnalysisCharts } from './components/AnalysisCharts'
+import { AnalysisPanel } from './components/AnalysisPanel'
+import { BadMoveList } from './components/BadMoveList'
 import { Board } from './components/Board'
 import { GameSidebar } from './components/GameSidebar'
 import { ImportDialog } from './components/ImportDialog'
@@ -14,6 +17,9 @@ export default function App() {
   const [selectedGameId, setSelectedGameId] = useState<string>()
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [activePV, setActivePV] = useState<string[]>()
+  const [chartPoints, setChartPoints] = useState<ChartPoint[]>([])
+  const [badMoves, setBadMoves] = useState<BadMove[]>([])
+  const [analysisState, setAnalysisState] = useState<'idle' | 'running' | 'stopped' | 'complete' | 'unavailable'>('idle')
   const [showImport, setShowImport] = useState(false)
   const [error, setError] = useState<string>()
   const wsUrl = useMemo(() => websocketURL(), [])
@@ -22,6 +28,13 @@ export default function App() {
     if (!token) return
     const nextClient = new RPCClient()
     setClient(nextClient)
+    nextClient.on('analysis.node', (params) => {
+      const event = params as AnalysisNodeEvent
+      setChartPoints((current) => upsertChartPoint(current, event))
+      setBadMoves((current) => upsertBadMove(current, event))
+      setSnapshot((current) => (current?.gameId === event.gameId && current.nodeId === event.nodeId ? { ...current, analysis: event.analysis } : current))
+      setAnalysisState('running')
+    })
     nextClient
       .connect(wsUrl, token)
       .then(async () => {
@@ -54,6 +67,8 @@ export default function App() {
     setGames((current) => [result.game, ...current.filter((game) => game.gameId !== result.game.gameId)])
     setSelectedGameId(result.game.gameId)
     setSnapshot(result.snapshot)
+    setChartPoints([])
+    setBadMoves([])
     setActivePV(undefined)
     setShowImport(false)
   }
@@ -80,6 +95,8 @@ export default function App() {
     if (selectedGameId === gameId) {
       setSelectedGameId(undefined)
       setSnapshot(undefined)
+      setChartPoints([])
+      setBadMoves([])
     }
   }
 
@@ -127,6 +144,31 @@ export default function App() {
 
   const previewPV = (candidate: CandidateMove) => setActivePV(candidate.pv)
 
+  const startAnalysis = async () => {
+    if (!client || !selectedGameId) return
+    setAnalysisState('running')
+    try {
+      await client.call('analysis.start', { gameId: selectedGameId })
+    } catch (reason) {
+      setAnalysisState('unavailable')
+      setError(reason instanceof Error ? reason.message : 'analysis unavailable')
+    }
+  }
+
+  const stopAnalysis = async () => {
+    if (!client || !selectedGameId) return
+    await client.call('analysis.stop', { gameId: selectedGameId })
+    setAnalysisState('stopped')
+  }
+
+  const restartAnalysis = async () => {
+    if (!client || !selectedGameId) return
+    setChartPoints([])
+    setBadMoves([])
+    setAnalysisState('running')
+    await client.call('analysis.restart', { gameId: selectedGameId })
+  }
+
   return (
     <main className="app-layout">
       <GameSidebar
@@ -154,10 +196,51 @@ export default function App() {
         />
         {error && <p className="app-error">{error}</p>}
       </section>
-      <aside className="analysis-rail">Analysis</aside>
+      <aside className="analysis-rail">
+        <AnalysisPanel
+          engineStatus={{ available: analysisState !== 'unavailable', error }}
+          analysis={snapshot?.analysis}
+          analysisState={analysisState}
+          onStart={startAnalysis}
+          onStop={stopAnalysis}
+          onRestart={restartAnalysis}
+          onCandidateClick={playMove}
+        />
+        <AnalysisCharts points={chartPoints} onJump={(moveNumber) => void gotoMove(moveNumber)} />
+        <BadMoveList badMoves={badMoves} onJump={(moveNumber) => void gotoMove(moveNumber)} />
+      </aside>
       {showImport && <ImportDialog onImport={importGame} onCancel={() => setShowImport(false)} />}
     </main>
   )
+}
+
+function upsertChartPoint(points: ChartPoint[], event: AnalysisNodeEvent): ChartPoint[] {
+  const next = points.filter((point) => point.moveNumber !== event.moveNumber)
+  next.push({ moveNumber: event.moveNumber, winrate: event.analysis.winrate, scoreLead: event.analysis.scoreLead })
+  return next.sort((a, b) => a.moveNumber - b.moveNumber)
+}
+
+function upsertBadMove(moves: BadMove[], event: AnalysisNodeEvent): BadMove[] {
+  const candidate = event.analysis.candidates.find((move) => move.pointLoss > 1.5)
+  const next = moves.filter((move) => move.nodeId !== event.nodeId)
+  if (candidate) {
+    next.push({
+      nodeId: event.nodeId,
+      moveNumber: event.moveNumber,
+      move: candidate.move,
+      pointLoss: candidate.pointLoss,
+      class: mistakeClass(candidate.pointLoss),
+    })
+  }
+  return next.sort((a, b) => a.moveNumber - b.moveNumber)
+}
+
+function mistakeClass(pointLoss: number) {
+  if (pointLoss >= 12) return 0
+  if (pointLoss >= 6) return 1
+  if (pointLoss >= 3) return 2
+  if (pointLoss > 1.5) return 3
+  return 4
 }
 
 function websocketURL() {

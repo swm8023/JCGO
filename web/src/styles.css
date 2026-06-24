@@ -183,7 +183,62 @@ textarea {
 }
 
 .analysis-rail {
+  display: grid;
+  align-content: start;
+  gap: 12px;
   color: #405047;
+  overflow: auto;
+}
+
+.analysis-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.analysis-summary {
+  display: grid;
+  gap: 6px;
+}
+
+.analysis-summary button,
+.candidate-row,
+.analysis-charts button,
+.bad-move {
+  min-height: 32px;
+  border: 1px solid #c3c9c1;
+  border-radius: 6px;
+  background: #fffdf8;
+  color: #172026;
+  cursor: pointer;
+}
+
+.candidate-list,
+.analysis-charts,
+.bad-move-list {
+  display: grid;
+  gap: 6px;
+}
+
+.candidate-row,
+.analysis-charts button,
+.bad-move {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  align-items: center;
+  text-align: left;
+}
+
+.candidate-row {
+  grid-template-columns: 1fr 0.8fr 0.9fr 1fr 0.8fr;
+}
+
+.candidate-row.low-visits {
+  opacity: 0.55;
+}
+
+.engine-error {
+  color: #9d2f2f;
 }
 
 .app-error {
