@@ -34,10 +34,22 @@ describe('Board', () => {
                 visits: 500,
                 winrate: 0.5,
                 scoreLead: 0,
-                pointLoss: 0,
+                pointLoss: 0.3,
                 relativePointLoss: 0,
                 winrateLoss: 0,
                 pv: ['D16'],
+                lowVisits: false,
+              },
+              {
+                move: 'Q4',
+                order: 1,
+                visits: 1500,
+                winrate: 0.49,
+                scoreLead: -0.4,
+                pointLoss: -0.4,
+                relativePointLoss: 0,
+                winrateLoss: 0,
+                pv: ['Q4'],
                 lowVisits: false,
               },
             ],
@@ -60,6 +72,13 @@ describe('Board', () => {
     expect(board.querySelectorAll('.star-point')).toHaveLength(9)
     expect(board.querySelector('.star-point.tengen')).toBeInTheDocument()
     expect(screen.getByLabelText('Current move Q16')).toBeInTheDocument()
-    expect(screen.getByLabelText('Recommended next move D16')).toBeInTheDocument()
+    const candidateD16 = screen.getByLabelText('Recommended next move D16')
+    const candidateQ4 = screen.getByLabelText('Recommended next move Q4')
+    expect(candidateD16).toBeInTheDocument()
+    expect(candidateD16).toHaveTextContent('-0.3')
+    expect(candidateD16).toHaveTextContent('500')
+    expect(candidateQ4).toBeInTheDocument()
+    expect(candidateQ4).toHaveTextContent('+0.4')
+    expect(candidateQ4).toHaveTextContent('1.5k')
   })
 })

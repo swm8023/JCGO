@@ -75,6 +75,9 @@ export function Board({ snapshot, activePV, onPlay, onPreviewPV, onClearPV }: Bo
       {candidates.map((candidate) => {
         const point = gtpToPoint(candidate.move)
         if (!point) return null
+        const x = pad + point.x * gap
+        const y = pad + point.y * gap
+        const label = formatCandidate(candidate)
         return (
           <g
             key={candidate.move}
@@ -83,10 +86,13 @@ export function Board({ snapshot, activePV, onPlay, onPreviewPV, onClearPV }: Bo
             onClick={() => onPlay(candidate.move)}
             opacity={candidate.lowVisits ? 0.45 : 1}
           >
-            <circle cx={pad + point.x * gap} cy={pad + point.y * gap} r={gap * 0.34} fill={candidate.order === 0 ? '#4f8a5b' : '#e8c85c'} />
+            <circle cx={x} cy={y} r={gap * 0.34} fill={candidate.order === 0 ? '#4f8a5b' : '#e8c85c'} />
             {!candidate.lowVisits && (
-              <text x={pad + point.x * gap} y={pad + point.y * gap + 4} textAnchor="middle" fontSize="9">
-                {formatCandidate(candidate)}
+              <text x={x} y={y - 2} textAnchor="middle" fontSize="9" fill="#111">
+                <tspan x={x}>{label.deltaScore}</tspan>
+                <tspan x={x} dy="9" fontSize="8">
+                  {label.visits}
+                </tspan>
               </text>
             )}
           </g>
@@ -109,7 +115,21 @@ export function Board({ snapshot, activePV, onPlay, onPreviewPV, onClearPV }: Bo
 }
 
 function formatCandidate(candidate: CandidateMove) {
-  return `${candidate.pointLoss.toFixed(1)} ${candidate.visits}`
+  return {
+    deltaScore: formatLoss(-candidate.pointLoss),
+    visits: formatVisits(candidate.visits),
+  }
+}
+
+function formatLoss(value: number) {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}`
+}
+
+function formatVisits(visits: number) {
+  if (visits < 1000) return String(visits)
+  if (visits < 100000) return `${(visits / 1000).toFixed(1)}k`
+  if (visits < 1000000) return `${(visits / 1000).toFixed(0)}k`
+  return `${(visits / 1000000).toFixed(0)}M`
 }
 
 function gtpToPoint(gtp: string): { x: number; y: number } | null {
