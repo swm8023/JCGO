@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -10,6 +11,9 @@ type Game struct {
 	id               string
 	rules            string
 	komi             float64
+	blackName        string
+	whiteName        string
+	result           string
 	mainline         []node
 	variations       map[string]node
 	currentID        string
@@ -43,6 +47,8 @@ func NewEmpty(id, rules string, komi float64) *Game {
 		id:         id,
 		rules:      rules,
 		komi:       komi,
+		blackName:  "Black",
+		whiteName:  "White",
 		mainline:   []node{root},
 		variations: map[string]node{},
 		currentID:  root.id,
@@ -51,6 +57,9 @@ func NewEmpty(id, rules string, komi float64) *Game {
 
 func NewFromSGF(id string, doc SGFDocument) (*Game, error) {
 	g := NewEmpty(id, doc.Rules, doc.Komi)
+	g.blackName = doc.BlackName
+	g.whiteName = doc.WhiteName
+	g.result = doc.Result
 	for _, stone := range doc.InitialStones {
 		x, y, err := ParseGTP(stone.GTP)
 		if err != nil {
@@ -160,13 +169,8 @@ func (g *Game) ClearCurrentVariation() (Snapshot, error) {
 func (g *Game) snapshot(n node) Snapshot {
 	var lastMove *MoveView
 	if n.moveNumber > 0 {
-		lastMove = &MoveView{
-			NodeID:     n.id,
-			MoveNumber: n.moveNumber,
-			Color:      n.color,
-			GTP:        n.gtp,
-			Pass:       n.pass,
-		}
+		move := moveView(n)
+		lastMove = &move
 	}
 	return Snapshot{
 		GameID:        g.id,
@@ -176,14 +180,49 @@ func (g *Game) snapshot(n node) Snapshot {
 		BranchMode:    branchMode(n.id),
 		Stones:        n.board.stones(),
 		LastMove:      lastMove,
+		Children:      g.children(n),
 		ToPlay:        n.toPlay,
 		Rules:         g.rules,
 		Komi:          g.komi,
+		BlackName:     g.blackName,
+		WhiteName:     g.whiteName,
+		Result:        g.result,
 		Captures:      copyCaptures(n.captures),
 		GameEnded:     n.gameEnded,
 		CanPrevious:   n.parent != "",
 		CanNext:       g.canNext(n),
 		CanBackToMain: !isMainID(n.id),
+	}
+}
+
+func (g *Game) children(n node) []MoveView {
+	children := make([]MoveView, 0)
+	if isMainID(n.id) && n.moveNumber < len(g.mainline)-1 {
+		children = append(children, moveView(g.mainline[n.moveNumber+1]))
+	}
+
+	var variations []node
+	for _, variation := range g.variations {
+		if variation.parent == n.id {
+			variations = append(variations, variation)
+		}
+	}
+	sort.SliceStable(variations, func(i, j int) bool {
+		return variations[i].id < variations[j].id
+	})
+	for _, variation := range variations {
+		children = append(children, moveView(variation))
+	}
+	return children
+}
+
+func moveView(n node) MoveView {
+	return MoveView{
+		NodeID:     n.id,
+		MoveNumber: n.moveNumber,
+		Color:      n.color,
+		GTP:        n.gtp,
+		Pass:       n.pass,
 	}
 }
 

@@ -30,15 +30,34 @@ export interface Snapshot {
   branchMode: 'main' | 'variation'
   stones: Stone[]
   lastMove?: MoveView
+  children: MoveView[]
   toPlay: Color
   rules: string
   komi: number
+  blackName?: string
+  whiteName?: string
+  result?: string
   captures: Record<Color, number>
   gameEnded: boolean
   canPrevious: boolean
   canNext: boolean
   canBackToMain: boolean
   analysis?: AnalysisResult
+}
+
+export interface RootAnalysis {
+  winrate: number
+  scoreLead: number
+  visits: number
+}
+
+export interface CandidateRaw {
+  move: string
+  order: number
+  visits: number
+  winrate: number
+  scoreLead: number
+  pv: string[]
 }
 
 export interface CandidateMove {
@@ -88,14 +107,66 @@ export interface BadMove {
   color: Color
   move: string
   pointLoss: number
-  class: number
+  class?: number
 }
 
-export interface WorkspaceState {
+export interface StatePayload {
+  type: 'state'
+  schema: number
   games: GameRecord[]
-  selectedGameId?: string
-  snapshot?: Snapshot
-  chartPoints: ChartPoint[]
-  badMoves: BadMove[]
+  gameId?: string
+  currentNodeId?: string
   analysisState: AnalysisState
+  snapshot?: Snapshot
+  timeline?: TimelineColumns
+  badMoves?: BadMoveColumns
+  variation?: VariationState
+  current?: CurrentNodeState
+}
+
+export interface TimelineColumns {
+  nodeIds: string[]
+  moves: (string | null)[]
+  moveColors: (Color | null)[]
+  passes: boolean[]
+  toPlays: Color[]
+  rootWinrates: (number | null)[]
+  rootScoreLeads: (number | null)[]
+  rootVisits: (number | null)[]
+  playedPointLosses: (number | null)[]
+}
+
+export interface BadMoveColumns {
+  nodeIds: string[]
+  moveNumbers: number[]
+  colors: Color[]
+  moves: string[]
+  pointLosses: number[]
+}
+
+export interface VariationState {
+  baseNodeId: string
+  baseMoveNumber: number
+  currentNodeId: string
+  timeline: TimelineColumns
+}
+
+export interface CurrentNodeState {
+  nodeId: string
+  candidates: CandidateColumns
+  ownership?: EncodedOwnership
+}
+
+export interface CandidateColumns {
+  moves: string[]
+  orders: number[]
+  visits: number[]
+  winrates: number[]
+  scoreLeads: number[]
+  pvs: string[][]
+}
+
+export interface EncodedOwnership {
+  encoding: 'q8-base64'
+  data: string
 }

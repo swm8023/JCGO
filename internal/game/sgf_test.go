@@ -28,6 +28,19 @@ func TestParseSGFDefaultsRulesAndKomi(t *testing.T) {
 	}
 }
 
+func TestParseSGFReadsPlayerNamesResultRulesAndKomi(t *testing.T) {
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]KM[6.5]RU[japanese]PB[Lee]PW[Cho]RE[W+1.5];B[pd];W[dd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if doc.BlackName != "Lee" || doc.WhiteName != "Cho" {
+		t.Fatalf("players = %q/%q", doc.BlackName, doc.WhiteName)
+	}
+	if doc.Result != "W+1.5" || doc.Rules != "japanese" || doc.Komi != 6.5 {
+		t.Fatalf("metadata = result %q rules %q komi %.1f", doc.Result, doc.Rules, doc.Komi)
+	}
+}
+
 func TestParseSGFRejectsNonRootSetup(t *testing.T) {
 	_, err := ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd]AB[dd])`)
 	if err == nil {

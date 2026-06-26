@@ -24,6 +24,58 @@ func TestLoadMainlineAndSnapshots(t *testing.T) {
 	if snap.ToPlay != Black || !snap.CanPrevious || !snap.CanNext || snap.CanBackToMain {
 		t.Fatalf("navigation snapshot = %#v", snap)
 	}
+	if len(snap.Children) != 1 || snap.Children[0].GTP != "R4" || snap.Children[0].Color != Black {
+		t.Fatalf("children = %#v", snap.Children)
+	}
+}
+
+func TestSnapshotIncludesGameInfo(t *testing.T) {
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese]PB[Black A]PW[White B]RE[B+R];B[pd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := NewFromSGF("game-1", doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := g.CurrentSnapshot()
+	if snap.BlackName != "Black A" || snap.WhiteName != "White B" {
+		t.Fatalf("snapshot players = %q/%q", snap.BlackName, snap.WhiteName)
+	}
+	if snap.Result != "B+R" || snap.Komi != 7.5 || snap.Rules != "chinese" {
+		t.Fatalf("snapshot metadata = %#v", snap)
+	}
+}
+
+func TestSnapshotIncludesMainlineAndVariationChildren(t *testing.T) {
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd];W[dd];B[qp])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := NewFromSGF("game-1", doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.GotoMain(1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.PlayVariation(White, "Q4"); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := g.BackToMain()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(snap.Children) != 2 {
+		t.Fatalf("children = %#v", snap.Children)
+	}
+	if snap.Children[0].NodeID != "main:2" || snap.Children[0].MoveNumber != 2 || snap.Children[0].Color != White || snap.Children[0].GTP != "D16" {
+		t.Fatalf("main child = %#v", snap.Children[0])
+	}
+	if snap.Children[1].MoveNumber != 2 || snap.Children[1].Color != White || snap.Children[1].GTP != "Q4" {
+		t.Fatalf("variation child = %#v", snap.Children[1])
+	}
 }
 
 func TestRootSetupAndHandicapToPlay(t *testing.T) {

@@ -24,6 +24,8 @@ type SGFDocument struct {
 	Rules         string
 	Komi          float64
 	Result        string
+	BlackName     string
+	WhiteName     string
 	InitialStones []SetupStone
 	Mainline      []Move
 }
@@ -43,6 +45,8 @@ func ParseSGF(input string) (SGFDocument, error) {
 		Rules:     "chinese",
 		Komi:      7.5,
 		Result:    first(root["RE"]),
+		BlackName: first(root["PB"]),
+		WhiteName: first(root["PW"]),
 	}
 	if size := first(root["SZ"]); size != "" {
 		parsed, err := strconv.Atoi(size)

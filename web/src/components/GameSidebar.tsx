@@ -1,4 +1,5 @@
 import type { AnalysisState, GameRecord } from '../api/types'
+import type { ReactNode } from 'react'
 
 interface GameSidebarProps {
   games: GameRecord[]
@@ -15,6 +16,7 @@ interface GameSidebarProps {
   onStartAnalysis(): void
   onStopAnalysis(): void
   onRestartAnalysis(): void
+  toolbarSlot?: ReactNode
 }
 
 export function GameSidebar({
@@ -32,6 +34,7 @@ export function GameSidebar({
   onStartAnalysis,
   onStopAnalysis,
   onRestartAnalysis,
+  toolbarSlot,
 }: GameSidebarProps) {
   const analysisAction = analysisButton(analysisState, onStartAnalysis, onStopAnalysis, onRestartAnalysis)
   const disabled = !selectedGameId || (!analysisAvailable && analysisState !== 'running')
@@ -48,6 +51,7 @@ export function GameSidebar({
             +
           </button>
         </div>
+        {toolbarSlot}
       </div>
       <div className="sidebar-analysis">
         <button className="analysis-action-button" aria-label={analysisAction.label} onClick={analysisAction.onClick} disabled={disabled}>

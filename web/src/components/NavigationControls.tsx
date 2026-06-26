@@ -2,14 +2,13 @@ interface NavigationControlsProps {
   moveNumber: number
   totalMoves: number
   canBackToMain: boolean
+  tryMode: boolean
   onFirst(): void
   onPrevious(): void
   onNext(): void
   onLast(): void
-  onBackToMain(): void
-  onPass(): void
-  onDeleteVariationNode(): void
-  onClearVariation(): void
+  onEnterTryMode(): void
+  onExitTryMode(): void
 }
 
 export function NavigationControls(props: NavigationControlsProps) {
@@ -30,14 +29,17 @@ export function NavigationControls(props: NavigationControlsProps) {
       <button aria-label="Last move" onClick={props.onLast}>
         &gt;|
       </button>
-      {props.canBackToMain && (
-        <button aria-label="Back to main line" onClick={props.onBackToMain}>
-          Main
+      {(props.tryMode || props.canBackToMain) && (
+        <button aria-label="Exit try mode" onClick={props.onExitTryMode}>
+          <span className="wide-label">退出试下</span>
+          <span className="narrow-label">退出</span>
         </button>
       )}
-      <button onClick={props.onPass}>Pass</button>
-      <button onClick={props.onDeleteVariationNode}>Delete node</button>
-      <button onClick={props.onClearVariation}>Clear branch</button>
+      {!props.tryMode && !props.canBackToMain && (
+        <button aria-label="Try selected recommendation" onClick={props.onEnterTryMode}>
+          试下
+        </button>
+      )}
     </nav>
   )
 }

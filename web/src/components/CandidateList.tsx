@@ -2,7 +2,7 @@ import type { CandidateMove } from '../api/types'
 
 interface CandidateListProps {
   candidates: CandidateMove[]
-  onCandidateClick(move: string): void
+  onCandidateClick(candidate: CandidateMove): void
   emptyLabel?: string
 }
 
@@ -22,7 +22,7 @@ export function CandidateListContent({ candidates, onCandidateClick, emptyLabel 
   return (
     <div className="candidate-list">
       {candidates.map((candidate) => (
-        <CandidateRow key={candidate.move} candidate={candidate} onClick={() => onCandidateClick(candidate.move)} />
+        <CandidateRow key={candidate.move} candidate={candidate} onClick={() => onCandidateClick(candidate)} />
       ))}
     </div>
   )

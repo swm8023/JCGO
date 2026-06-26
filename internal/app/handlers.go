@@ -19,6 +19,7 @@ type AnalysisController interface {
 	StartGame(StartInput)
 	StopGame(token, gameID string)
 	RestartGame(StartInput)
+	AnalyzeNow(StartInput)
 	Subscribe(Subscriber) func()
 	Status() katago.Status
 }
@@ -55,7 +56,11 @@ func NewHandler(repo *store.Repository, files store.FileStore, workspaces *Works
 	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis}
 	if analysis != nil {
 		analysis.Subscribe(func(event Event) {
-			h.workspaces.ForToken(event.Token).SetAnalysis(event.GameID, event.NodeID, event.Analysis)
+			ws := h.workspaces.ForToken(event.Token)
+			ws.SetAnalysis(event.GameID, event.NodeID, event.Analysis)
+			if !event.IsDuringSearch && strings.HasPrefix(event.NodeID, "main:") {
+				h.persistMainlineAnalysis(context.Background(), event.GameID, ws)
+			}
 		})
 	}
 	return h
@@ -210,99 +215,124 @@ func (h *Handler) delete(ctx context.Context, token string, params json.RawMessa
 	if err := h.files.DeleteSGF(record.SGFFilename); err != nil {
 		return DeleteResult{}, err
 	}
+	if err := h.files.DeleteAnalysis(record.SGFFilename); err != nil {
+		return DeleteResult{}, err
+	}
 	h.workspaces.ForToken(token).RemoveGame(in.GameID)
 	return DeleteResult{GameID: in.GameID}, nil
 }
 
-func (h *Handler) selectGame(ctx context.Context, token string, params json.RawMessage) (SnapshotResult, error) {
+func (h *Handler) selectGame(ctx context.Context, token string, params json.RawMessage) (any, error) {
 	var in gameIDParams
 	if err := decodeParams(params, &in); err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
-	snapshot, err := ws.SelectGame(in.GameID)
-	return SnapshotResult{Snapshot: snapshot}, err
+	if _, err := ws.SelectGame(in.GameID); err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
 }
 
-func (h *Handler) gotoMain(ctx context.Context, token string, params json.RawMessage) (SnapshotResult, error) {
+func (h *Handler) gotoMain(ctx context.Context, token string, params json.RawMessage) (any, error) {
 	var in gotoParams
 	if err := decodeParams(params, &in); err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
-	snapshot, err := ws.GotoMain(in.GameID, in.MoveNumber)
-	return SnapshotResult{Snapshot: snapshot}, err
+	if _, err := ws.GotoMain(in.GameID, in.MoveNumber); err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
 }
 
-func (h *Handler) play(ctx context.Context, token string, params json.RawMessage) (SnapshotResult, error) {
+func (h *Handler) play(ctx context.Context, token string, params json.RawMessage) (any, error) {
 	var in playParams
 	if err := decodeParams(params, &in); err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	snapshot, err := ws.Play(in.GameID, in.Move)
-	return SnapshotResult{Snapshot: snapshot}, err
+	if err == nil {
+		h.analyzeCurrentNode(token, ws, in.GameID, snapshot.NodeID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
 }
 
-func (h *Handler) pass(ctx context.Context, token string, params json.RawMessage) (SnapshotResult, error) {
+func (h *Handler) pass(ctx context.Context, token string, params json.RawMessage) (any, error) {
 	var in gameIDParams
 	if err := decodeParams(params, &in); err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	snapshot, err := ws.Pass(in.GameID)
-	return SnapshotResult{Snapshot: snapshot}, err
+	if err == nil {
+		h.analyzeCurrentNode(token, ws, in.GameID, snapshot.NodeID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
 }
 
-func (h *Handler) backToMain(ctx context.Context, token string, params json.RawMessage) (SnapshotResult, error) {
+func (h *Handler) backToMain(ctx context.Context, token string, params json.RawMessage) (any, error) {
 	var in gameIDParams
 	if err := decodeParams(params, &in); err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
-	snapshot, err := ws.BackToMain(in.GameID)
-	return SnapshotResult{Snapshot: snapshot}, err
+	if _, err := ws.BackToMain(in.GameID); err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
 }
 
-func (h *Handler) deleteVariationNode(ctx context.Context, token string, params json.RawMessage) (SnapshotResult, error) {
+func (h *Handler) deleteVariationNode(ctx context.Context, token string, params json.RawMessage) (any, error) {
 	var in gameIDParams
 	if err := decodeParams(params, &in); err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
-	snapshot, err := ws.DeleteVariationNode(in.GameID)
-	return SnapshotResult{Snapshot: snapshot}, err
+	if _, err := ws.DeleteVariationNode(in.GameID); err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
 }
 
-func (h *Handler) clearVariation(ctx context.Context, token string, params json.RawMessage) (SnapshotResult, error) {
+func (h *Handler) clearVariation(ctx context.Context, token string, params json.RawMessage) (any, error) {
 	var in gameIDParams
 	if err := decodeParams(params, &in); err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
-	snapshot, err := ws.ClearVariation(in.GameID)
-	return SnapshotResult{Snapshot: snapshot}, err
+	if _, err := ws.ClearVariation(in.GameID); err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
 }
 
 func (h *Handler) workspaceSnapshot(ctx context.Context, token string, params json.RawMessage) (SnapshotResult, error) {
@@ -318,27 +348,27 @@ func (h *Handler) workspaceSnapshot(ctx context.Context, token string, params js
 	return SnapshotResult{Snapshot: snapshot}, err
 }
 
-func (h *Handler) analysisCall(ctx context.Context, token string, params json.RawMessage, action string) (SnapshotResult, error) {
+func (h *Handler) analysisCall(ctx context.Context, token string, params json.RawMessage, action string) (any, error) {
 	var in gameIDParams
 	if err := decodeParams(params, &in); err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	if h.analysis == nil {
-		return SnapshotResult{}, errors.New("analysis is unavailable")
+		return nil, errors.New("analysis is unavailable")
 	}
 	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	snapshot, err := ws.CurrentSnapshot(in.GameID)
 	if err != nil {
-		return SnapshotResult{}, err
+		return nil, err
 	}
 	input := StartInput{
 		Token:       token,
 		GameID:      in.GameID,
 		FocusNodeID: snapshot.NodeID,
-		Nodes:       ws.MainlineAnalysisInputs(in.GameID),
+		Nodes:       ws.MissingMainlineAnalysisInputs(in.GameID),
 	}
 	switch action {
 	case "start":
@@ -350,14 +380,21 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 	case "restart":
 		snapshot, err = ws.ClearAnalysisAndVariations(in.GameID, snapshot.NodeID)
 		if err != nil {
-			return SnapshotResult{}, err
+			return nil, err
+		}
+		record, err := h.repo.GetGame(ctx, in.GameID)
+		if err != nil {
+			return nil, err
+		}
+		if err := h.files.DeleteAnalysis(record.SGFFilename); err != nil {
+			return nil, err
 		}
 		input.FocusNodeID = snapshot.NodeID
 		input.Nodes = ws.MainlineAnalysisInputs(in.GameID)
 		ws.MarkAnalysisStarted(in.GameID)
 		h.analysis.RestartGame(input)
 	}
-	return SnapshotResult{Snapshot: snapshot}, err
+	return h.workspaceState(ctx, token)
 }
 
 func (h *Handler) ensureWorkspaceGame(ctx context.Context, token string, gameID string) (*Workspace, error) {
@@ -380,7 +417,24 @@ func (h *Handler) ensureWorkspaceGame(ctx context.Context, token string, gameID 
 	if err := ws.LoadGame(gameID, doc); err != nil {
 		return nil, err
 	}
+	h.loadPersistedAnalysis(ws, record)
 	return ws, nil
+}
+
+func (h *Handler) analyzeCurrentNode(token string, ws *Workspace, gameID string, nodeID string) {
+	if h.analysis == nil {
+		return
+	}
+	input, ok := ws.CurrentAnalysisInput(gameID)
+	if !ok || input.NodeID != nodeID {
+		return
+	}
+	h.analysis.AnalyzeNow(StartInput{
+		Token:       token,
+		GameID:      gameID,
+		FocusNodeID: nodeID,
+		Nodes:       []NodeInput{input},
+	})
 }
 
 func decodeParams(params json.RawMessage, out any) error {

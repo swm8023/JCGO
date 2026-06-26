@@ -27,42 +27,47 @@ type MoveView struct {
 }
 
 type Snapshot struct {
-	GameID        string          `json:"gameId"`
-	NodeID        string          `json:"nodeId"`
-	MoveNumber    int             `json:"moveNumber"`
-	TotalMoves    int             `json:"totalMoves"`
-	BranchMode    string          `json:"branchMode"`
-	Stones        []Stone         `json:"stones"`
-	LastMove      *MoveView       `json:"lastMove,omitempty"`
-	ToPlay        Color           `json:"toPlay"`
-	Rules         string          `json:"rules"`
-	Komi          float64         `json:"komi"`
-	Captures      map[Color]int   `json:"captures"`
-	GameEnded     bool            `json:"gameEnded"`
-	CanPrevious   bool            `json:"canPrevious"`
-	CanNext       bool            `json:"canNext"`
-	CanBackToMain bool            `json:"canBackToMain"`
-	Analysis      *AnalysisResult `json:"analysis,omitempty"`
+	GameID        string        `json:"gameId"`
+	NodeID        string        `json:"nodeId"`
+	MoveNumber    int           `json:"moveNumber"`
+	TotalMoves    int           `json:"totalMoves"`
+	BranchMode    string        `json:"branchMode"`
+	Stones        []Stone       `json:"stones"`
+	LastMove      *MoveView     `json:"lastMove,omitempty"`
+	Children      []MoveView    `json:"children"`
+	ToPlay        Color         `json:"toPlay"`
+	Rules         string        `json:"rules"`
+	Komi          float64       `json:"komi"`
+	BlackName     string        `json:"blackName"`
+	WhiteName     string        `json:"whiteName"`
+	Result        string        `json:"result"`
+	Captures      map[Color]int `json:"captures"`
+	GameEnded     bool          `json:"gameEnded"`
+	CanPrevious   bool          `json:"canPrevious"`
+	CanNext       bool          `json:"canNext"`
+	CanBackToMain bool          `json:"canBackToMain"`
 }
 
 type AnalysisResult struct {
-	Winrate    float64         `json:"winrate"`
-	ScoreLead  float64         `json:"scoreLead"`
-	Visits     int             `json:"visits"`
-	Candidates []CandidateMove `json:"candidates"`
+	Root        RootAnalysis   `json:"root"`
+	Candidates  []CandidateRaw `json:"candidates"`
+	OwnershipQ8 []byte         `json:"-"`
+	Policy      []float64      `json:"policy,omitempty"`
 }
 
-type CandidateMove struct {
-	Move              string   `json:"move"`
-	Order             int      `json:"order"`
-	Visits            int      `json:"visits"`
-	Winrate           float64  `json:"winrate"`
-	ScoreLead         float64  `json:"scoreLead"`
-	PointLoss         float64  `json:"pointLoss"`
-	RelativePointLoss float64  `json:"relativePointLoss"`
-	WinrateLoss       float64  `json:"winrateLoss"`
-	PV                []string `json:"pv"`
-	LowVisits         bool     `json:"lowVisits"`
+type RootAnalysis struct {
+	Winrate   float64 `json:"winrate"`
+	ScoreLead float64 `json:"scoreLead"`
+	Visits    int     `json:"visits"`
+}
+
+type CandidateRaw struct {
+	Move      string   `json:"move"`
+	Order     int      `json:"order"`
+	Visits    int      `json:"visits"`
+	Winrate   float64  `json:"winrate"`
+	ScoreLead float64  `json:"scoreLead"`
+	PV        []string `json:"pv"`
 }
 
 type BadMove struct {

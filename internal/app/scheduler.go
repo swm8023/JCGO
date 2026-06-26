@@ -18,11 +18,12 @@ type StartInput struct {
 }
 
 type Event struct {
-	Token      string              `json:"-"`
-	GameID     string              `json:"gameId"`
-	NodeID     string              `json:"nodeId"`
-	MoveNumber int                 `json:"moveNumber"`
-	Analysis   game.AnalysisResult `json:"analysis"`
+	Token          string              `json:"-"`
+	GameID         string              `json:"gameId"`
+	NodeID         string              `json:"nodeId"`
+	MoveNumber     int                 `json:"moveNumber"`
+	Analysis       game.AnalysisResult `json:"analysis"`
+	IsDuringSearch bool                `json:"isDuringSearch,omitempty"`
 }
 
 type Subscriber func(Event)
@@ -117,6 +118,7 @@ func (s *Scheduler) run() {
 				Komi:          task.node.Komi,
 				MaxVisits:     s.maxVisits,
 				InitialStones: task.node.InitialStones,
+				InitialPlayer: string(task.node.InitialPlayer),
 				Moves:         task.node.Moves,
 				AnalyzeTurn:   task.node.MoveNumber,
 			})
@@ -150,11 +152,12 @@ func (s *Scheduler) enqueue(task task) {
 
 func (s *Scheduler) publishAnalysis(task task, result katago.Result) {
 	s.publish(Event{
-		Token:      task.token,
-		GameID:     task.gameID,
-		NodeID:     task.node.NodeID,
-		MoveNumber: task.node.MoveNumber,
-		Analysis:   game.NormalizeAnalysis(task.node.ToPlay, result),
+		Token:          task.token,
+		GameID:         task.gameID,
+		NodeID:         task.node.NodeID,
+		MoveNumber:     task.node.MoveNumber,
+		Analysis:       game.NormalizeAnalysis(task.node.ToPlay, result),
+		IsDuringSearch: result.IsDuringSearch,
 	})
 }
 

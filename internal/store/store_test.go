@@ -93,3 +93,29 @@ func TestFileStoreWritesReadsAndDeletesSGF(t *testing.T) {
 		t.Fatalf("expected deleted file, stat err = %v", err)
 	}
 }
+
+func TestFileStoreWritesReadsAndDeletesAnalysisNextToSGF(t *testing.T) {
+	dir := t.TempDir()
+	files := NewFileStore(dir)
+
+	path, err := files.WriteAnalysis("game-1.sgf", []byte(`{"schema":1}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(path) != "game-1.analysis.json" {
+		t.Fatalf("path = %s", path)
+	}
+	data, err := files.ReadAnalysis("game-1.sgf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"schema":1}` {
+		t.Fatalf("analysis = %s", data)
+	}
+	if err := files.DeleteAnalysis("game-1.sgf"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("expected deleted analysis file, stat err = %v", err)
+	}
+}

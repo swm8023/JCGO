@@ -56,7 +56,7 @@ func (b *board) play(color Color, x, y int, forbidden *Point) (int, *Point, erro
 }
 
 func (b board) stones() []Stone {
-	var stones []Stone
+	stones := make([]Stone, 0)
 	for y := 0; y < 19; y++ {
 		for x := 0; x < 19; x++ {
 			if b.grid[y][x] != "" {

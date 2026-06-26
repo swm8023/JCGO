@@ -14,6 +14,8 @@ type Result struct {
 	ID             string     `json:"id"`
 	RootInfo       RootInfo   `json:"rootInfo"`
 	MoveInfos      []MoveInfo `json:"moveInfos"`
+	Ownership      []float64  `json:"ownership,omitempty"`
+	Policy         []float64  `json:"policy,omitempty"`
 	IsDuringSearch bool       `json:"isDuringSearch,omitempty"`
 	Error          string     `json:"error,omitempty"`
 }

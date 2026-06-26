@@ -32,6 +32,7 @@ type BuildInput struct {
 	Komi          float64
 	MaxVisits     int
 	InitialStones []Stone
+	InitialPlayer string
 	Moves         []Move
 	AnalyzeTurn   int
 }
@@ -46,9 +47,11 @@ func BuildQuery(in BuildInput) Query {
 		Komi:                    in.Komi,
 		BoardXSize:              19,
 		BoardYSize:              19,
+		IncludeOwnership:        true,
+		IncludeMovesOwnership:   false,
 		IncludePolicy:           true,
 		InitialStones:           make([][2]string, 0),
-		InitialPlayer:           "B",
+		InitialPlayer:           initialPlayer(in.InitialPlayer),
 		Moves:                   make([][2]string, 0),
 	}
 	for _, stone := range in.InitialStones {
@@ -58,4 +61,11 @@ func BuildQuery(in BuildInput) Query {
 		query.Moves = append(query.Moves, [2]string{move.Player, move.Move})
 	}
 	return query
+}
+
+func initialPlayer(player string) string {
+	if player == "W" {
+		return "W"
+	}
+	return "B"
 }

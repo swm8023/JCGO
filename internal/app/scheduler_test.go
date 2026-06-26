@@ -10,14 +10,17 @@ import (
 )
 
 type fakeAnalyzer struct {
-	calls []string
+	calls   []string
+	queries []katago.Query
 }
 
 func (f *fakeAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
 	f.calls = append(f.calls, query.ID)
+	f.queries = append(f.queries, query)
 	return katago.Result{
 		ID:       query.ID,
 		RootInfo: katago.RootInfo{Visits: 500, Winrate: 0.5, ScoreLead: 0},
+		Policy:   []float64{0.2, 0.8},
 		MoveInfos: []katago.MoveInfo{
 			{Move: "Q16", Order: 0, Visits: 500, Winrate: 0.5, ScoreLead: 0},
 		},
@@ -85,6 +88,32 @@ func TestSchedulerPublishesAnalysisEvents(t *testing.T) {
 	}
 }
 
+func TestSchedulerBuildsQueriesWithPolicyAndInitialPlayer(t *testing.T) {
+	engine := &fakeAnalyzer{}
+	scheduler := NewScheduler(engine, 500)
+	defer scheduler.Close()
+
+	received := make(chan Event, 1)
+	scheduler.Subscribe(func(event Event) { received <- event })
+	scheduler.StartGame(StartInput{
+		Token:       "secret",
+		GameID:      "game-1",
+		FocusNodeID: "main:0",
+		Nodes: []NodeInput{
+			{NodeID: "main:0", MoveNumber: 0, ToPlay: game.White, InitialPlayer: game.White, Rules: "chinese", Komi: 7.5},
+		},
+	})
+	_ = waitSchedulerEvent(t, received)
+
+	if len(engine.queries) != 1 {
+		t.Fatalf("queries = %#v", engine.queries)
+	}
+	query := engine.queries[0]
+	if query.InitialPlayer != "W" || !query.IncludePolicy {
+		t.Fatalf("query = %#v", query)
+	}
+}
+
 func TestSchedulerPublishesSearchProgressEvents(t *testing.T) {
 	engine := &fakeProgressAnalyzer{}
 	scheduler := NewScheduler(engine, 500)
@@ -102,11 +131,11 @@ func TestSchedulerPublishesSearchProgressEvents(t *testing.T) {
 	})
 
 	first := waitSchedulerEvent(t, received)
-	if first.Analysis.Visits != 37 || first.Analysis.Candidates[0].Move != "D4" {
+	if first.Analysis.Root.Visits != 37 || first.Analysis.Candidates[0].Move != "D4" {
 		t.Fatalf("progress event analysis = %#v", first.Analysis)
 	}
 	second := waitSchedulerEvent(t, received)
-	if second.Analysis.Visits != 500 || second.Analysis.Candidates[0].Move != "Q16" {
+	if second.Analysis.Root.Visits != 500 || second.Analysis.Candidates[0].Move != "Q16" {
 		t.Fatalf("final event analysis = %#v", second.Analysis)
 	}
 }

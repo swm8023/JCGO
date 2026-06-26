@@ -2,8 +2,11 @@
   "name": "JCGO",
   "short_name": "JCGO",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f1e8",
-  "theme_color": "#2f5d50",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#1e293b",
+  "theme_color": "#1e293b",
   "icons": []
 }

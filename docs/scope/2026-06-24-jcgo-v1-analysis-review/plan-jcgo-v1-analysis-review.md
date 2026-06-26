@@ -1,1194 +1,102 @@
-# JCGO v1 Analysis Review Implementation Plan
+# JCGO v1 Analysis Review Refresh Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the confirmed JCGO v1 remote single-token Go/React KataGo analysis review loop from SGF import through live analysis, board review, variations, charts, and responsive PWA shell.
+**Goal:** Update the current JCGO v1 implementation to the confirmed KaTrain-aligned analysis state, ownership rendering, variation behavior, and responsive board UI described in the refreshed spec.
 
-**Architecture:** A Go server owns SGF parsing, game rules, token-scoped workspaces, SQLite/file persistence, JSON-RPC over WebSocket, and one long-running KataGo analysis process. A React + TypeScript + Vite PWA renders server snapshots, uploads SGF text over WebSocket, and provides a KaTrain-inspired board, PV, analysis panel, charts, and game list without becoming the authoritative game engine.
+**Architecture:** The Go backend remains the game-rule and analysis authority, but its workspace cache changes from per-snapshot object results to per-game main/variation analysis stores that can emit columnar state payloads. The React frontend consumes those columnar payloads, derives display-only metrics locally, and renders board overlays in fixed layers with local toggle preferences.
 
-**Tech Stack:** Go 1.23+, `net/http`, Gorilla WebSocket, `modernc.org/sqlite`, React, TypeScript, Vite, ECharts, Vitest, Testing Library, Playwright, KataGo Analysis Engine JSON protocol.
+**Tech Stack:** Go, Gorilla WebSocket, KataGo Analysis Engine JSON, React, TypeScript, Vite, Vitest, Testing Library, Playwright.
 
 ---
 
 ## Reference Inputs
 
 - Product spec: `docs/scope/2026-06-24-jcgo-v1-analysis-review/spec-jcgo-v1-analysis-review.md`
-- KaTrain feature inventory: `docs/research/katrain-feature-inventory.md`
-- Local KaTrain reference source:
-  - `D:\Code\katrain\katrain\core\sgf_parser.py`
-  - `D:\Code\katrain\katrain\core\game.py`
+- Existing implementation entry points:
+  - `internal/app/workspace.go`
+  - `internal/app/handlers.go`
+  - `internal/app/scheduler.go`
+  - `internal/game/analysis.go`
+  - `internal/game/game.go`
+  - `internal/game/sgf.go`
+  - `internal/game/types.go`
+  - `internal/katago/query.go`
+  - `internal/katago/engine.go`
+  - `web/src/api/types.ts`
+  - `web/src/App.tsx`
+  - `web/src/components/Board.tsx`
+  - `web/src/components/AnalysisCharts.tsx`
+  - `web/src/components/GameSidebar.tsx`
+- KaTrain reference source:
   - `D:\Code\katrain\katrain\core\game_node.py`
-  - `D:\Code\katrain\katrain\core\engine.py`
   - `D:\Code\katrain\katrain\gui\badukpan.py`
+  - `D:\Code\katrain\katrain\gui\theme.py`
   - `D:\Code\katrain\katrain\config.json`
 
 ## Planned File Structure
 
-Create a small number of backend packages. In Go, package boundaries should be stable dependency boundaries, not a folder taxonomy. v1 should start with fewer packages and multiple focused files inside each package; split later only after the seams prove stable.
+Backend additions and refactors:
 
-- `cmd/jcgo/main.go` - process entrypoint, config load, service startup, graceful shutdown.
-- `internal/config/config.go` - environment/config-file loader and validated runtime config.
-- `internal/game/types.go` - colors, moves, stones, snapshots, analysis values.
-- `internal/game/sgf.go` - v1 SGF parser, import validation, mainline extraction.
-- `internal/game/board.go` - 19x19 board state, captures, ko, pass, initial stones.
-- `internal/game/game.go` - mainline nodes, snapshots, navigation, variation mutations.
-- `internal/game/analysis.go` - point loss, candidate ordering, KaTrain thresholds, chart/bad-move helpers.
-- `internal/app/workspace.go` - token-scoped in-memory games, variations, analysis cache, selected state.
-- `internal/app/scheduler.go` - single global analysis queue, start/stop/restart, node-level notifications.
-- `internal/app/handlers.go` - JSON-RPC method dispatch for games, navigation, variation, analysis, workspace.
-- `internal/katago/query.go` - KataGo query/result structs.
-- `internal/katago/engine.go` - local KataGo process lifecycle and stdin/stdout JSON lines.
-- `internal/store/repository.go` - SQLite schema and game metadata CRUD.
-- `internal/store/files.go` - SGF file path generation, safe writes, safe deletes.
-- `internal/server/jsonrpc.go` - JSON-RPC 2.0 request/response/notification types and error helpers.
-- `internal/server/server.go` - static file serving, WebSocket upgrade, token subprotocol validation, WebSocket request loop.
-- `internal/testutil/fixtures.go` - SGF fixtures and fake KataGo result helpers.
+- `internal/game/types.go` - SGF/game metadata, raw analysis DTOs, columnar payload DTOs.
+- `internal/game/sgf.go` - parse `PB`, `PW`, `RE`, `KM`, `RU`.
+- `internal/game/game.go` - expose game metadata and variation timeline inputs.
+- `internal/game/analysis.go` - keep KaTrain thresholds, raw candidate normalization, played point loss helpers, q8 ownership encoding helpers.
+- `internal/katago/query.go` - request ownership and disable policy.
+- `internal/katago/engine.go` - parse `ownership`.
+- `internal/app/workspace.go` - replace flat `analysis map[string]AnalysisResult` with per-game `GameState`.
+- `internal/app/state_payload.go` - build columnar state payloads from `GameState`.
+- `internal/app/handlers.go` - return `StatePayload` for workspace/state-changing calls and push full state notifications.
+- `internal/app/scheduler.go` - publish raw ownership-aware analysis results.
 
-When implementing the tasks below, use this package layout even where an older task name mentions a more granular package. The mapping is: `domain`, `sgf`, and analysis normalization belong in `internal/game`; `workspace`, scheduler, and RPC handlers belong in `internal/app`; `protocol` and `httpserver` belong in `internal/server`; `storage` is named `internal/store`.
+Frontend additions and refactors:
 
-Create these frontend areas:
+- `web/src/api/types.ts` - mirror columnar payloads and raw candidate data.
+- `web/src/state/selectors.ts` - convert columnar state into render data and derive candidate display metrics.
+- `web/src/board/coordinates.ts` - GTP/board coordinate helpers.
+- `web/src/board/katainStyle.ts` - KaTrain thresholds, colors, candidate formatting, ownership decoding.
+- `web/src/components/Board.tsx` - fixed overlay layer rendering.
+- `web/src/components/BoardInfo.tsx` - responsive black/white/komi/rules strip.
+- `web/src/components/OverlayToggles.tsx` - left toolbar toggles with localStorage persistence.
+- `web/src/components/AnalysisCharts.tsx` - consume main or variation columnar timeline.
+- `web/src/App.tsx` - state orchestration for columnar payloads, PV/try-mode mutual exclusion, and current detail.
+- `web/src/styles.css` - board layer styling, responsive board info, toolbar toggles.
 
-- `web/src/api/jsonrpc.ts` - WebSocket JSON-RPC client, token subprotocol, reconnect.
-- `web/src/api/types.ts` - TypeScript mirror of the v1 protocol payloads.
-- `web/src/state/appStore.ts` - React state reducer for connection, games, snapshot, analysis, UI mode.
-- `web/src/App.tsx` - top-level token gate and app layout.
-- `web/src/components/GameSidebar.tsx` - import, list, rename, delete.
-- `web/src/components/Board.tsx` - self-rendered 19x19 board, stones, candidates, PV animation.
-- `web/src/components/NavigationControls.tsx` - first/prev/next/last/back-to-main/pass/branch controls.
-- `web/src/components/AnalysisPanel.tsx` - current position, candidate list, engine status.
-- `web/src/components/AnalysisCharts.tsx` - ECharts winrate/score curves.
-- `web/src/components/BadMoveList.tsx` - KaTrain-threshold mistake list.
-- `web/src/components/RotatePrompt.tsx` - portrait mobile rotation prompt.
-- `web/src/pwa/registerServiceWorker.ts` - service worker registration.
-- `web/public/manifest.webmanifest` and `web/public/sw.js` - basic PWA shell.
-- `e2e/jcgo.spec.ts` - Playwright smoke flow.
-
-Each task below should end with a commit. If the worker is running without git commit permissions, leave the working tree staged and write the commit command output into the task notes.
-
-### Task 1: Project Toolchain Scaffold
+## Task 1: SGF Metadata and Game Snapshot Inputs
 
 **Files:**
-- Create: `go.mod`
-- Create: `cmd/jcgo/main.go`
-- Create: `internal/testutil/fixtures.go`
-- Create: `testdata/sgf/simple-19.sgf`
-- Create: `testdata/sgf/handicap-19.sgf`
-- Create: `web/package.json`
-- Create: `web/index.html`
-- Create: `web/tsconfig.json`
-- Create: `web/vite.config.ts`
-- Create: `web/src/main.tsx`
-- Create: `web/src/App.tsx`
-- Create: `web/src/styles.css`
-- Modify: `README.md`
+- Modify: `internal/game/sgf.go`
+- Modify: `internal/game/types.go`
+- Modify: `internal/game/game.go`
+- Modify: `internal/game/sgf_test.go`
+- Modify: `internal/game/game_test.go`
 
-- [x] **Step 1: Create the Go module and backend entrypoint skeleton**
+- [ ] **Step 1: Write failing SGF metadata test**
 
-Create `go.mod` with this module name:
+Add this test to `internal/game/sgf_test.go`:
 
 ```go
-module jcgo
-
-go 1.23
-```
-
-Create `cmd/jcgo/main.go` with a minimal executable that will be expanded later:
-
-```go
-package main
-
-import "fmt"
-
-func main() {
-	fmt.Println("jcgo server scaffold")
-}
-```
-
-- [x] **Step 2: Create fixture SGFs**
-
-Create `testdata/sgf/simple-19.sgf`:
-
-```sgf
-(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese]PB[Black]PW[White]RE[B+R];B[pd];W[dd];B[qp];W[dp])
-```
-
-Create `testdata/sgf/handicap-19.sgf`:
-
-```sgf
-(;GM[1]FF[4]SZ[19]KM[0.5]RU[chinese]HA[2]AB[dd][pp]PB[Black]PW[White]RE[W+2.5];W[pd];B[dp])
-```
-
-Create `internal/testutil/fixtures.go`:
-
-```go
-package testutil
-
-import (
-	"os"
-	"path/filepath"
-	"testing"
-)
-
-func ReadFixture(t *testing.T, name string) string {
-	t.Helper()
-	path := filepath.Join("..", "..", "testdata", "sgf", name)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read fixture %s: %v", name, err)
-	}
-	return string(data)
-}
-```
-
-- [x] **Step 3: Create the Vite React TypeScript shell**
-
-Run:
-
-```powershell
-npm create vite@latest web -- --template react-ts
-```
-
-Expected: `web/package.json`, `web/src/main.tsx`, and `web/src/App.tsx` exist.
-
-Then install v1 dependencies:
-
-```powershell
-cd web
-npm install
-npm install echarts echarts-for-react lucide-react
-npm install -D vitest jsdom @testing-library/react @testing-library/jest-dom @testing-library/user-event playwright
-```
-
-Expected: `npm` exits with code `0`.
-
-- [x] **Step 4: Replace the starter app with a neutral shell**
-
-Replace `web/src/App.tsx`:
-
-```tsx
-import './styles.css'
-
-export default function App() {
-  return (
-    <main className="app-shell">
-      <h1>JCGO</h1>
-      <p>Remote KataGo analysis review workspace</p>
-    </main>
-  )
-}
-```
-
-Create `web/src/styles.css`:
-
-```css
-:root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #172026;
-  background: #f5f1e8;
-}
-
-body {
-  margin: 0;
-}
-
-.app-shell {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  text-align: center;
-}
-```
-
-- [x] **Step 5: Verify scaffold commands**
-
-Run:
-
-```powershell
-go run .\cmd\jcgo
-```
-
-Expected:
-
-```text
-jcgo server scaffold
-```
-
-Run:
-
-```powershell
-cd web
-npm run build
-```
-
-Expected: Vite build completes and creates `web/dist`.
-
-- [x] **Step 6: Commit**
-
-```powershell
-git add go.mod cmd internal testdata web README.md
-git commit -m "chore: scaffold jcgo toolchain"
-```
-
-### Task 2: Runtime Config and App Directories
-
-**Files:**
-- Create: `internal/config/config.go`
-- Create: `internal/config/config_test.go`
-- Modify: `cmd/jcgo/main.go`
-
-- [x] **Step 1: Write the failing config test**
-
-Create `internal/config/config_test.go`:
-
-```go
-package config
-
-import (
-	"path/filepath"
-	"testing"
-)
-
-func TestLoadDefaultsFromEnvironment(t *testing.T) {
-	t.Setenv("JCGO_ACCESS_TOKEN", "secret-token")
-	t.Setenv("JCGO_DATA_DIR", t.TempDir())
-	t.Setenv("JCGO_KATAGO_PATH", filepath.Join("bin", "katago"))
-	t.Setenv("JCGO_MODEL_PATH", filepath.Join("models", "kata.bin.gz"))
-	t.Setenv("JCGO_ANALYSIS_CONFIG_PATH", filepath.Join("cfg", "analysis.cfg"))
-
-	cfg, err := Load()
-	if err != nil {
-		t.Fatalf("Load returned error: %v", err)
-	}
-	if cfg.AccessToken != "secret-token" {
-		t.Fatalf("AccessToken = %q", cfg.AccessToken)
-	}
-	if cfg.ListenAddr != "127.0.0.1:4380" {
-		t.Fatalf("ListenAddr = %q", cfg.ListenAddr)
-	}
-	if cfg.MaxVisits != 500 {
-		t.Fatalf("MaxVisits = %d", cfg.MaxVisits)
-	}
-}
-
-func TestLoadRejectsMissingToken(t *testing.T) {
-	t.Setenv("JCGO_ACCESS_TOKEN", "")
-	_, err := Load()
-	if err == nil {
-		t.Fatal("Load returned nil error for missing token")
-	}
-}
-```
-
-- [x] **Step 2: Run the test to verify it fails**
-
-Run:
-
-```powershell
-go test .\internal\config -run TestLoad -count=1
-```
-
-Expected: FAIL because `Load` is undefined.
-
-- [x] **Step 3: Implement config loading**
-
-Create `internal/config/config.go`:
-
-```go
-package config
-
-import (
-	"errors"
-	"os"
-	"path/filepath"
-	"strconv"
-)
-
-type Config struct {
-	ListenAddr         string
-	AccessToken        string
-	DataDir            string
-	DatabasePath       string
-	GamesDir           string
-	KatagoPath         string
-	ModelPath          string
-	AnalysisConfigPath string
-	MaxVisits          int
-}
-
-func Load() (Config, error) {
-	dataDir := env("JCGO_DATA_DIR", filepath.Join(".", "data"))
-	maxVisits := envInt("JCGO_MAX_VISITS", 500)
-	cfg := Config{
-		ListenAddr:         env("JCGO_LISTEN_ADDR", "127.0.0.1:4380"),
-		AccessToken:        os.Getenv("JCGO_ACCESS_TOKEN"),
-		DataDir:            dataDir,
-		DatabasePath:       filepath.Join(dataDir, "jcgo.sqlite"),
-		GamesDir:           filepath.Join(dataDir, "games"),
-		KatagoPath:         os.Getenv("JCGO_KATAGO_PATH"),
-		ModelPath:          os.Getenv("JCGO_MODEL_PATH"),
-		AnalysisConfigPath: os.Getenv("JCGO_ANALYSIS_CONFIG_PATH"),
-		MaxVisits:          maxVisits,
-	}
-	if cfg.AccessToken == "" {
-		return Config{}, errors.New("JCGO_ACCESS_TOKEN is required")
-	}
-	return cfg, nil
-}
-
-func EnsureDirs(cfg Config) error {
-	if err := os.MkdirAll(cfg.GamesDir, 0o755); err != nil {
-		return err
-	}
-	return os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0o755)
-}
-
-func env(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
-}
-
-func envInt(key string, fallback int) int {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
-	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil || parsed <= 0 {
-		return fallback
-	}
-	return parsed
-}
-```
-
-- [x] **Step 4: Wire config into `main`**
-
-Replace `cmd/jcgo/main.go`:
-
-```go
-package main
-
-import (
-	"fmt"
-	"log"
-
-	"jcgo/internal/config"
-)
-
-func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := config.EnsureDirs(cfg); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("jcgo listening on %s\n", cfg.ListenAddr)
-}
-```
-
-- [x] **Step 5: Verify config tests pass**
-
-Run:
-
-```powershell
-go test .\internal\config -count=1
-```
-
-Expected: PASS.
-
-- [x] **Step 6: Commit**
-
-```powershell
-git add cmd internal/config
-git commit -m "feat: add runtime config"
-```
-
-### Task 3: JSON-RPC and WebSocket Token Handshake
-
-**Files:**
-- Create: `internal/protocol/jsonrpc.go`
-- Create: `internal/protocol/jsonrpc_test.go`
-- Create: `internal/httpserver/server.go`
-- Create: `internal/httpserver/server_test.go`
-- Modify: `cmd/jcgo/main.go`
-
-- [x] **Step 1: Write JSON-RPC tests**
-
-Create `internal/protocol/jsonrpc_test.go`:
-
-```go
-package protocol
-
-import (
-	"encoding/json"
-	"testing"
-)
-
-func TestDecodeRequest(t *testing.T) {
-	var req Request
-	err := json.Unmarshal([]byte(`{"jsonrpc":"2.0","id":"7","method":"game.list","params":{"x":1}}`), &req)
+func TestParseSGFReadsPlayerNamesResultRulesAndKomi(t *testing.T) {
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]KM[6.5]RU[japanese]PB[Lee]PW[Cho]RE[W+1.5];B[pd];W[dd])`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if req.Method != "game.list" || req.ID.String() != "7" {
-		t.Fatalf("decoded request = %#v", req)
+	if doc.BlackName != "Lee" || doc.WhiteName != "Cho" {
+		t.Fatalf("players = %q/%q", doc.BlackName, doc.WhiteName)
 	}
-}
-
-func TestErrorResponseShape(t *testing.T) {
-	resp := ErrorResponse("7", CodeInvalidRequest, "bad request")
-	data, err := json.Marshal(resp)
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := `{"jsonrpc":"2.0","id":"7","error":{"code":-32600,"message":"bad request"}}`
-	if string(data) != want {
-		t.Fatalf("json = %s", data)
+	if doc.Result != "W+1.5" || doc.Rules != "japanese" || doc.Komi != 6.5 {
+		t.Fatalf("metadata = result %q rules %q komi %.1f", doc.Result, doc.Rules, doc.Komi)
 	}
 }
 ```
 
-- [x] **Step 2: Implement JSON-RPC types**
+- [ ] **Step 2: Write failing snapshot metadata test**
 
-Create `internal/protocol/jsonrpc.go`:
+Add this test to `internal/game/game_test.go`:
 
 ```go
-package protocol
-
-import "encoding/json"
-
-const Version = "2.0"
-
-const (
-	CodeParseError     = -32700
-	CodeInvalidRequest = -32600
-	CodeMethodNotFound = -32601
-	CodeInvalidParams  = -32602
-	CodeInternalError  = -32603
-)
-
-type Request struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type Response struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      string      `json:"id,omitempty"`
-	Result  any         `json:"result,omitempty"`
-	Error   *RPCError   `json:"error,omitempty"`
-}
-
-type RPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-type Notification struct {
-	JSONRPC string `json:"jsonrpc"`
-	Method  string `json:"method"`
-	Params  any    `json:"params,omitempty"`
-}
-
-func ResultResponse(id string, result any) Response {
-	return Response{JSONRPC: Version, ID: id, Result: result}
-}
-
-func ErrorResponse(id string, code int, message string) Response {
-	return Response{JSONRPC: Version, ID: id, Error: &RPCError{Code: code, Message: message}}
-}
-
-func Notify(method string, params any) Notification {
-	return Notification{JSONRPC: Version, Method: method, Params: params}
-}
-```
-
-- [x] **Step 3: Write WebSocket handshake tests**
-
-Create `internal/httpserver/server_test.go`:
-
-```go
-package httpserver
-
-import (
-	"net/http/httptest"
-	"testing"
-
-	"github.com/gorilla/websocket"
-)
-
-func TestWebSocketRejectsMissingToken(t *testing.T) {
-	srv := httptest.NewServer(New(Config{AccessToken: "secret"}, nil).Handler())
-	defer srv.Close()
-
-	url := "ws" + srv.URL[len("http"):] + "/ws"
-	_, _, err := websocket.DefaultDialer.Dial(url, nil)
-	if err == nil {
-		t.Fatal("Dial succeeded without token")
-	}
-}
-
-func TestWebSocketAcceptsTokenSubprotocol(t *testing.T) {
-	srv := httptest.NewServer(New(Config{AccessToken: "secret"}, nil).Handler())
-	defer srv.Close()
-
-	dialer := websocket.Dialer{Subprotocols: []string{"jcgo-jsonrpc", "token.secret"}}
-	url := "ws" + srv.URL[len("http"):] + "/ws"
-	conn, resp, err := dialer.Dial(url, nil)
-	if err != nil {
-		t.Fatalf("Dial failed: %v", err)
-	}
-	defer conn.Close()
-	if resp.Header.Get("Sec-Websocket-Protocol") != "jcgo-jsonrpc" {
-		t.Fatalf("protocol = %q", resp.Header.Get("Sec-Websocket-Protocol"))
-	}
-}
-```
-
-- [x] **Step 4: Run tests to verify they fail**
-
-Run:
-
-```powershell
-go test .\internal\protocol .\internal\httpserver -count=1
-```
-
-Expected: protocol tests pass after Step 2; httpserver package fails because `New` and `Config` are undefined.
-
-- [x] **Step 5: Install Gorilla WebSocket and implement the server**
-
-Run:
-
-```powershell
-go get github.com/gorilla/websocket@latest
-```
-
-Create `internal/httpserver/server.go`:
-
-```go
-package httpserver
-
-import (
-	"net/http"
-	"strings"
-
-	"github.com/gorilla/websocket"
-)
-
-type Config struct {
-	AccessToken string
-	StaticDir   string
-}
-
-type RPCHandler interface {
-	ServeWS(*websocket.Conn)
-}
-
-type Server struct {
-	cfg     Config
-	handler RPCHandler
-}
-
-func New(cfg Config, handler RPCHandler) *Server {
-	return &Server{cfg: cfg, handler: handler}
-}
-
-func (s *Server) Handler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/ws", s.handleWS)
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("JCGO"))
-	})
-	return mux
-}
-
-func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
-	if !validSubprotocol(r.Header.Values("Sec-Websocket-Protocol"), s.cfg.AccessToken) {
-		http.Error(w, "websocket token rejected", http.StatusUnauthorized)
-		return
-	}
-	upgrader := websocket.Upgrader{
-		Subprotocols: []string{"jcgo-jsonrpc"},
-		CheckOrigin:  func(*http.Request) bool { return true },
-	}
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
-	if s.handler == nil {
-		_ = conn.Close()
-		return
-	}
-	s.handler.ServeWS(conn)
-}
-
-func validSubprotocol(values []string, token string) bool {
-	wantToken := "token." + token
-	foundRPC := false
-	foundToken := false
-	for _, value := range values {
-		for _, part := range strings.Split(value, ",") {
-			item := strings.TrimSpace(part)
-			if item == "jcgo-jsonrpc" {
-				foundRPC = true
-			}
-			if item == wantToken {
-				foundToken = true
-			}
-		}
-	}
-	return foundRPC && foundToken
-}
-```
-
-- [x] **Step 6: Wire HTTP server in `main`**
-
-Replace `cmd/jcgo/main.go`:
-
-```go
-package main
-
-import (
-	"log"
-	"net/http"
-
-	"jcgo/internal/config"
-	"jcgo/internal/httpserver"
-)
-
-func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := config.EnsureDirs(cfg); err != nil {
-		log.Fatal(err)
-	}
-	server := httpserver.New(httpserver.Config{AccessToken: cfg.AccessToken}, nil)
-	log.Printf("jcgo listening on %s", cfg.ListenAddr)
-	log.Fatal(http.ListenAndServe(cfg.ListenAddr, server.Handler()))
-}
-```
-
-- [x] **Step 7: Verify tests pass**
-
-Run:
-
-```powershell
-go test .\internal\protocol .\internal\httpserver -count=1
-```
-
-Expected: PASS.
-
-- [x] **Step 8: Commit**
-
-```powershell
-git add go.mod go.sum cmd internal/protocol internal/httpserver
-git commit -m "feat: add jsonrpc websocket handshake"
-```
-
-### Task 4: SQLite Game Repository and SGF File Store
-
-**Files:**
-- Create: `internal/storage/repository.go`
-- Create: `internal/storage/files.go`
-- Create: `internal/storage/storage_test.go`
-
-- [x] **Step 1: Write storage tests**
-
-Create `internal/storage/storage_test.go`:
-
-```go
-package storage
-
-import (
-	"context"
-	"os"
-	"path/filepath"
-	"testing"
-)
-
-func TestRepositoryCreatesListsRenamesAndDeletesGames(t *testing.T) {
-	ctx := context.Background()
-	dir := t.TempDir()
-	repo, err := Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer repo.Close()
-
-	game, err := repo.CreateGame(ctx, CreateGameInput{
-		DisplayName: "Demo",
-		Result:      "B+R",
-		SGFFilename: "game-1.sgf",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if game.DisplayName != "Demo" || game.Result != "B+R" {
-		t.Fatalf("game = %#v", game)
-	}
-
-	if err := repo.RenameGame(ctx, game.ID, "Renamed"); err != nil {
-		t.Fatal(err)
-	}
-	games, err := repo.ListGames(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(games) != 1 || games[0].DisplayName != "Renamed" {
-		t.Fatalf("games = %#v", games)
-	}
-
-	if err := repo.DeleteGame(ctx, game.ID); err != nil {
-		t.Fatal(err)
-	}
-	games, err = repo.ListGames(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(games) != 0 {
-		t.Fatalf("games after delete = %#v", games)
-	}
-}
-
-func TestFileStoreWritesAndDeletesSGF(t *testing.T) {
-	dir := t.TempDir()
-	store := NewFileStore(dir)
-	path, err := store.WriteSGF("game-1", "(;SZ[19])")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if filepath.Base(path) != "game-1.sgf" {
-		t.Fatalf("path = %s", path)
-	}
-	if _, err := os.Stat(path); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.DeleteSGF("game-1.sgf"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(path); !os.IsNotExist(err) {
-		t.Fatalf("expected deleted file, stat err = %v", err)
-	}
-}
-```
-
-- [x] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```powershell
-go test .\internal\storage -count=1
-```
-
-Expected: FAIL because storage types are undefined.
-
-- [x] **Step 3: Add SQLite dependency and repository implementation**
-
-Run:
-
-```powershell
-go get modernc.org/sqlite@latest
-```
-
-Create `internal/storage/repository.go` with these exported types and methods:
-
-```go
-package storage
-
-import (
-	"context"
-	"crypto/rand"
-	"database/sql"
-	"encoding/hex"
-	"time"
-
-	_ "modernc.org/sqlite"
-)
-
-type GameRecord struct {
-	ID          string    `json:"gameId"`
-	DisplayName string    `json:"displayName"`
-	Result      string    `json:"result"`
-	SGFFilename string    `json:"sgfFilename"`
-	CreatedAt   time.Time `json:"createdAt"`
-}
-
-type CreateGameInput struct {
-	DisplayName string
-	Result      string
-	SGFFilename string
-}
-
-type Repository struct {
-	db *sql.DB
-}
-
-func Open(ctx context.Context, path string) (*Repository, error) {
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		return nil, err
-	}
-	repo := &Repository{db: db}
-	if err := repo.migrate(ctx); err != nil {
-		_ = db.Close()
-		return nil, err
-	}
-	return repo, nil
-}
-
-func (r *Repository) Close() error {
-	return r.db.Close()
-}
-
-func (r *Repository) migrate(ctx context.Context) error {
-	_, err := r.db.ExecContext(ctx, `
-CREATE TABLE IF NOT EXISTS games (
-	id TEXT PRIMARY KEY,
-	display_name TEXT NOT NULL,
-	result TEXT NOT NULL,
-	sgf_filename TEXT NOT NULL,
-	created_at TEXT NOT NULL
-);`)
-	return err
-}
-
-func (r *Repository) CreateGame(ctx context.Context, in CreateGameInput) (GameRecord, error) {
-	id, err := newID()
-	if err != nil {
-		return GameRecord{}, err
-	}
-	record := GameRecord{
-		ID:          id,
-		DisplayName: in.DisplayName,
-		Result:      in.Result,
-		SGFFilename: in.SGFFilename,
-		CreatedAt:   time.Now().UTC(),
-	}
-	_, err = r.db.ExecContext(ctx, `INSERT INTO games(id, display_name, result, sgf_filename, created_at) VALUES (?, ?, ?, ?, ?)`,
-		record.ID, record.DisplayName, record.Result, record.SGFFilename, record.CreatedAt.Format(time.RFC3339Nano))
-	if err != nil {
-		return GameRecord{}, err
-	}
-	return record, nil
-}
-
-func (r *Repository) ListGames(ctx context.Context) ([]GameRecord, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, display_name, result, sgf_filename, created_at FROM games ORDER BY created_at DESC`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var records []GameRecord
-	for rows.Next() {
-		var rec GameRecord
-		var created string
-		if err := rows.Scan(&rec.ID, &rec.DisplayName, &rec.Result, &rec.SGFFilename, &created); err != nil {
-			return nil, err
-		}
-		rec.CreatedAt, _ = time.Parse(time.RFC3339Nano, created)
-		records = append(records, rec)
-	}
-	return records, rows.Err()
-}
-
-func (r *Repository) RenameGame(ctx context.Context, id string, displayName string) error {
-	_, err := r.db.ExecContext(ctx, `UPDATE games SET display_name = ? WHERE id = ?`, displayName, id)
-	return err
-}
-
-func (r *Repository) DeleteGame(ctx context.Context, id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM games WHERE id = ?`, id)
-	return err
-}
-
-func newID() (string, error) {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b[:]), nil
-}
-```
-
-- [x] **Step 4: Implement SGF file store**
-
-Create `internal/storage/files.go`:
-
-```go
-package storage
-
-import (
-	"os"
-	"path/filepath"
-	"strings"
-)
-
-type FileStore struct {
-	dir string
-}
-
-func NewFileStore(dir string) FileStore {
-	return FileStore{dir: dir}
-}
-
-func (s FileStore) WriteSGF(gameID string, sgfText string) (string, error) {
-	filename := gameID + ".sgf"
-	path := filepath.Join(s.dir, filename)
-	if err := os.MkdirAll(s.dir, 0o755); err != nil {
-		return "", err
-	}
-	return path, os.WriteFile(path, []byte(sgfText), 0o644)
-}
-
-func (s FileStore) ReadSGF(filename string) (string, error) {
-	path := filepath.Join(s.dir, filepath.Base(filename))
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-func (s FileStore) DeleteSGF(filename string) error {
-	clean := filepath.Base(strings.TrimSpace(filename))
-	return os.Remove(filepath.Join(s.dir, clean))
-}
-```
-
-- [x] **Step 5: Verify storage tests pass**
-
-Run:
-
-```powershell
-go test .\internal\storage -count=1
-```
-
-Expected: PASS.
-
-- [x] **Step 6: Commit**
-
-```powershell
-git add go.mod go.sum internal/storage
-git commit -m "feat: add game storage"
-```
-
-### Task 5: SGF Parser and v1 Import Validation
-
-**Files:**
-- Create: `internal/game/sgf.go`
-- Create: `internal/game/sgf_test.go`
-
-- [x] **Step 1: Write parser tests**
-
-Create `internal/game/sgf_test.go`:
-
-```go
-package game
-
-import "testing"
-
-func TestParseMainlineSimple19(t *testing.T) {
-	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese]PB[Black]PW[White]RE[B+R];B[pd];W[dd](;B[qq])(;B[pp]))`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if doc.BoardSize != 19 || doc.Komi != 7.5 || doc.Rules != "chinese" || doc.Result != "B+R" {
-		t.Fatalf("doc = %#v", doc)
-	}
-	if len(doc.Mainline) != 2 {
-		t.Fatalf("mainline length = %d", len(doc.Mainline))
-	}
-	if doc.Mainline[0].GTP != "Q16" || doc.Mainline[1].GTP != "D16" {
-		t.Fatalf("mainline = %#v", doc.Mainline)
-	}
-}
-
-func TestParseDefaultsRulesAndKomi(t *testing.T) {
-	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd])`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if doc.Rules != "chinese" || doc.Komi != 7.5 {
-		t.Fatalf("defaults = %s %.1f", doc.Rules, doc.Komi)
-	}
-}
-
-func TestParseRejectsNonRootSetup(t *testing.T) {
-	_, err := ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd]AB[dd])`)
-	if err == nil {
-		t.Fatal("expected non-root setup rejection")
-	}
-}
-
-func TestParseRootSetup(t *testing.T) {
-	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]HA[2]AB[dd][pp];W[pd])`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(doc.InitialStones) != 2 || doc.Mainline[0].GTP != "Q16" {
-		t.Fatalf("doc = %#v", doc)
-	}
-}
-```
-
-- [x] **Step 2: Run parser tests to verify they fail**
-
-Run:
-
-```powershell
-go test .\internal\game -count=1
-```
-
-Expected: FAIL because parser types are undefined.
-
-- [x] **Step 3: Implement v1 SGF parser**
-
-Create `internal/game/sgf.go` with these exported types:
-
-```go
-package game
-
-import (
-	"errors"
-	"fmt"
-	"strconv"
-	"strings"
-	"unicode"
-)
-
-type Color string
-
-const (
-	Black Color = "B"
-	White Color = "W"
-)
-
-type Move struct {
-	Player Color
-	GTP    string
-	Pass   bool
-}
-
-type Stone struct {
-	Player Color
-	GTP    string
-}
-
-type SGFDocument struct {
-	BoardSize     int
-	Rules         string
-	Komi          float64
-	Result        string
-	InitialStones []Stone
-	Mainline      []Move
-}
-```
-
-Then implement:
-
-```go
-func ParseSGF(input string) (SGFDocument, error) {
-	nodes, err := parseNodes(input)
-	if err != nil {
-		return SGFDocument{}, err
-	}
-	if len(nodes) == 0 {
-		return SGFDocument{}, errors.New("sgf contains no nodes")
-	}
-	root := nodes[0]
-	doc := SGFDocument{
-		BoardSize: 19,
-		Rules:     "chinese",
-		Komi:      7.5,
-		Result:    first(root["RE"]),
-	}
-	if size := first(root["SZ"]); size != "" {
-		parsed, err := strconv.Atoi(size)
-		if err != nil || parsed != 19 {
-			return SGFDocument{}, fmt.Errorf("only 19x19 SGF is supported")
-		}
-		doc.BoardSize = parsed
-	}
-	if rules := first(root["RU"]); rules != "" {
-		doc.Rules = strings.ToLower(rules)
-	}
-	if komi := first(root["KM"]); komi != "" {
-		parsed, err := strconv.ParseFloat(komi, 64)
-		if err != nil {
-			return SGFDocument{}, fmt.Errorf("invalid komi %q", komi)
-		}
-		doc.Komi = parsed
-	}
-	for _, raw := range root["AB"] {
-		doc.InitialStones = append(doc.InitialStones, Stone{Player: Black, GTP: sgfCoordToGTP(raw)})
-	}
-	for _, raw := range root["AW"] {
-		doc.InitialStones = append(doc.InitialStones, Stone{Player: White, GTP: sgfCoordToGTP(raw)})
-	}
-	for i, node := range nodes[1:] {
-		if len(node["AB"]) > 0 || len(node["AW"]) > 0 || len(node["AE"]) > 0 {
-			return SGFDocument{}, fmt.Errorf("unsupported setup property outside root at node %d", i+1)
-		}
-		if values := node["B"]; len(values) > 0 {
-			doc.Mainline = append(doc.Mainline, Move{Player: Black, GTP: sgfCoordToGTP(values[0]), Pass: values[0] == ""})
-		}
-		if values := node["W"]; len(values) > 0 {
-			doc.Mainline = append(doc.Mainline, Move{Player: White, GTP: sgfCoordToGTP(values[0]), Pass: values[0] == ""})
-		}
-	}
-	return doc, nil
-}
-```
-
-Implement `parseNodes` as a mainline-only SGF scanner: enter the first game tree after `(`, read sequential `;` nodes, and skip SGF child branches once the imported mainline reaches a branch point. Preserve escaped `\]` inside property values. Use KaTrain `sgf_parser.py` lines around `SGF._parse_branch` as behavior reference.
-
-- [x] **Step 4: Verify parser tests pass**
-
-Run:
-
-```powershell
-go test .\internal\game -count=1
-```
-
-Expected: PASS.
-
-- [x] **Step 5: Commit**
-
-```powershell
-git add internal/game
-git commit -m "feat: parse v1 sgf mainline"
-```
-
-### Task 6: Game Rules, Snapshots, and Mainline Navigation
-
-**Files:**
-- Create: `internal/game/types.go`
-- Create: `internal/game/board.go`
-- Create: `internal/game/game.go`
-- Create: `internal/game/game_test.go`
-
-- [x] **Step 1: Write game rules tests**
-
-Create `internal/game/game_test.go`:
-
-```go
-package game
-
-import (
-	"testing"
-
-	"jcgo/internal/sgf"
-)
-
-func TestLoadMainlineAndSnapshots(t *testing.T) {
-	doc, err := sgf.Parse(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese];B[pd];W[dd];B[qp])`)
+func TestSnapshotIncludesGameInfo(t *testing.T) {
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese]PB[Black A]PW[White B]RE[B+R];B[pd])`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1196,214 +104,125 @@ func TestLoadMainlineAndSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snap, err := g.GotoMain(2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if snap.MoveNumber != 2 || snap.TotalMoves != 3 || snap.LastMove == nil || snap.LastMove.GTP != "D16" {
-		t.Fatalf("snapshot = %#v", snap)
-	}
-	if len(snap.Stones) != 2 {
-		t.Fatalf("stones = %#v", snap.Stones)
-	}
-}
-
-func TestCaptureAndPassEndState(t *testing.T) {
-	g := NewEmpty("game-1", "chinese", 7.5)
-	mustPlay(t, g, "B", "B2")
-	mustPlay(t, g, "W", "A2")
-	mustPlay(t, g, "B", "A1")
-	mustPlay(t, g, "W", "pass")
-	mustPlay(t, g, "B", "pass")
 	snap := g.CurrentSnapshot()
-	if !snap.GameEnded {
-		t.Fatalf("GameEnded = false")
+	if snap.BlackName != "Black A" || snap.WhiteName != "White B" {
+		t.Fatalf("snapshot players = %q/%q", snap.BlackName, snap.WhiteName)
 	}
-}
-
-func mustPlay(t *testing.T, g *Game, color string, gtp string) {
-	t.Helper()
-	if _, err := g.PlayVariation(color, gtp); err != nil {
-		t.Fatalf("play %s %s: %v", color, gtp, err)
+	if snap.Result != "B+R" || snap.Komi != 7.5 || snap.Rules != "chinese" {
+		t.Fatalf("snapshot metadata = %#v", snap)
 	}
 }
 ```
 
-- [x] **Step 2: Run tests to verify they fail**
+- [ ] **Step 3: Run tests to verify failure**
 
 Run:
 
 ```powershell
-go test .\internal\game -count=1
+go test .\internal\game -run "TestParseSGFReadsPlayerNamesResultRulesAndKomi|TestSnapshotIncludesGameInfo" -count=1
 ```
 
-Expected: FAIL because `NewFromSGF`, `NewEmpty`, and `Game` are undefined.
+Expected: FAIL because `SGFDocument.BlackName`, `SGFDocument.WhiteName`, `Snapshot.BlackName`, `Snapshot.WhiteName`, and `Snapshot.Result` do not exist.
 
-- [x] **Step 3: Create shared game types**
+- [ ] **Step 4: Add metadata fields**
 
-Create `internal/game/types.go`:
+Modify `internal/game/types.go`:
 
 ```go
-package game
-
-type Color string
-
-const (
-	Black Color = "B"
-	White Color = "W"
-)
-
-type Point struct {
-	X int `json:"x"`
-	Y int `json:"y"`
-}
-
-type Stone struct {
-	X     int   `json:"x"`
-	Y     int   `json:"y"`
-	Color Color `json:"color"`
-}
-
-type MoveView struct {
-	NodeID string `json:"nodeId"`
-	MoveNumber int `json:"moveNumber"`
-	Color Color `json:"color"`
-	GTP string `json:"gtp"`
-	Pass bool `json:"pass"`
-}
-
 type Snapshot struct {
-	GameID string `json:"gameId"`
-	NodeID string `json:"nodeId"`
-	MoveNumber int `json:"moveNumber"`
-	TotalMoves int `json:"totalMoves"`
-	BranchMode string `json:"branchMode"`
-	Stones []Stone `json:"stones"`
-	LastMove *MoveView `json:"lastMove,omitempty"`
-	ToPlay Color `json:"toPlay"`
-	Rules string `json:"rules"`
-	Komi float64 `json:"komi"`
-	Captures map[Color]int `json:"captures"`
-	GameEnded bool `json:"gameEnded"`
-	CanPrevious bool `json:"canPrevious"`
-	CanNext bool `json:"canNext"`
-	CanBackToMain bool `json:"canBackToMain"`
+	GameID        string          `json:"gameId"`
+	NodeID        string          `json:"nodeId"`
+	MoveNumber    int             `json:"moveNumber"`
+	TotalMoves    int             `json:"totalMoves"`
+	BranchMode    string          `json:"branchMode"`
+	Stones        []Stone         `json:"stones"`
+	LastMove      *MoveView       `json:"lastMove,omitempty"`
+	Children      []MoveView      `json:"children"`
+	ToPlay        Color           `json:"toPlay"`
+	Rules         string          `json:"rules"`
+	Komi          float64         `json:"komi"`
+	BlackName     string          `json:"blackName"`
+	WhiteName     string          `json:"whiteName"`
+	Result        string          `json:"result"`
+	Captures      map[Color]int   `json:"captures"`
+	GameEnded     bool            `json:"gameEnded"`
+	CanPrevious   bool            `json:"canPrevious"`
+	CanNext       bool            `json:"canNext"`
+	CanBackToMain bool            `json:"canBackToMain"`
 }
 ```
 
-- [x] **Step 4: Implement board legality**
-
-Create `internal/game/board.go` with:
+Modify `internal/game/sgf.go`:
 
 ```go
-package game
-
-import (
-	"fmt"
-
-	"jcgo/internal/domain"
-)
-
-type board struct {
-	grid [19][19]domain.Color
-}
-
-func (b *board) place(color domain.Color, x int, y int) error {
-	if x < 0 || x >= 19 || y < 0 || y >= 19 {
-		return fmt.Errorf("move outside board")
-	}
-	if b.grid[y][x] != "" {
-		return fmt.Errorf("point occupied")
-	}
-	b.grid[y][x] = color
-	return nil
-}
-
-func (b board) stones() []domain.Stone {
-	var stones []domain.Stone
-	for y := 0; y < 19; y++ {
-		for x := 0; x < 19; x++ {
-			if b.grid[y][x] != "" {
-				stones = append(stones, domain.Stone{X: x, Y: y, Color: b.grid[y][x]})
-			}
-		}
-	}
-	return stones
+type SGFDocument struct {
+	BoardSize     int
+	Rules         string
+	Komi          float64
+	Result        string
+	BlackName     string
+	WhiteName     string
+	InitialStones []SetupStone
+	Mainline      []Move
 }
 ```
 
-Extend this file in the same task to remove opponent groups with zero liberties, reject suicide, and track captures. Use a flood-fill group helper over four orthogonal neighbors. Preserve Ko state as a single forbidden point for the immediately following move.
-
-- [x] **Step 5: Implement game model and snapshots**
-
-Create `internal/game/game.go` with exported API:
+In `ParseSGF`, set metadata after `root := nodes[0]`:
 
 ```go
-package game
+doc := SGFDocument{
+	BoardSize: 19,
+	Rules:     "chinese",
+	Komi:      7.5,
+	Result:    first(root["RE"]),
+	BlackName: first(root["PB"]),
+	WhiteName: first(root["PW"]),
+}
+```
 
-import (
-	"fmt"
-	"strconv"
-	"strings"
+- [ ] **Step 5: Store metadata on `Game` and snapshot**
 
-	"jcgo/internal/domain"
-	"jcgo/internal/sgf"
-)
+Modify `internal/game/game.go`:
 
+```go
 type Game struct {
-	id string
-	rules string
-	komi float64
-	mainline []node
-	current string
-}
-
-type node struct {
-	id string
-	parent string
-	moveNumber int
-	color domain.Color
-	gtp string
-	pass bool
-	board board
-	toPlay domain.Color
-	gameEnded bool
-}
-
-func NewEmpty(id string, rules string, komi float64) *Game {
-	root := node{id: "main:0", moveNumber: 0, toPlay: domain.Black}
-	return &Game{id: id, rules: rules, komi: komi, mainline: []node{root}, current: root.id}
-}
-
-func NewFromSGF(id string, doc sgf.Document) (*Game, error) {
-	g := NewEmpty(id, doc.Rules, doc.Komi)
-	for _, stone := range doc.InitialStones {
-		color := domain.Color(stone.Player)
-		x, y, err := ParseGTP(stone.GTP)
-		if err != nil {
-			return nil, err
-		}
-		if err := g.mainline[0].board.place(color, x, y); err != nil {
-			return nil, err
-		}
-	}
-	prev := g.mainline[0]
-	for i, move := range doc.Mainline {
-		next, err := playNode(prev, domain.Color(move.Player), move.GTP, fmt.Sprintf("main:%d", i+1), i+1)
-		if err != nil {
-			return nil, err
-		}
-		g.mainline = append(g.mainline, next)
-		prev = next
-	}
-	g.current = "main:0"
-	return g, nil
+	id               string
+	rules            string
+	komi             float64
+	blackName        string
+	whiteName        string
+	result           string
+	mainline         []node
+	variations       map[string]node
+	currentID        string
+	variationCounter int
 }
 ```
 
-Complete this file with `GotoMain`, `CurrentSnapshot`, `PlayVariation`, `ParseGTP`, `FormatGTP`, and `opponent`. Use node IDs `main:<moveNumber>` for mainline and branch IDs added in Task 7.
+In `NewFromSGF`, after `g := NewEmpty(id, doc.Rules, doc.Komi)`:
 
-- [x] **Step 6: Verify game tests pass**
+```go
+g.blackName = doc.BlackName
+g.whiteName = doc.WhiteName
+g.result = doc.Result
+```
+
+In `NewEmpty`, initialize fallback names:
+
+```go
+blackName:  "黑",
+whiteName:  "白",
+```
+
+In `snapshot`, add:
+
+```go
+BlackName: g.blackName,
+WhiteName: g.whiteName,
+Result:    g.result,
+```
+
+- [ ] **Step 6: Run tests**
 
 Run:
 
@@ -1413,234 +232,691 @@ go test .\internal\game -count=1
 
 Expected: PASS.
 
-- [x] **Step 7: Commit**
+- [ ] **Step 7: Commit**
 
 ```powershell
 git add internal/game
-git commit -m "feat: add game rules snapshots"
+git commit -m "feat: expose sgf game metadata"
 ```
 
-### Task 7: Token Workspace and Variation State
+## Task 2: KataGo Ownership Parsing and q8 Encoding
 
 **Files:**
-- Create: `internal/app/workspace.go`
-- Create: `internal/app/workspace_test.go`
-- Modify: `internal/game/game.go`
+- Modify: `internal/katago/query.go`
+- Modify: `internal/katago/engine.go`
+- Modify: `internal/katago/engine_test.go`
+- Modify: `internal/game/analysis.go`
+- Modify: `internal/game/analysis_test.go`
 
-- [x] **Step 1: Write workspace tests**
+- [ ] **Step 1: Write failing query test**
 
-Create `internal/app/workspace_test.go`:
+Modify or add this test in `internal/katago/engine_test.go`:
 
 ```go
-package app
-
-import (
-	"testing"
-
-	"jcgo/internal/sgf"
-)
-
-func TestWorkspaceRecoversSameTokenState(t *testing.T) {
-	store := NewStore()
-	ws1 := store.ForToken("secret")
-	ws2 := store.ForToken("secret")
-	if ws1 != ws2 {
-		t.Fatal("same token did not return same workspace")
+func TestBuildQueryRequestsOwnershipWithoutPolicy(t *testing.T) {
+	query := BuildQuery(BuildInput{
+		ID:          "main:0",
+		Rules:       "chinese",
+		Komi:        7.5,
+		MaxVisits:   500,
+		AnalyzeTurn: 0,
+	})
+	if !query.IncludeOwnership {
+		t.Fatal("IncludeOwnership = false")
 	}
-}
-
-func TestVariationSurvivesReconnectInProcess(t *testing.T) {
-	doc, err := sgf.Parse(`(;GM[1]FF[4]SZ[19];B[pd];W[dd])`)
-	if err != nil {
-		t.Fatal(err)
+	if query.IncludePolicy {
+		t.Fatal("IncludePolicy = true")
 	}
-	ws := NewStore().ForToken("secret")
-	if err := ws.LoadGame("game-1", doc); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ws.Play("game-1", "D4"); err != nil {
-		t.Fatal(err)
-	}
-	snap, err := ws.CurrentSnapshot("game-1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if snap.BranchMode != "variation" || !snap.CanBackToMain {
-		t.Fatalf("snapshot = %#v", snap)
+	if query.IncludeMovesOwnership {
+		t.Fatal("IncludeMovesOwnership = true")
 	}
 }
 ```
 
-- [x] **Step 2: Run tests to verify they fail**
+- [ ] **Step 2: Write failing ownership JSON parse test**
+
+Add this test to `internal/katago/engine_test.go`:
+
+```go
+func TestResultParsesOwnership(t *testing.T) {
+	data := []byte(`{"id":"main:0","rootInfo":{"visits":10,"winrate":0.5,"scoreLead":1.2},"moveInfos":[],"ownership":[1,-1,0.5]}`)
+	var result Result
+	if err := json.Unmarshal(data, &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Ownership) != 3 || result.Ownership[0] != 1 || result.Ownership[1] != -1 || result.Ownership[2] != 0.5 {
+		t.Fatalf("ownership = %#v", result.Ownership)
+	}
+}
+```
+
+If `encoding/json` is not imported in the test file, add it.
+
+- [ ] **Step 3: Write failing q8 tests**
+
+Add this test to `internal/game/analysis_test.go`:
+
+```go
+func TestEncodeOwnershipQ8(t *testing.T) {
+	encoded := EncodeOwnershipQ8([]float64{-1, -0.5, 0, 0.5, 1})
+	want := []byte{129, 193, 0, 63, 127}
+	if !bytes.Equal(encoded, want) {
+		t.Fatalf("encoded = %v, want %v", encoded, want)
+	}
+	decoded := DecodeOwnershipQ8(encoded)
+	if len(decoded) != 5 {
+		t.Fatalf("decoded length = %d", len(decoded))
+	}
+	if decoded[0] != -1 || decoded[2] != 0 || decoded[4] != 1 {
+		t.Fatalf("decoded edge values = %v", decoded)
+	}
+}
+```
+
+Add `bytes` to the test imports.
+
+- [ ] **Step 4: Run tests to verify failure**
 
 Run:
 
 ```powershell
-go test .\internal\app -count=1
+go test .\internal\katago .\internal\game -run "Ownership|BuildQueryRequestsOwnershipWithoutPolicy" -count=1
 ```
 
-Expected: FAIL because workspace package is missing.
+Expected: FAIL because `Result.Ownership`, `EncodeOwnershipQ8`, and `DecodeOwnershipQ8` do not exist, and query flags are not correct.
 
-- [x] **Step 3: Implement workspace store**
+- [ ] **Step 5: Update KataGo query and result structs**
 
-Create `internal/app/workspace.go`:
+Modify `internal/katago/engine.go`:
 
 ```go
-package app
-
-import (
-	"crypto/sha256"
-	"encoding/hex"
-	"sync"
-
-	"jcgo/internal/domain"
-	"jcgo/internal/game"
-	"jcgo/internal/sgf"
-)
-
-type Store struct {
-	mu sync.Mutex
-	workspaces map[string]*Workspace
-}
-
-type Workspace struct {
-	mu sync.Mutex
-	games map[string]*game.Game
-	selectedGameID string
-}
-
-func NewStore() *Store {
-	return &Store{workspaces: map[string]*Workspace{}}
-}
-
-func (s *Store) ForToken(token string) *Workspace {
-	sum := sha256.Sum256([]byte(token))
-	key := hex.EncodeToString(sum[:])
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if ws := s.workspaces[key]; ws != nil {
-		return ws
-	}
-	ws := &Workspace{games: map[string]*game.Game{}}
-	s.workspaces[key] = ws
-	return ws
-}
-
-func (w *Workspace) LoadGame(gameID string, doc sgf.Document) error {
-	g, err := game.NewFromSGF(gameID, doc)
-	if err != nil {
-		return err
-	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.games[gameID] = g
-	w.selectedGameID = gameID
-	return nil
-}
-
-func (w *Workspace) CurrentSnapshot(gameID string) (domain.Snapshot, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	return w.games[gameID].CurrentSnapshot(), nil
-}
-
-func (w *Workspace) Play(gameID string, gtp string) (domain.Snapshot, error) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	g := w.games[gameID]
-	color := string(g.CurrentSnapshot().ToPlay)
-	return g.PlayVariation(color, gtp)
+type Result struct {
+	ID             string     `json:"id"`
+	RootInfo       RootInfo   `json:"rootInfo"`
+	MoveInfos      []MoveInfo `json:"moveInfos"`
+	Ownership      []float64  `json:"ownership,omitempty"`
+	IsDuringSearch bool       `json:"isDuringSearch,omitempty"`
+	Error          string     `json:"error,omitempty"`
 }
 ```
 
-- [x] **Step 4: Extend game variations**
-
-Modify `internal/game/game.go` so `Game` stores variation nodes in memory and supports:
+Modify `internal/katago/query.go` in `BuildQuery`:
 
 ```go
-func (g *Game) BackToMain() (domain.Snapshot, error)
-func (g *Game) DeleteCurrentVariationNode() (domain.Snapshot, error)
-func (g *Game) ClearCurrentVariation() (domain.Snapshot, error)
+IncludeOwnership:        true,
+IncludeMovesOwnership:   false,
+IncludePolicy:           false,
 ```
 
-Use branch node IDs in the form `var:<counter>`. Store the mainline fork move number on each variation node so `BackToMain` and `ClearCurrentVariation` return to the correct `main:<n>` node.
+- [ ] **Step 6: Add q8 ownership helpers**
 
-- [x] **Step 5: Verify workspace and game tests pass**
+Add to `internal/game/analysis.go`:
+
+```go
+func EncodeOwnershipQ8(values []float64) []byte {
+	encoded := make([]byte, len(values))
+	for i, value := range values {
+		if value > 1 {
+			value = 1
+		}
+		if value < -1 {
+			value = -1
+		}
+		quantized := int8(value * 127)
+		encoded[i] = byte(quantized)
+	}
+	return encoded
+}
+
+func DecodeOwnershipQ8(values []byte) []float64 {
+	decoded := make([]float64, len(values))
+	for i, value := range values {
+		decoded[i] = float64(int8(value)) / 127
+	}
+	return decoded
+}
+```
+
+- [ ] **Step 7: Run tests**
 
 Run:
 
 ```powershell
-go test .\internal\game .\internal\app -count=1
+go test .\internal\katago .\internal\game -count=1
 ```
 
 Expected: PASS.
 
-- [x] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```powershell
-git add internal/game internal/app
-git commit -m "feat: add token workspace variations"
+git add internal/katago internal/game
+git commit -m "feat: parse katago ownership"
 ```
 
-### Task 8: Game JSON-RPC Handlers
+## Task 3: Raw Analysis Types and Columnar Payload DTOs
 
 **Files:**
-- Create: `internal/app/handlers.go`
-- Create: `internal/app/handlers_test.go`
+- Modify: `internal/game/types.go`
+- Modify: `internal/game/analysis.go`
+- Modify: `internal/game/analysis_test.go`
+
+- [ ] **Step 1: Write failing raw normalization test**
+
+Add this test to `internal/game/analysis_test.go`:
+
+```go
+func TestNormalizeAnalysisKeepsRawCandidatesAndOwnership(t *testing.T) {
+	result := katago.Result{
+		RootInfo:  katago.RootInfo{Visits: 100, Winrate: 0.52, ScoreLead: 1.5},
+		Ownership: []float64{-1, 0, 1},
+		MoveInfos: []katago.MoveInfo{
+			{Move: "Q16", Order: 0, Visits: 90, Winrate: 0.53, ScoreLead: 1.8, PV: []string{"Q16", "D4"}},
+		},
+	}
+	out := NormalizeAnalysis(Black, result)
+	if out.Root.Winrate != 0.52 || out.Root.ScoreLead != 1.5 || out.Root.Visits != 100 {
+		t.Fatalf("root = %#v", out.Root)
+	}
+	if len(out.Candidates) != 1 || out.Candidates[0].Move != "Q16" || out.Candidates[0].PV[1] != "D4" {
+		t.Fatalf("candidates = %#v", out.Candidates)
+	}
+	if len(out.OwnershipQ8) != 3 {
+		t.Fatalf("ownership q8 length = %d", len(out.OwnershipQ8))
+	}
+}
+```
+
+- [ ] **Step 2: Run test to verify failure**
+
+Run:
+
+```powershell
+go test .\internal\game -run TestNormalizeAnalysisKeepsRawCandidatesAndOwnership -count=1
+```
+
+Expected: FAIL because `AnalysisResult.Root`, raw candidate fields, and `OwnershipQ8` do not exist.
+
+- [ ] **Step 3: Replace derived candidate API with raw analysis types**
+
+Modify `internal/game/types.go`:
+
+```go
+type AnalysisResult struct {
+	Root        RootAnalysis   `json:"root"`
+	Candidates  []CandidateRaw `json:"candidates"`
+	OwnershipQ8 []byte         `json:"-"`
+}
+
+type RootAnalysis struct {
+	Winrate   float64 `json:"winrate"`
+	ScoreLead float64 `json:"scoreLead"`
+	Visits    int     `json:"visits"`
+}
+
+type CandidateRaw struct {
+	Move      string   `json:"move"`
+	Order     int      `json:"order"`
+	Visits    int      `json:"visits"`
+	Winrate   float64  `json:"winrate"`
+	ScoreLead float64  `json:"scoreLead"`
+	PV        []string `json:"pv"`
+}
+```
+
+Keep `BadMove` but remove `Class` from JSON-facing data after dependent tests are updated:
+
+```go
+type BadMove struct {
+	NodeID     string  `json:"nodeId"`
+	MoveNumber int     `json:"moveNumber"`
+	Color      Color   `json:"color"`
+	Move       string  `json:"move"`
+	PointLoss  float64 `json:"pointLoss"`
+}
+```
+
+- [ ] **Step 4: Update normalization**
+
+Replace `NormalizeAnalysis` in `internal/game/analysis.go`:
+
+```go
+func NormalizeAnalysis(toPlay Color, result katago.Result) AnalysisResult {
+	out := AnalysisResult{
+		Root: RootAnalysis{
+			Winrate:   result.RootInfo.Winrate,
+			ScoreLead: result.RootInfo.ScoreLead,
+			Visits:    result.RootInfo.Visits,
+		},
+		OwnershipQ8: EncodeOwnershipQ8(result.Ownership),
+	}
+	for _, move := range result.MoveInfos {
+		out.Candidates = append(out.Candidates, CandidateRaw{
+			Move:      move.Move,
+			Order:     move.Order,
+			Visits:    move.Visits,
+			Winrate:   move.Winrate,
+			ScoreLead: move.ScoreLead,
+			PV:        append([]string(nil), move.PV...),
+		})
+	}
+	sort.SliceStable(out.Candidates, func(i, j int) bool {
+		return out.Candidates[i].Order < out.Candidates[j].Order
+	})
+	return out
+}
+```
+
+If `sort` becomes unused later, keep it because this function still orders candidates by KataGo order.
+
+- [ ] **Step 5: Update existing backend tests**
+
+Modify tests that currently assert `PointLoss`, `RelativePointLoss`, `WinrateLoss`, `LowVisits`, `AnalysisResult.Winrate`, `AnalysisResult.ScoreLead`, and `AnalysisResult.Visits`.
+
+Use these replacement expectations:
+
+```go
+if out.Root.ScoreLead != 5.0 {
+	t.Fatalf("root score = %.1f", out.Root.ScoreLead)
+}
+if out.Candidates[0].Move != "Q16" || out.Candidates[0].Order != 0 {
+	t.Fatalf("candidate[0] = %#v", out.Candidates[0])
+}
+```
+
+- [ ] **Step 6: Run tests**
+
+Run:
+
+```powershell
+go test .\internal\game -count=1
+```
+
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```powershell
+git add internal/game
+git commit -m "refactor: store raw analysis values"
+```
+
+## Task 4: Workspace GameState Stores and State Payload Builder
+
+**Files:**
 - Modify: `internal/app/workspace.go`
-- Modify: `internal/store/repository.go`
-- Modify: `cmd/jcgo/main.go`
+- Create: `internal/app/state_payload.go`
+- Modify: `internal/app/workspace_test.go`
+- Create: `internal/app/state_payload_test.go`
+- Modify: `internal/app/handlers_test.go`
 
-- [x] **Step 1: Write handler tests**
+- [ ] **Step 1: Write failing fixed timeline payload test**
 
-Create `internal/app/handlers_test.go`:
+Create `internal/app/state_payload_test.go`:
 
 ```go
 package app
 
 import (
-	"context"
-	"encoding/json"
-	"path/filepath"
+	"encoding/base64"
 	"testing"
 
-	"jcgo/internal/storage"
-	"jcgo/internal/workspace"
+	"jcgo/internal/game"
 )
 
-func TestImportListRenameDeleteGame(t *testing.T) {
-	ctx := context.Background()
-	dir := t.TempDir()
-	repo, err := storage.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+func TestStatePayloadUsesFixedColumnarMainTimeline(t *testing.T) {
+	ws := newWorkspace()
+	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese]PB[B]PW[W]RE[B+R];B[pd];W[dd])`)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer repo.Close()
-	h := New(repo, storage.NewFileStore(filepath.Join(dir, "games")), workspace.NewStore(), nil)
-
-	result, err := h.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","originalFilename":"demo.sgf","sgfText":"(;GM[1]FF[4]SZ[19]RE[B+R];B[pd])"}`))
+	if err := ws.LoadGame("game-1", doc); err != nil {
+		t.Fatal(err)
+	}
+	ws.SetAnalysis("game-1", "main:0", game.AnalysisResult{
+		Root: game.RootAnalysis{Winrate: 0.52, ScoreLead: 1.4, Visits: 100},
+		Candidates: []game.CandidateRaw{{Move: "Q16", Order: 0, Visits: 90, Winrate: 0.53, ScoreLead: 1.8, PV: []string{"Q16"}}},
+		OwnershipQ8: []byte{1, 2, 3},
+	})
+	state, err := ws.StatePayload("game-1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	imported := result.(ImportResult)
-	if imported.Game.DisplayName != "Demo" || imported.Snapshot.MoveNumber != 0 {
-		t.Fatalf("imported = %#v", imported)
+	if len(state.Timeline.NodeIDs) != 3 || state.Timeline.NodeIDs[2] != "main:2" {
+		t.Fatalf("node ids = %#v", state.Timeline.NodeIDs)
 	}
-
-	if _, err := h.Call(ctx, "secret", "game.rename", json.RawMessage(`{"gameId":"`+imported.Game.ID+`","displayName":"Renamed"}`)); err != nil {
-		t.Fatal(err)
+	if state.Timeline.RootWinrates[0] == nil || *state.Timeline.RootWinrates[0] != 0.52 {
+		t.Fatalf("root winrate[0] = %#v", state.Timeline.RootWinrates[0])
 	}
-	listResult, err := h.Call(ctx, "secret", "game.list", nil)
-	if err != nil {
-		t.Fatal(err)
+	if state.Timeline.RootWinrates[1] != nil {
+		t.Fatalf("root winrate[1] = %#v", state.Timeline.RootWinrates[1])
 	}
-	if listResult.(ListResult).Games[0].DisplayName != "Renamed" {
-		t.Fatalf("list = %#v", listResult)
+	if state.Current.NodeID != "main:0" || state.Current.Candidates.Moves[0] != "Q16" {
+		t.Fatalf("current = %#v", state.Current)
+	}
+	if state.Current.Ownership == nil || state.Current.Ownership.Data != base64.StdEncoding.EncodeToString([]byte{1, 2, 3}) {
+		t.Fatalf("ownership = %#v", state.Current.Ownership)
 	}
 }
 ```
 
-- [x] **Step 2: Run handler tests to verify they fail**
+- [ ] **Step 2: Write failing variation payload test**
+
+Add to `internal/app/state_payload_test.go`:
+
+```go
+func TestStatePayloadIncludesVariationTimelineAndExcludesVariationBadMoves(t *testing.T) {
+	ws := newWorkspace()
+	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese];B[pd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ws.LoadGame("game-1", doc); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ws.GotoMain("game-1", 0); err != nil {
+		t.Fatal(err)
+	}
+	snap, err := ws.Play("game-1", "D4")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws.SetAnalysis("game-1", snap.NodeID, game.AnalysisResult{Root: game.RootAnalysis{Winrate: 0.60, ScoreLead: 3.0, Visits: 50}})
+	state, err := ws.StatePayload("game-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.Variation == nil || state.Variation.BaseMoveNumber != 0 || state.Variation.Timeline.NodeIDs[0] != snap.NodeID {
+		t.Fatalf("variation = %#v", state.Variation)
+	}
+	if len(state.BadMoves.PointLosses) != 0 {
+		t.Fatalf("variation polluted bad moves = %#v", state.BadMoves)
+	}
+}
+```
+
+- [ ] **Step 3: Run tests to verify failure**
+
+Run:
+
+```powershell
+go test .\internal\app -run "StatePayload" -count=1
+```
+
+Expected: FAIL because `StatePayload` and columnar DTOs do not exist.
+
+- [ ] **Step 4: Add columnar payload structs**
+
+Create `internal/app/state_payload.go`:
+
+```go
+package app
+
+import (
+	"encoding/base64"
+	"fmt"
+
+	"jcgo/internal/game"
+)
+
+type StatePayload struct {
+	Type          string           `json:"type"`
+	Schema        int              `json:"schema"`
+	GameID        string           `json:"gameId"`
+	CurrentNodeID string           `json:"currentNodeId"`
+	AnalysisState AnalysisState    `json:"analysisState"`
+	Snapshot      game.Snapshot    `json:"snapshot"`
+	Timeline      TimelineColumns  `json:"timeline"`
+	BadMoves      BadMoveColumns   `json:"badMoves"`
+	Variation     *VariationState  `json:"variation,omitempty"`
+	Current       CurrentNodeState `json:"current"`
+}
+
+type TimelineColumns struct {
+	NodeIDs           []string     `json:"nodeIds"`
+	Moves             []*string    `json:"moves"`
+	MoveColors        []*string    `json:"moveColors"`
+	Passes            []bool       `json:"passes"`
+	ToPlays           []string     `json:"toPlays"`
+	RootWinrates      []*float64   `json:"rootWinrates"`
+	RootScoreLeads    []*float64   `json:"rootScoreLeads"`
+	RootVisits        []*int       `json:"rootVisits"`
+	PlayedPointLosses []*float64   `json:"playedPointLosses"`
+}
+
+type BadMoveColumns struct {
+	NodeIDs     []string   `json:"nodeIds"`
+	MoveNumbers []int      `json:"moveNumbers"`
+	Colors      []string   `json:"colors"`
+	Moves       []string   `json:"moves"`
+	PointLosses []float64  `json:"pointLosses"`
+}
+
+type VariationState struct {
+	BaseNodeID     string          `json:"baseNodeId"`
+	BaseMoveNumber int             `json:"baseMoveNumber"`
+	CurrentNodeID  string          `json:"currentNodeId"`
+	Timeline       TimelineColumns `json:"timeline"`
+}
+
+type CurrentNodeState struct {
+	NodeID     string             `json:"nodeId"`
+	Candidates CandidateColumns   `json:"candidates"`
+	Ownership *EncodedOwnership  `json:"ownership,omitempty"`
+}
+
+type CandidateColumns struct {
+	Moves      []string     `json:"moves"`
+	Orders     []int        `json:"orders"`
+	Visits     []int        `json:"visits"`
+	Winrates   []float64    `json:"winrates"`
+	ScoreLeads []float64    `json:"scoreLeads"`
+	PVs        [][]string   `json:"pvs"`
+}
+
+type EncodedOwnership struct {
+	Encoding string `json:"encoding"`
+	Data     string `json:"data"`
+}
+```
+
+- [ ] **Step 5: Add GameState store types**
+
+Modify `internal/app/workspace.go` by replacing the flat maps:
+
+```go
+type Workspace struct {
+	mu             sync.Mutex
+	games          map[string]*GameState
+	selectedGameID string
+}
+
+type GameState struct {
+	Game          *game.Game
+	CurrentNodeID string
+	AnalysisState AnalysisState
+	Main          MainAnalysisStore
+	Variation     *VariationAnalysisStore
+}
+
+type MainAnalysisStore struct {
+	Frames   []AnalysisFrame
+	BadMoves []game.BadMove
+}
+
+type VariationAnalysisStore struct {
+	BaseNodeID     string
+	BaseMoveNumber int
+	CurrentNodeID  string
+	Frames         []AnalysisFrame
+}
+
+type AnalysisFrame struct {
+	NodeID          string
+	MoveNumber      int
+	Move            string
+	MoveColor       game.Color
+	Pass            bool
+	ToPlay          game.Color
+	Root            *game.RootAnalysis
+	Candidates      []game.CandidateRaw
+	OwnershipQ8     []byte
+	PlayedPointLoss *float64
+}
+```
+
+Keep public method names (`LoadGame`, `SelectGame`, `GotoMain`, `Play`, `SetAnalysis`) so handlers change minimally.
+
+- [ ] **Step 6: Implement payload building**
+
+Add to `internal/app/state_payload.go`:
+
+```go
+func (w *Workspace) StatePayload(gameID string) (StatePayload, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	state := w.games[gameID]
+	if state == nil {
+		return StatePayload{}, fmt.Errorf("game %s not loaded", gameID)
+	}
+	snapshot := w.withAnalysisLocked(gameID, state.Game.CurrentSnapshot())
+	return StatePayload{
+		Type:          "state",
+		Schema:        1,
+		GameID:        gameID,
+		CurrentNodeID: snapshot.NodeID,
+		AnalysisState: w.analysisStateLocked(gameID),
+		Snapshot:      snapshot,
+		Timeline:      buildTimelineColumns(state.Main.Frames),
+		BadMoves:      buildBadMoveColumns(state.Main.BadMoves),
+		Variation:     buildVariationState(state.Variation),
+		Current:       buildCurrentNodeState(snapshot.NodeID, lookupFrame(state, snapshot.NodeID)),
+	}, nil
+}
+
+func buildTimelineColumns(frames []AnalysisFrame) TimelineColumns {
+	out := TimelineColumns{}
+	for _, frame := range frames {
+		out.NodeIDs = append(out.NodeIDs, frame.NodeID)
+		out.Moves = append(out.Moves, stringPtrOrNil(frame.Move))
+		out.MoveColors = append(out.MoveColors, colorPtrOrNil(frame.MoveColor))
+		out.Passes = append(out.Passes, frame.Pass)
+		out.ToPlays = append(out.ToPlays, string(frame.ToPlay))
+		if frame.Root == nil {
+			out.RootWinrates = append(out.RootWinrates, nil)
+			out.RootScoreLeads = append(out.RootScoreLeads, nil)
+			out.RootVisits = append(out.RootVisits, nil)
+		} else {
+			out.RootWinrates = append(out.RootWinrates, floatPtr(frame.Root.Winrate))
+			out.RootScoreLeads = append(out.RootScoreLeads, floatPtr(frame.Root.ScoreLead))
+			out.RootVisits = append(out.RootVisits, intPtr(frame.Root.Visits))
+		}
+		out.PlayedPointLosses = append(out.PlayedPointLosses, frame.PlayedPointLoss)
+	}
+	return out
+}
+```
+
+Implement `buildBadMoveColumns`, `buildVariationState`, `buildCurrentNodeState`, `lookupFrame`, `stringPtrOrNil`, `colorPtrOrNil`, `floatPtr`, and `intPtr` in the same file:
+
+```go
+func buildBadMoveColumns(moves []game.BadMove) BadMoveColumns {
+	out := BadMoveColumns{}
+	for _, move := range moves {
+		out.NodeIDs = append(out.NodeIDs, move.NodeID)
+		out.MoveNumbers = append(out.MoveNumbers, move.MoveNumber)
+		out.Colors = append(out.Colors, string(move.Color))
+		out.Moves = append(out.Moves, move.Move)
+		out.PointLosses = append(out.PointLosses, move.PointLoss)
+	}
+	return out
+}
+
+func buildVariationState(store *VariationAnalysisStore) *VariationState {
+	if store == nil {
+		return nil
+	}
+	return &VariationState{
+		BaseNodeID:     store.BaseNodeID,
+		BaseMoveNumber: store.BaseMoveNumber,
+		CurrentNodeID:  store.CurrentNodeID,
+		Timeline:       buildTimelineColumns(store.Frames),
+	}
+}
+
+func buildCurrentNodeState(nodeID string, frame *AnalysisFrame) CurrentNodeState {
+	out := CurrentNodeState{NodeID: nodeID}
+	if frame == nil {
+		return out
+	}
+	for _, candidate := range frame.Candidates {
+		out.Candidates.Moves = append(out.Candidates.Moves, candidate.Move)
+		out.Candidates.Orders = append(out.Candidates.Orders, candidate.Order)
+		out.Candidates.Visits = append(out.Candidates.Visits, candidate.Visits)
+		out.Candidates.Winrates = append(out.Candidates.Winrates, candidate.Winrate)
+		out.Candidates.ScoreLeads = append(out.Candidates.ScoreLeads, candidate.ScoreLead)
+		out.Candidates.PVs = append(out.Candidates.PVs, append([]string(nil), candidate.PV...))
+	}
+	if len(frame.OwnershipQ8) > 0 {
+		out.Ownership = &EncodedOwnership{Encoding: "q8-base64", Data: base64.StdEncoding.EncodeToString(frame.OwnershipQ8)}
+	}
+	return out
+}
+
+func stringPtrOrNil(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func colorPtrOrNil(value game.Color) *string {
+	if value == "" {
+		return nil
+	}
+	s := string(value)
+	return &s
+}
+
+func floatPtr(value float64) *float64 { return &value }
+func intPtr(value int) *int { return &value }
+```
+
+- [ ] **Step 7: Implement GameState mutations**
+
+In `workspace.go`, update `LoadGame` to initialize fixed main frames:
+
+```go
+frames := make([]AnalysisFrame, 0, len(g.MainlineAnalysisInputs()))
+for _, input := range g.MainlineAnalysisInputs() {
+	frames = append(frames, frameFromInput(input))
+}
+w.games[gameID] = &GameState{
+	Game:          g,
+	CurrentNodeID: "main:0",
+	AnalysisState: AnalysisIdle,
+	Main:          MainAnalysisStore{Frames: frames},
+}
+```
+
+Add:
+
+```go
+func frameFromInput(input game.AnalysisInput) AnalysisFrame {
+	return AnalysisFrame{
+		NodeID:     input.NodeID,
+		MoveNumber: input.MoveNumber,
+		Move:       input.Move,
+		MoveColor:  input.MoveColor,
+		Pass:       input.Move == "pass",
+		ToPlay:     input.ToPlay,
+	}
+}
+```
+
+Update `SetAnalysis` to find the frame, set root/candidates/ownership, and call `rebuildMainBadMovesLocked` for main frames.
+
+- [ ] **Step 8: Run app tests and fix dependent assertions**
 
 Run:
 
@@ -1648,106 +924,152 @@ Run:
 go test .\internal\app -count=1
 ```
 
-Expected: FAIL because `New` is undefined.
+Expected: PASS after updating tests that still expect `WorkspaceState.ChartPoints`, `WorkspaceState.BadMoves`, or `Snapshot.Analysis` as primary transport.
 
-- [x] **Step 3: Implement handler service**
+- [ ] **Step 9: Commit**
 
-Create `internal/app/handlers.go` with:
+```powershell
+git add internal/app internal/game
+git commit -m "feat: add columnar workspace state"
+```
+
+## Task 5: Handlers and Scheduler Emit Full Columnar State
+
+**Files:**
+- Modify: `internal/app/handlers.go`
+- Modify: `internal/app/handlers_test.go`
+- Modify: `internal/app/scheduler.go`
+- Modify: `internal/app/scheduler_test.go`
+- Modify: `internal/server/jsonrpc.go` if notification typing needs adjustment
+
+- [ ] **Step 1: Write failing handler state test**
+
+Add to `internal/app/handlers_test.go`:
 
 ```go
-package app
-
-import (
-	"context"
-	"encoding/json"
-	"errors"
-	"strings"
-
-	"jcgo/internal/domain"
-	"jcgo/internal/sgf"
-	"jcgo/internal/storage"
-	"jcgo/internal/workspace"
-)
-
-type AnalysisController interface {
-	Start(gameID string, focusNodeID string) error
-	Stop(gameID string) error
-	Restart(gameID string, focusNodeID string) error
-}
-
-type Handler struct {
-	repo *storage.Repository
-	files storage.FileStore
-	workspaces *workspace.Store
-	analysis AnalysisController
-}
-
-type ImportResult struct {
-	Game storage.GameRecord `json:"game"`
-	Snapshot domain.Snapshot `json:"snapshot"`
-}
-
-type ListResult struct {
-	Games []storage.GameRecord `json:"games"`
-}
-
-func New(repo *storage.Repository, files storage.FileStore, workspaces *workspace.Store, analysis AnalysisController) *Handler {
-	return &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis}
-}
-
-func (h *Handler) Call(ctx context.Context, token string, method string, params json.RawMessage) (any, error) {
-	switch method {
-	case "game.list":
-		games, err := h.repo.ListGames(ctx)
-		return ListResult{Games: games}, err
-	case "game.importSgf":
-		return h.importSGF(ctx, token, params)
-	case "game.rename":
-		return h.rename(ctx, params)
-	case "game.delete":
-		return h.delete(ctx, token, params)
-	default:
-		return nil, errors.New("method not found")
+func TestWorkspaceStateReturnsColumnarPayload(t *testing.T) {
+	h, token := newTestHandler(t)
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese];B[pd])",
+	})
+	state := callResult[StatePayload](t, h, token, "workspace.state", map[string]any{})
+	if state.Type != "state" || state.Schema != 1 || state.GameID != imported.Game.ID {
+		t.Fatalf("state header = %#v", state)
+	}
+	if len(state.Timeline.NodeIDs) != 2 || state.Timeline.NodeIDs[1] != "main:1" {
+		t.Fatalf("timeline = %#v", state.Timeline)
+	}
+	if state.Current.NodeID != "main:0" {
+		t.Fatalf("current node = %q", state.Current.NodeID)
 	}
 }
 ```
 
-Implement `importSGF`, `rename`, `delete`, `game.select`, `game.goto`, `game.play`, `game.pass`, `game.backToMain`, `game.deleteVariationNode`, `game.clearVariation`, `analysis.start`, `analysis.stop`, `analysis.restart`, and `workspace.snapshot`. Reject trimmed empty display names. For import, parse SGF first, create a storage record, write `<game_id>.sgf`, then load the parsed game into the token workspace.
+Use existing test helpers in `handlers_test.go`; if they are named differently, adapt only the helper names and keep the assertions.
 
-- [x] **Step 4: Connect JSON-RPC loop to WebSocket**
+- [ ] **Step 2: Write failing notification test**
 
-Use the existing `internal/server` WebSocket token handoff interface:
-
-```go
-type RPCHandler interface {
-	ServeWS(token string, conn *websocket.Conn)
-}
-```
-
-Implement request read loop in `internal/app/handlers.go`:
+Add to `internal/app/handlers_test.go`:
 
 ```go
-func (h *Handler) ServeWS(token string, conn *websocket.Conn) {
-	defer conn.Close()
-	ctx := context.Background()
-	for {
-		var req protocol.Request
-		if err := conn.ReadJSON(&req); err != nil {
-			return
-		}
-		id := string(req.ID)
-		id = strings.Trim(id, `"`)
-		result, err := h.Call(ctx, token, req.Method, req.Params)
-		if err != nil {
-			_ = conn.WriteJSON(protocol.ErrorResponse(id, protocol.CodeInternalError, err.Error()))
-			continue
-		}
-		_ = conn.WriteJSON(protocol.ResultResponse(id, result))
+func TestAnalysisUpdateNotificationContainsFullState(t *testing.T) {
+	h, token := newTestHandler(t)
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese];B[pd])",
+	})
+	h.workspaces.ForToken(token).SetAnalysis(imported.Game.ID, "main:0", game.AnalysisResult{
+		Root: game.RootAnalysis{Winrate: 0.51, ScoreLead: 1.0, Visits: 10},
+	})
+	state, err := h.workspaceState(context.Background(), token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := state.(StatePayload)
+	if payload.Timeline.RootWinrates[0] == nil || *payload.Timeline.RootWinrates[0] != 0.51 {
+		t.Fatalf("payload = %#v", payload.Timeline.RootWinrates)
 	}
 }
 ```
 
-- [x] **Step 5: Verify handler tests pass**
+- [ ] **Step 3: Run tests to verify failure**
+
+Run:
+
+```powershell
+go test .\internal\app -run "ColumnarPayload|FullState|WorkspaceState" -count=1
+```
+
+Expected: FAIL because handlers still return the old `WorkspaceState`.
+
+- [ ] **Step 4: Update handler return types**
+
+In `internal/app/handlers.go`, change `workspaceState` to return `StatePayload` for the selected game. Use this behavior:
+
+```go
+func (h *Handler) workspaceState(ctx context.Context, token string) (any, error) {
+	games, err := h.repo.ListGames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ws := h.workspaces.ForToken(token)
+	selected := ws.SelectedGameID()
+	if selected == "" {
+		return EmptyWorkspaceState{Type: "state", Schema: 1, Games: games, AnalysisState: AnalysisIdle}, nil
+	}
+	payload, err := ws.StatePayload(selected)
+	if err != nil {
+		return nil, err
+	}
+	payload.Games = games
+	return payload, nil
+}
+```
+
+Add `Games []store.GameRecord` to `StatePayload` in `state_payload.go`:
+
+```go
+Games []store.GameRecord `json:"games"`
+```
+
+Define:
+
+```go
+type EmptyWorkspaceState struct {
+	Type          string             `json:"type"`
+	Schema        int                `json:"schema"`
+	Games         []store.GameRecord `json:"games"`
+	AnalysisState AnalysisState      `json:"analysisState"`
+}
+```
+
+- [ ] **Step 5: Return full state from state-changing calls**
+
+For `game.select`, `game.goto`, `game.play`, `game.pass`, `game.backToMain`, `game.clearVariation`, `analysis.start`, `analysis.stop`, and `analysis.restart`, keep the mutation, then return `h.workspaceState(ctx, token)` instead of `SnapshotResult`.
+
+Example for `gotoMain`:
+
+```go
+if _, err := ws.GotoMain(in.GameID, in.MoveNumber); err != nil {
+	return nil, err
+}
+return h.workspaceState(ctx, token)
+```
+
+- [ ] **Step 6: Update `ServeWS` notification**
+
+Keep the notification method as `analysis.update`, but ensure params is the full `StatePayload`:
+
+```go
+state, err := h.workspaceState(ctx, token)
+if err != nil {
+	return
+}
+_ = conn.WriteJSON(server.Notify("analysis.update", state))
+```
+
+- [ ] **Step 7: Run tests**
 
 Run:
 
@@ -1757,1830 +1079,1212 @@ go test .\internal\app .\internal\server -count=1
 
 Expected: PASS.
 
-- [x] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```powershell
-git add cmd internal/app internal/store internal/server
-git commit -m "feat: add game jsonrpc handlers"
+git add internal/app internal/server
+git commit -m "feat: push columnar workspace state"
 ```
 
-### Task 9: KataGo Process Wrapper and Fake Engine
+## Task 6: Frontend Columnar Types, Selectors, and App State
 
 **Files:**
-- Create: `internal/katago/query.go`
-- Create: `internal/katago/engine.go`
-- Create: `internal/katago/engine_test.go`
-
-- [x] **Step 1: Write engine tests**
-
-Create `internal/katago/engine_test.go`:
-
-```go
-package katago
-
-import (
-	"context"
-	"testing"
-)
-
-func TestBuildQueryUsesBlackPerspectiveAndInitialStones(t *testing.T) {
-	query := BuildQuery(BuildInput{
-		ID: "q-1",
-		Rules: "chinese",
-		Komi: 7.5,
-		MaxVisits: 500,
-		InitialStones: []Stone{{Player: "B", Move: "D16"}},
-		Moves: []Move{{Player: "B", Move: "Q16"}},
-		AnalyzeTurn: 1,
-	})
-	if query.Rules != "chinese" || query.Komi != 7.5 || query.MaxVisits != 500 {
-		t.Fatalf("query = %#v", query)
-	}
-	if len(query.InitialStones) != 1 || query.InitialStones[0][1] != "D16" {
-		t.Fatalf("initial stones = %#v", query.InitialStones)
-	}
-	if !query.IncludePolicy {
-		t.Fatal("IncludePolicy = false")
-	}
-}
-
-func TestUnavailableEngineReturnsError(t *testing.T) {
-	engine := NewUnavailable("missing katago")
-	_, err := engine.Analyze(context.Background(), Query{ID: "q-1"})
-	if err == nil {
-		t.Fatal("Analyze returned nil error")
-	}
-}
-```
-
-- [x] **Step 2: Run engine tests to verify they fail**
-
-Run:
-
-```powershell
-go test .\internal\katago -count=1
-```
-
-Expected: FAIL because package types are undefined.
-
-- [x] **Step 3: Implement query structs**
-
-Create `internal/katago/query.go`:
-
-```go
-package katago
-
-type Move struct {
-	Player string
-	Move string
-}
-
-type Stone = Move
-
-type Query struct {
-	ID string `json:"id"`
-	Rules string `json:"rules"`
-	Priority int `json:"priority"`
-	AnalyzeTurns []int `json:"analyzeTurns"`
-	MaxVisits int `json:"maxVisits"`
-	Komi float64 `json:"komi"`
-	BoardXSize int `json:"boardXSize"`
-	BoardYSize int `json:"boardYSize"`
-	IncludeOwnership bool `json:"includeOwnership"`
-	IncludeMovesOwnership bool `json:"includeMovesOwnership"`
-	IncludePolicy bool `json:"includePolicy"`
-	InitialStones [][2]string `json:"initialStones"`
-	InitialPlayer string `json:"initialPlayer"`
-	Moves [][2]string `json:"moves"`
-	OverrideSettings map[string]any `json:"overrideSettings,omitempty"`
-}
-
-type BuildInput struct {
-	ID string
-	Rules string
-	Komi float64
-	MaxVisits int
-	InitialStones []Stone
-	Moves []Move
-	AnalyzeTurn int
-}
-
-func BuildQuery(in BuildInput) Query {
-	query := Query{
-		ID: in.ID,
-		Rules: in.Rules,
-		AnalyzeTurns: []int{in.AnalyzeTurn},
-		MaxVisits: in.MaxVisits,
-		Komi: in.Komi,
-		BoardXSize: 19,
-		BoardYSize: 19,
-		IncludePolicy: true,
-		InitialPlayer: "B",
-	}
-	for _, stone := range in.InitialStones {
-		query.InitialStones = append(query.InitialStones, [2]string{stone.Player, stone.Move})
-	}
-	for _, move := range in.Moves {
-		query.Moves = append(query.Moves, [2]string{move.Player, move.Move})
-	}
-	return query
-}
-```
-
-- [x] **Step 4: Implement engine interface**
-
-Create `internal/katago/engine.go`:
-
-```go
-package katago
-
-import (
-	"bufio"
-	"context"
-	"encoding/json"
-	"errors"
-	"io"
-	"os/exec"
-	"sync"
-)
-
-type Result struct {
-	ID string `json:"id"`
-	RootInfo RootInfo `json:"rootInfo"`
-	MoveInfos []MoveInfo `json:"moveInfos"`
-	IsDuringSearch bool `json:"isDuringSearch,omitempty"`
-	Error string `json:"error,omitempty"`
-}
-
-type RootInfo struct {
-	Visits int `json:"visits"`
-	Winrate float64 `json:"winrate"`
-	ScoreLead float64 `json:"scoreLead"`
-}
-
-type MoveInfo struct {
-	Move string `json:"move"`
-	Visits int `json:"visits"`
-	Winrate float64 `json:"winrate"`
-	ScoreLead float64 `json:"scoreLead"`
-	Order int `json:"order"`
-	PV []string `json:"pv"`
-}
-
-type Analyzer interface {
-	Analyze(context.Context, Query) (Result, error)
-	Available() bool
-	Status() Status
-	Close() error
-}
-
-type Status struct {
-	Available bool `json:"available"`
-	Error string `json:"error,omitempty"`
-}
-
-func NewUnavailable(message string) Analyzer {
-	return unavailable{message: message}
-}
-
-type unavailable struct {
-	message string
-}
-
-func (u unavailable) Analyze(context.Context, Query) (Result, error) { return Result{}, errors.New(u.message) }
-func (u unavailable) Available() bool { return false }
-func (u unavailable) Status() Status { return Status{Available: false, Error: u.message} }
-func (u unavailable) Close() error { return nil }
-```
-
-In the same file, implement `StartLocal(ctx, katagoPath, modelPath, configPath string) (Analyzer, error)` using `exec.CommandContext(katagoPath, "analysis", "-model", modelPath, "-config", configPath)`. Maintain a mutex around stdin writes and stdout reads because v1 uses a single global queue. Decode one JSON line per `Analyze` call and return a non-partial final result.
-
-- [x] **Step 5: Verify engine tests pass**
-
-Run:
-
-```powershell
-go test .\internal\katago -count=1
-```
-
-Expected: PASS.
-
-- [x] **Step 6: Commit**
-
-```powershell
-git add internal/katago
-git commit -m "feat: add katago process wrapper"
-```
-
-### Task 10: Analysis Normalization, Cache, and Bad Move Thresholds
-
-**Files:**
-- Create: `internal/game/analysis.go`
-- Create: `internal/game/analysis_test.go`
-- Modify: `internal/game/types.go`
-
-- [x] **Step 1: Write normalization tests**
-
-Create `internal/game/analysis_test.go`:
-
-```go
-package game
-
-import (
-	"testing"
-
-	"jcgo/internal/domain"
-	"jcgo/internal/katago"
-)
-
-func TestNormalizeCandidatePointLossForBlackToPlay(t *testing.T) {
-	out := Normalize(domain.Black, katago.Result{
-		RootInfo: katago.RootInfo{Winrate: 0.55, ScoreLead: 3.0, Visits: 500},
-		MoveInfos: []katago.MoveInfo{
-			{Move: "Q16", Order: 0, Visits: 400, Winrate: 0.56, ScoreLead: 3.4, PV: []string{"Q16", "D16"}},
-			{Move: "D4", Order: 1, Visits: 80, Winrate: 0.50, ScoreLead: 1.0, PV: []string{"D4"}},
-		},
-	})
-	if out.Candidates[1].PointLoss != 2.0 {
-		t.Fatalf("PointLoss = %.1f", out.Candidates[1].PointLoss)
-	}
-	if out.Candidates[1].LowVisits != false {
-		t.Fatalf("LowVisits = true for 80 visits")
-	}
-}
-
-func TestMistakeThresholdsMatchKaTrain(t *testing.T) {
-	if MistakeClass(12.0) != 0 || MistakeClass(6.0) != 1 || MistakeClass(3.0) != 2 || MistakeClass(1.5) != 3 {
-		t.Fatal("threshold classes do not match KaTrain default order")
-	}
-	if !IsBadMove(1.6) || IsBadMove(1.5) {
-		t.Fatal("bad move threshold should be greater than 1.5")
-	}
-}
-```
-
-- [x] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```powershell
-go test .\internal\game -count=1
-```
-
-Expected: FAIL because analysis package is missing.
-
-- [x] **Step 3: Add analysis types to game**
-
-Append to `internal/game/types.go`:
-
-```go
-type AnalysisResult struct {
-	Winrate float64 `json:"winrate"`
-	ScoreLead float64 `json:"scoreLead"`
-	Visits int `json:"visits"`
-	Candidates []CandidateMove `json:"candidates"`
-}
-
-type CandidateMove struct {
-	Move string `json:"move"`
-	Order int `json:"order"`
-	Visits int `json:"visits"`
-	Winrate float64 `json:"winrate"`
-	ScoreLead float64 `json:"scoreLead"`
-	PointLoss float64 `json:"pointLoss"`
-	RelativePointLoss float64 `json:"relativePointLoss"`
-	WinrateLoss float64 `json:"winrateLoss"`
-	PV []string `json:"pv"`
-	LowVisits bool `json:"lowVisits"`
-}
-
-type BadMove struct {
-	NodeID string `json:"nodeId"`
-	MoveNumber int `json:"moveNumber"`
-	Move string `json:"move"`
-	PointLoss float64 `json:"pointLoss"`
-	Class int `json:"class"`
-}
-
-type ChartPoint struct {
-	MoveNumber int `json:"moveNumber"`
-	Winrate float64 `json:"winrate"`
-	ScoreLead float64 `json:"scoreLead"`
-}
-```
-
-- [x] **Step 4: Implement normalization**
-
-Create `internal/game/analysis.go`:
-
-```go
-package game
-
-import (
-	"sort"
-
-	"jcgo/internal/domain"
-	"jcgo/internal/katago"
-)
-
-var KaTrainThresholds = []float64{12, 6, 3, 1.5, 0.5, 0}
-
-func Normalize(toPlay domain.Color, result katago.Result) domain.AnalysisResult {
-	rootScore := result.RootInfo.ScoreLead
-	rootWinrate := result.RootInfo.Winrate
-	sign := 1.0
-	if toPlay == domain.White {
-		sign = -1
-	}
-	topScore := rootScore
-	for _, move := range result.MoveInfos {
-		if move.Order == 0 {
-			topScore = move.ScoreLead
-			break
-		}
-	}
-	out := domain.AnalysisResult{
-		Winrate: rootWinrate,
-		ScoreLead: rootScore,
-		Visits: result.RootInfo.Visits,
-	}
-	for _, move := range result.MoveInfos {
-		out.Candidates = append(out.Candidates, domain.CandidateMove{
-			Move: move.Move,
-			Order: move.Order,
-			Visits: move.Visits,
-			Winrate: move.Winrate,
-			ScoreLead: move.ScoreLead,
-			PointLoss: sign * (rootScore - move.ScoreLead),
-			RelativePointLoss: sign * (topScore - move.ScoreLead),
-			WinrateLoss: sign * (rootWinrate - move.Winrate),
-			PV: move.PV,
-			LowVisits: move.Visits < 25 && move.Order != 0,
-		})
-	}
-	sort.SliceStable(out.Candidates, func(i, j int) bool {
-		if out.Candidates[i].Order != out.Candidates[j].Order {
-			return out.Candidates[i].Order < out.Candidates[j].Order
-		}
-		return out.Candidates[i].PointLoss < out.Candidates[j].PointLoss
-	})
-	return out
-}
-
-func MistakeClass(pointsLost float64) int {
-	i := 0
-	for i < len(KaTrainThresholds)-1 && pointsLost < KaTrainThresholds[i] {
-		i++
-	}
-	return i
-}
-
-func IsBadMove(pointsLost float64) bool {
-	return pointsLost > 1.5
-}
-```
-
-- [x] **Step 5: Verify normalization tests pass**
-
-Run:
-
-```powershell
-go test .\internal\game -count=1
-```
-
-Expected: PASS.
-
-- [x] **Step 6: Commit**
-
-```powershell
-git add internal/game
-git commit -m "feat: normalize analysis results"
-```
-
-### Task 11: Single Analysis Queue and Notifications
-
-**Files:**
-- Create: `internal/app/scheduler.go`
-- Create: `internal/app/scheduler_test.go`
-- Modify: `internal/app/workspace.go`
-- Modify: `internal/app/handlers.go`
-- Modify: `internal/game/analysis.go`
-
-- [x] **Step 1: Write scheduler tests**
-
-Create `internal/app/scheduler_test.go`:
-
-```go
-package app
-
-import (
-	"context"
-	"testing"
-	"time"
-
-	"jcgo/internal/katago"
-)
-
-type fakeAnalyzer struct {
-	calls []string
-}
-
-func (f *fakeAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
-	f.calls = append(f.calls, query.ID)
-	return katago.Result{
-		ID: query.ID,
-		RootInfo: katago.RootInfo{Visits: 500, Winrate: 0.5, ScoreLead: 0},
-		MoveInfos: []katago.MoveInfo{{Move: "Q16", Order: 0, Visits: 500, Winrate: 0.5, ScoreLead: 0}},
-	}, nil
-}
-
-func (f *fakeAnalyzer) Available() bool { return true }
-func (f *fakeAnalyzer) Status() katago.Status { return katago.Status{Available: true} }
-func (f *fakeAnalyzer) Close() error { return nil }
-
-func TestSchedulerStopsPendingTasks(t *testing.T) {
-	engine := &fakeAnalyzer{}
-	scheduler := NewScheduler(engine, 500)
-	defer scheduler.Close()
-	received := make(chan Event, 4)
-	scheduler.Subscribe(func(event Event) { received <- event })
-
-	scheduler.StartGame(StartInput{Token: "secret", GameID: "game-1", FocusNodeID: "main:0", Nodes: []NodeInput{
-		{NodeID: "main:0", MoveNumber: 0, ToPlay: "B"},
-		{NodeID: "main:1", MoveNumber: 1, ToPlay: "W"},
-	}})
-	scheduler.StopGame("secret", "game-1")
-
-	select {
-	case <-received:
-	case <-time.After(time.Second):
-		t.Fatal("expected at least one event")
-	}
-	if len(engine.calls) > 2 {
-		t.Fatalf("too many calls after stop: %v", engine.calls)
-	}
-}
-```
-
-- [x] **Step 2: Run tests to verify they fail**
-
-Run:
-
-```powershell
-go test .\internal\app -run TestScheduler -count=1
-```
-
-Expected: FAIL because `NewScheduler` is undefined.
-
-- [x] **Step 3: Implement scheduler types**
-
-Create `internal/app/scheduler.go` with:
-
-```go
-package app
-
-import (
-	"context"
-	"sync"
-
-	"jcgo/internal/domain"
-	"jcgo/internal/katago"
-)
-
-type NodeInput struct {
-	NodeID string
-	MoveNumber int
-	ToPlay domain.Color
-}
-
-type StartInput struct {
-	Token string
-	GameID string
-	FocusNodeID string
-	Nodes []NodeInput
-}
-
-type Event struct {
-	Token string `json:"-"`
-	GameID string `json:"gameId"`
-	NodeID string `json:"nodeId"`
-	MoveNumber int `json:"moveNumber"`
-	Analysis domain.AnalysisResult `json:"analysis"`
-}
-
-type Subscriber func(Event)
-
-type Scheduler struct {
-	engine katago.Analyzer
-	maxVisits int
-	mu sync.Mutex
-	queue []task
-	stopped map[string]bool
-	subscribers []Subscriber
-	wake chan struct{}
-	closed chan struct{}
-}
-```
-
-Implement `NewScheduler`, `Subscribe`, `StartGame`, `AnalyzeNow`, `StopGame`, `RestartGame`, `Close`, and a single worker goroutine. Use key `token + "\x00" + gameID` for stop state. When a result arrives, normalize it with `Normalize(node.ToPlay, result)` and call subscribers.
-
-- [x] **Step 4: Store analysis in workspace**
-
-Modify `internal/app/workspace.go` to add:
-
-```go
-func (w *Workspace) SetAnalysis(gameID string, nodeID string, result domain.AnalysisResult)
-func (w *Workspace) ClearAnalysisAndVariations(gameID string, fallbackNodeID string) (domain.Snapshot, error)
-func (w *Workspace) MainlineAnalysisInputs(gameID string) []analysis.NodeInput
-```
-
-The implementation stores analysis by `gameID + ":" + nodeID` and clears entries for a game on restart or variation deletion.
-
-- [x] **Step 5: Wire analysis methods in RPC**
-
-Modify `internal/app/handlers.go` so:
-
-- `analysis.start` calls scheduler `StartGame`.
-- `analysis.stop` calls scheduler `StopGame`.
-- `analysis.restart` clears workspace analysis/variations and calls scheduler `StartGame`.
-- Scheduler events are emitted to connected clients as JSON-RPC notifications named `analysis.node`.
-
-- [x] **Step 6: Verify scheduler tests pass**
-
-Run:
-
-```powershell
-go test .\internal\app .\internal\game -count=1
-```
-
-Expected: PASS.
-
-- [x] **Step 7: Commit**
-
-```powershell
-git add internal/app internal/game
-git commit -m "feat: add analysis scheduler"
-```
-
-### Task 12: Compose the Backend Service
-
-**Files:**
-- Modify: `cmd/jcgo/main.go`
-- Modify: `internal/server/server.go`
-- Create: `internal/app/app.go`
-- Create: `internal/app/app_test.go`
-
-- [x] **Step 1: Write app composition test**
-
-Create `internal/app/app_test.go`:
-
-```go
-package app
-
-import (
-	"context"
-	"path/filepath"
-	"testing"
-
-	"jcgo/internal/config"
-)
-
-func TestNewAppStartsWithUnavailableEngineWhenPathsMissing(t *testing.T) {
-	cfg := config.Config{
-		AccessToken: "secret",
-		DataDir: t.TempDir(),
-		DatabasePath: filepath.Join(t.TempDir(), "jcgo.sqlite"),
-		GamesDir: filepath.Join(t.TempDir(), "games"),
-		MaxVisits: 500,
-	}
-	app, err := New(context.Background(), cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer app.Close()
-	if app.EngineStatus().Available {
-		t.Fatal("engine should be unavailable without configured paths")
-	}
-}
-```
-
-- [x] **Step 2: Implement app composition**
-
-Create `internal/app/app.go`:
-
-```go
-package app
-
-import (
-	"context"
-	"errors"
-
-	"jcgo/internal/analysis"
-	"jcgo/internal/config"
-	"jcgo/internal/katago"
-	"jcgo/internal/rpc"
-	"jcgo/internal/storage"
-	"jcgo/internal/workspace"
-)
-
-type App struct {
-	Repo *storage.Repository
-	Files storage.FileStore
-	Workspaces *workspace.Store
-	Engine katago.Analyzer
-	Scheduler *analysis.Scheduler
-	RPC *rpc.Handler
-}
-
-func New(ctx context.Context, cfg config.Config) (*App, error) {
-	repo, err := storage.Open(ctx, cfg.DatabasePath)
-	if err != nil {
-		return nil, err
-	}
-	files := storage.NewFileStore(cfg.GamesDir)
-	engine, err := startEngine(ctx, cfg)
-	if err != nil {
-		engine = katago.NewUnavailable(err.Error())
-	}
-	workspaces := workspace.NewStore()
-	scheduler := analysis.NewScheduler(engine, cfg.MaxVisits)
-	handler := rpc.New(repo, files, workspaces, scheduler)
-	return &App{Repo: repo, Files: files, Workspaces: workspaces, Engine: engine, Scheduler: scheduler, RPC: handler}, nil
-}
-
-func (a *App) EngineStatus() katago.Status {
-	return a.Engine.Status()
-}
-
-func (a *App) Close() error {
-	a.Scheduler.Close()
-	_ = a.Engine.Close()
-	return a.Repo.Close()
-}
-
-func startEngine(ctx context.Context, cfg config.Config) (katago.Analyzer, error) {
-	if cfg.KatagoPath == "" || cfg.ModelPath == "" || cfg.AnalysisConfigPath == "" {
-		return nil, errors.New("katago path, model path, and analysis config path are required for analysis")
-	}
-	return katago.StartLocal(ctx, cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
-}
-```
-
-- [x] **Step 3: Serve frontend static assets with SPA fallback**
-
-Modify `internal/server/server.go` so `Config.StaticDir` is used when present:
-
-```go
-func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
-	if s.cfg.StaticDir == "" {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("JCGO"))
-		return
-	}
-	path := filepath.Join(s.cfg.StaticDir, filepath.Clean(r.URL.Path))
-	if info, err := os.Stat(path); err == nil && !info.IsDir() {
-		http.ServeFile(w, r, path)
-		return
-	}
-	http.ServeFile(w, r, filepath.Join(s.cfg.StaticDir, "index.html"))
-}
-```
-
-- [x] **Step 4: Wire `main` to app and server**
-
-Modify `cmd/jcgo/main.go`:
-
-```go
-package main
-
-import (
-	"context"
-	"log"
-	"net/http"
-
-	"jcgo/internal/app"
-	"jcgo/internal/config"
-	"jcgo/internal/httpserver"
-)
-
-func main() {
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := config.EnsureDirs(cfg); err != nil {
-		log.Fatal(err)
-	}
-	application, err := app.New(context.Background(), cfg)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer application.Close()
-
-	server := httpserver.New(httpserver.Config{
-		AccessToken: cfg.AccessToken,
-		StaticDir:   "web/dist",
-	}, application.RPC)
-	log.Printf("jcgo listening on %s", cfg.ListenAddr)
-	log.Fatal(http.ListenAndServe(cfg.ListenAddr, server.Handler()))
-}
-```
-
-- [x] **Step 5: Verify backend tests pass**
-
-Run:
-
-```powershell
-go test .\internal\... .\cmd\jcgo -count=1
-```
-
-Expected: PASS.
-
-- [x] **Step 6: Commit**
-
-```powershell
-git add cmd internal/app internal/server
-git commit -m "feat: compose backend service"
-```
-
-### Task 13: Frontend JSON-RPC Client, Types, and Token Gate
-
-**Files:**
-- Create: `web/src/api/types.ts`
-- Create: `web/src/api/jsonrpc.ts`
-- Create: `web/src/api/jsonrpc.test.ts`
-- Create: `web/src/state/appStore.ts`
-- Create: `web/src/components/TokenGate.tsx`
-- Create: `web/src/components/TokenGate.test.tsx`
+- Modify: `web/src/api/types.ts`
+- Create: `web/src/state/selectors.ts`
+- Create: `web/src/state/selectors.test.ts`
 - Modify: `web/src/App.tsx`
+- Modify: `web/src/App.state.test.ts`
 
-- [x] **Step 1: Write JSON-RPC client tests**
+- [ ] **Step 1: Write selector tests**
 
-Create `web/src/api/jsonrpc.test.ts`:
+Create `web/src/state/selectors.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest'
-import { buildProtocols, makeRequest } from './jsonrpc'
+import { candidateAt, chartPointsForState, currentCandidates, pointLossForCandidate } from './selectors'
+import type { StatePayload } from '../api/types'
 
-describe('jsonrpc helpers', () => {
-  it('builds websocket subprotocols with token', () => {
-    expect(buildProtocols('secret')).toEqual(['jcgo-jsonrpc', 'token.secret'])
+const state: StatePayload = {
+  type: 'state',
+  schema: 1,
+  games: [],
+  gameId: 'game-1',
+  currentNodeId: 'main:0',
+  analysisState: 'running',
+  snapshot: {
+    gameId: 'game-1',
+    nodeId: 'main:0',
+    moveNumber: 0,
+    totalMoves: 1,
+    branchMode: 'main',
+    stones: [],
+    children: [],
+    toPlay: 'B',
+    rules: 'chinese',
+    komi: 7.5,
+    blackName: 'B',
+    whiteName: 'W',
+    result: '',
+    captures: { B: 0, W: 0 },
+    gameEnded: false,
+    canPrevious: false,
+    canNext: true,
+    canBackToMain: false,
+  },
+  timeline: {
+    nodeIds: ['main:0', 'main:1'],
+    moves: [null, 'Q16'],
+    moveColors: [null, 'B'],
+    passes: [false, false],
+    toPlays: ['B', 'W'],
+    rootWinrates: [0.52, null],
+    rootScoreLeads: [1.4, null],
+    rootVisits: [100, null],
+    playedPointLosses: [null, null],
+  },
+  badMoves: { nodeIds: [], moveNumbers: [], colors: [], moves: [], pointLosses: [] },
+  current: {
+    nodeId: 'main:0',
+    candidates: {
+      moves: ['Q16', 'D4'],
+      orders: [0, 1],
+      visits: [100, 20],
+      winrates: [0.54, 0.51],
+      scoreLeads: [2.0, 1.2],
+      pvs: [['Q16'], ['D4']],
+    },
+  },
+}
+
+describe('columnar state selectors', () => {
+  it('builds chart points from analyzed timeline values', () => {
+    expect(chartPointsForState(state)).toEqual([{ moveNumber: 0, winrate: 0.52, scoreLead: 1.4 }])
   })
 
-  it('creates JSON-RPC 2.0 requests', () => {
-    expect(makeRequest('1', 'game.list', {})).toEqual({
-      jsonrpc: '2.0',
-      id: '1',
-      method: 'game.list',
-      params: {},
-    })
+  it('inflates current candidates and derives KaTrain pointsLost', () => {
+    const candidates = currentCandidates(state)
+    expect(candidates).toHaveLength(2)
+    expect(candidateAt(state, 1)?.move).toBe('D4')
+    expect(pointLossForCandidate(state, candidates[1])).toBeCloseTo(0.2)
   })
 })
 ```
 
-- [x] **Step 2: Implement shared frontend types**
+- [ ] **Step 2: Run test to verify failure**
 
-Create `web/src/api/types.ts`:
+Run:
+
+```powershell
+cd web
+npm test -- --run src/state/selectors.test.ts
+```
+
+Expected: FAIL because `StatePayload` and selectors do not exist.
+
+- [ ] **Step 3: Update API types**
+
+Replace old analysis view types in `web/src/api/types.ts` with:
 
 ```ts
-export type Color = 'B' | 'W'
-
-export interface GameRecord {
-  gameId: string
-  displayName: string
-  result: string
-  sgfFilename: string
-  createdAt: string
+export interface StatePayload {
+  type: 'state'
+  schema: 1
+  games: GameRecord[]
+  gameId?: string
+  currentNodeId?: string
+  analysisState: AnalysisState
+  snapshot?: Snapshot
+  timeline?: TimelineColumns
+  badMoves?: BadMoveColumns
+  variation?: VariationState
+  current?: CurrentNodeState
 }
 
-export interface Stone {
-  x: number
-  y: number
-  color: Color
+export interface TimelineColumns {
+  nodeIds: string[]
+  moves: Array<string | null>
+  moveColors: Array<Color | null>
+  passes: boolean[]
+  toPlays: Color[]
+  rootWinrates: Array<number | null>
+  rootScoreLeads: Array<number | null>
+  rootVisits: Array<number | null>
+  playedPointLosses: Array<number | null>
 }
 
-export interface MoveView {
+export interface BadMoveColumns {
+  nodeIds: string[]
+  moveNumbers: number[]
+  colors: Color[]
+  moves: string[]
+  pointLosses: number[]
+}
+
+export interface VariationState {
+  baseNodeId: string
+  baseMoveNumber: number
+  currentNodeId: string
+  timeline: TimelineColumns
+}
+
+export interface CurrentNodeState {
   nodeId: string
-  moveNumber: number
-  color: Color
-  gtp: string
-  pass: boolean
+  candidates: CandidateColumns
+  ownership?: EncodedOwnership
 }
 
-export interface Snapshot {
-  gameId: string
-  nodeId: string
-  moveNumber: number
-  totalMoves: number
-  branchMode: 'main' | 'variation'
-  stones: Stone[]
-  lastMove?: MoveView
-  toPlay: Color
-  rules: string
-  komi: number
-  captures: Record<Color, number>
-  gameEnded: boolean
-  canPrevious: boolean
-  canNext: boolean
-  canBackToMain: boolean
-  analysis?: AnalysisResult
+export interface CandidateColumns {
+  moves: string[]
+  orders: number[]
+  visits: number[]
+  winrates: number[]
+  scoreLeads: number[]
+  pvs: string[][]
 }
 
-export interface CandidateMove {
+export interface EncodedOwnership {
+  encoding: 'q8-base64'
+  data: string
+}
+
+export interface CandidateView {
   move: string
   order: number
   visits: number
   winrate: number
   scoreLead: number
-  pointLoss: number
-  relativePointLoss: number
-  winrateLoss: number
   pv: string[]
-  lowVisits: boolean
-}
-
-export interface AnalysisResult {
-  winrate: number
-  scoreLead: number
-  visits: number
-  candidates: CandidateMove[]
 }
 ```
 
-- [x] **Step 3: Implement JSON-RPC client helpers**
-
-Create `web/src/api/jsonrpc.ts`:
+Remove `WorkspaceState`, `ChartPoint` object reliance, and derived candidate fields from API types. Keep `ChartPoint` as frontend render type:
 
 ```ts
-export interface JSONRPCRequest {
-  jsonrpc: '2.0'
-  id: string
-  method: string
-  params?: unknown
-}
-
-export function buildProtocols(token: string): string[] {
-  return ['jcgo-jsonrpc', `token.${token}`]
-}
-
-export function makeRequest(id: string, method: string, params?: unknown): JSONRPCRequest {
-  return { jsonrpc: '2.0', id, method, params }
-}
-
-export class RPCClient {
-  private ws?: WebSocket
-  private seq = 0
-  private pending = new Map<string, { resolve: (value: unknown) => void; reject: (reason: unknown) => void }>()
-
-  connect(url: string, token: string) {
-    this.ws = new WebSocket(url, buildProtocols(token))
-    this.ws.onmessage = (event) => this.handleMessage(event.data)
-  }
-
-  call<T>(method: string, params?: unknown): Promise<T> {
-    const id = String(++this.seq)
-    const request = makeRequest(id, method, params)
-    return new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: resolve as (value: unknown) => void, reject })
-      this.ws?.send(JSON.stringify(request))
-    })
-  }
-
-  private handleMessage(raw: string) {
-    const message = JSON.parse(raw)
-    if (!message.id) return
-    const pending = this.pending.get(String(message.id))
-    if (!pending) return
-    this.pending.delete(String(message.id))
-    if (message.error) pending.reject(message.error)
-    else pending.resolve(message.result)
-  }
+export interface ChartPoint {
+  moveNumber: number
+  winrate: number
+  scoreLead: number
 }
 ```
 
-- [x] **Step 4: Create token gate**
+- [ ] **Step 4: Implement selectors**
 
-Create `web/src/components/TokenGate.tsx`:
+Create `web/src/state/selectors.ts`:
 
-```tsx
-import { FormEvent, useState } from 'react'
+```ts
+import type { BadMove, CandidateView, ChartPoint, StatePayload, TimelineColumns } from '../api/types'
 
-interface TokenGateProps {
-  onSubmit(token: string): void
-}
-
-export function TokenGate({ onSubmit }: TokenGateProps) {
-  const [token, setToken] = useState(localStorage.getItem('jcgo.accessToken') ?? '')
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    const trimmed = token.trim()
-    if (!trimmed) return
-    localStorage.setItem('jcgo.accessToken', trimmed)
-    onSubmit(trimmed)
+export function chartPointsForState(state?: StatePayload): ChartPoint[] {
+  const timeline = activeTimeline(state)
+  if (!timeline) return []
+  const base = state?.variation ? state.variation.baseMoveNumber + 1 : 0
+  const points: ChartPoint[] = []
+  for (let i = 0; i < timeline.nodeIds.length; i++) {
+    const winrate = timeline.rootWinrates[i]
+    const scoreLead = timeline.rootScoreLeads[i]
+    if (winrate === null || scoreLead === null) continue
+    points.push({ moveNumber: base + i, winrate, scoreLead })
   }
-  return (
-    <main className="token-gate">
-      <form onSubmit={submit}>
-        <h1>JCGO</h1>
-        <label>
-          Access token
-          <input value={token} onChange={(event) => setToken(event.target.value)} autoFocus />
-        </label>
-        <button type="submit">Connect</button>
-      </form>
-    </main>
-  )
+  return points
+}
+
+export function activeTimeline(state?: StatePayload): TimelineColumns | undefined {
+  return state?.variation ? state.variation.timeline : state?.timeline
+}
+
+export function currentCandidates(state?: StatePayload): CandidateView[] {
+  const columns = state?.current?.candidates
+  if (!columns) return []
+  return columns.moves.map((move, index) => ({
+    move,
+    order: columns.orders[index],
+    visits: columns.visits[index],
+    winrate: columns.winrates[index],
+    scoreLead: columns.scoreLeads[index],
+    pv: columns.pvs[index] ?? [],
+  }))
+}
+
+export function candidateAt(state: StatePayload, index: number): CandidateView | undefined {
+  return currentCandidates(state)[index]
+}
+
+export function pointLossForCandidate(state: StatePayload, candidate: CandidateView): number {
+  const root = rootForCurrent(state)
+  if (!root) return 0
+  const sign = state.snapshot?.toPlay === 'W' ? -1 : 1
+  return sign * (root.scoreLead - candidate.scoreLead)
+}
+
+export function lowVisits(candidate: CandidateView): boolean {
+  return candidate.visits < 25 && candidate.order !== 0
+}
+
+export function badMovesForState(state?: StatePayload): BadMove[] {
+  const columns = state?.badMoves
+  if (!columns) return []
+  return columns.nodeIds.map((nodeId, index) => ({
+    nodeId,
+    moveNumber: columns.moveNumbers[index],
+    color: columns.colors[index],
+    move: columns.moves[index],
+    pointLoss: columns.pointLosses[index],
+  }))
+}
+
+function rootForCurrent(state: StatePayload): { winrate: number; scoreLead: number } | undefined {
+  const timeline = activeTimeline(state)
+  if (!timeline || !state.current) return undefined
+  const index = timeline.nodeIds.indexOf(state.current.nodeId)
+  if (index < 0) return undefined
+  const winrate = timeline.rootWinrates[index]
+  const scoreLead = timeline.rootScoreLeads[index]
+  if (winrate === null || scoreLead === null) return undefined
+  return { winrate, scoreLead }
 }
 ```
 
-- [x] **Step 5: Wire App to token gate**
+- [ ] **Step 5: Update `App.tsx` state shape**
 
-Replace `web/src/App.tsx`:
+In `web/src/App.tsx`, replace separate `games`, `selectedGameId`, `snapshot`, `chartPoints`, `badMoves`, and `analysisState` state with:
 
-```tsx
-import { useState } from 'react'
-import { TokenGate } from './components/TokenGate'
-import './styles.css'
-
-export default function App() {
-  const [token, setToken] = useState(localStorage.getItem('jcgo.accessToken'))
-  if (!token) return <TokenGate onSubmit={setToken} />
-  return <main className="app-layout">JCGO workspace connected</main>
-}
+```ts
+const [workspace, setWorkspace] = useState<StatePayload>({ type: 'state', schema: 1, games: [], analysisState: 'idle' })
+const games = workspace.games
+const selectedGameId = workspace.gameId
+const snapshot = workspace.snapshot
+const chartPoints = chartPointsForState(workspace)
+const badMoves = badMovesForState(workspace)
+const candidates = currentCandidates(workspace)
+const analysisState = workspace.analysisState
 ```
 
-- [x] **Step 6: Verify frontend tests pass**
+Update notification and calls to use `StatePayload`:
+
+```ts
+nextClient.on('analysis.update', (params) => setWorkspace(params as StatePayload))
+const state = await nextClient.call<StatePayload>('workspace.state')
+setWorkspace(state)
+```
+
+For state-changing calls, prefer the returned state:
+
+```ts
+const state = await client.call<StatePayload>('game.goto', { gameId: selectedGameId, moveNumber })
+setWorkspace(state)
+```
+
+- [ ] **Step 6: Run frontend tests**
 
 Run:
 
 ```powershell
 cd web
-npm test -- --run
+npm test -- --run src/state/selectors.test.ts src/App.state.test.ts
 ```
 
 Expected: PASS.
 
-- [x] **Step 7: Commit**
+- [ ] **Step 7: Commit**
 
 ```powershell
-git add web/src/api web/src/state web/src/components web/src/App.tsx
-git commit -m "feat: add frontend rpc token gate"
+git add web/src/api/types.ts web/src/state web/src/App.tsx
+git commit -m "feat: consume columnar workspace state"
 ```
 
-### Task 14: Game Sidebar, Import, Rename, and Delete UI
+## Task 7: KaTrain Display Helpers and Ownership Decoding
 
 **Files:**
-- Create: `web/src/components/GameSidebar.tsx`
-- Create: `web/src/components/GameSidebar.test.tsx`
-- Create: `web/src/components/ImportDialog.tsx`
-- Modify: `web/src/state/appStore.ts`
-- Modify: `web/src/App.tsx`
-- Modify: `web/src/styles.css`
+- Create: `web/src/board/coordinates.ts`
+- Create: `web/src/board/katrainStyle.ts`
+- Create: `web/src/board/katrainStyle.test.ts`
+- Create: `web/src/board/ownership.ts`
+- Create: `web/src/board/ownership.test.ts`
+- Modify: `web/src/components/Board.tsx`
 
-- [x] **Step 1: Write sidebar tests**
+- [ ] **Step 1: Write style helper tests**
 
-Create `web/src/components/GameSidebar.test.tsx`:
+Create `web/src/board/katrainStyle.test.ts`:
 
-```tsx
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import { GameSidebar } from './GameSidebar'
+```ts
+import { describe, expect, it } from 'vitest'
+import { evalClassForPointLoss, formatCandidateDelta, katrainEvalColor } from './katrainStyle'
 
-describe('GameSidebar', () => {
-  it('renders imported games newest first', () => {
-    render(
-      <GameSidebar
-        games={[
-          { gameId: '2', displayName: 'New', result: 'W+R', sgfFilename: '2.sgf', createdAt: '2026-06-24T02:00:00Z' },
-          { gameId: '1', displayName: 'Old', result: 'B+R', sgfFilename: '1.sgf', createdAt: '2026-06-24T01:00:00Z' },
-        ]}
-        selectedGameId="2"
-        onImport={vi.fn()}
-        onSelect={vi.fn()}
-        onRename={vi.fn()}
-        onDelete={vi.fn()}
-      />,
-    )
-    expect(screen.getByText('New')).toBeInTheDocument()
-    expect(screen.getByText('Old')).toBeInTheDocument()
+describe('KaTrain style helpers', () => {
+  it('maps point loss to KaTrain classes', () => {
+    expect(evalClassForPointLoss(13)).toBe(0)
+    expect(evalClassForPointLoss(7)).toBe(1)
+    expect(evalClassForPointLoss(4)).toBe(2)
+    expect(evalClassForPointLoss(2)).toBe(3)
+    expect(evalClassForPointLoss(0.7)).toBe(4)
+    expect(evalClassForPointLoss(0)).toBe(5)
+  })
+
+  it('formats KaTrain candidate delta as negative pointsLost', () => {
+    expect(formatCandidateDelta(1.25)).toBe('-1.3')
+    expect(formatCandidateDelta(-0.4)).toBe('+0.4')
+  })
+
+  it('returns green for class five', () => {
+    expect(katrainEvalColor(0)).toBe('#1e9600')
   })
 })
 ```
 
-- [x] **Step 2: Implement sidebar**
+- [ ] **Step 2: Write ownership decode tests**
 
-Create `web/src/components/GameSidebar.tsx`:
-
-```tsx
-import { GameRecord } from '../api/types'
-import { Plus, Trash2 } from 'lucide-react'
-
-interface GameSidebarProps {
-  games: GameRecord[]
-  selectedGameId?: string
-  onImport(): void
-  onSelect(gameId: string): void
-  onRename(gameId: string, displayName: string): void
-  onDelete(gameId: string): void
-}
-
-export function GameSidebar({ games, selectedGameId, onImport, onSelect, onRename, onDelete }: GameSidebarProps) {
-  return (
-    <aside className="game-sidebar">
-      <button className="icon-button" onClick={onImport} aria-label="Import SGF">
-        <Plus size={18} />
-      </button>
-      <div className="game-list">
-        {games.map((game) => (
-          <div className={game.gameId === selectedGameId ? 'game-row selected' : 'game-row'} key={game.gameId}>
-            <button className="game-title" onClick={() => onSelect(game.gameId)}>
-              <span>{game.displayName}</span>
-              <small>{game.result || 'Unknown result'}</small>
-            </button>
-            <button
-              className="icon-button"
-              aria-label={`Rename ${game.displayName}`}
-              onClick={() => {
-                const name = window.prompt('Rename game', game.displayName)
-                if (name && name.trim()) onRename(game.gameId, name.trim())
-              }}
-            >
-              A
-            </button>
-            <button
-              className="icon-button"
-              aria-label={`Delete ${game.displayName}`}
-              onClick={() => {
-                if (window.confirm(`Delete ${game.displayName}?`)) onDelete(game.gameId)
-              }}
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        ))}
-      </div>
-    </aside>
-  )
-}
-```
-
-- [x] **Step 3: Implement import dialog**
-
-Create `web/src/components/ImportDialog.tsx`:
-
-```tsx
-import { ChangeEvent, useRef } from 'react'
-
-interface ImportDialogProps {
-  onImport(displayName: string, originalFilename: string, sgfText: string): void
-}
-
-export function ImportDialog({ onImport }: ImportDialogProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const choose = () => inputRef.current?.click()
-  const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    const defaultName = file.name.replace(/\.sgf$/i, '')
-    const displayName = window.prompt('Game name', defaultName)?.trim()
-    if (!displayName) return
-    const sgfText = await file.text()
-    onImport(displayName, file.name, sgfText)
-  }
-  return (
-    <>
-      <button onClick={choose}>Import</button>
-      <input ref={inputRef} type="file" accept=".sgf" hidden onChange={onFile} />
-    </>
-  )
-}
-```
-
-- [x] **Step 4: Wire App methods to RPC client**
-
-Modify `web/src/App.tsx` to maintain `games`, `selectedGameId`, and `snapshot` state. Call:
+Create `web/src/board/ownership.test.ts`:
 
 ```ts
-client.call<{ games: GameRecord[] }>('game.list')
-client.call('game.importSgf', { displayName, originalFilename, sgfText })
-client.call('game.rename', { gameId, displayName })
-client.call('game.delete', { gameId })
-client.call('game.select', { gameId })
+import { describe, expect, it } from 'vitest'
+import { decodeOwnershipQ8, ownershipAt } from './ownership'
+
+describe('ownership helpers', () => {
+  it('decodes q8 base64 into signed ownership values', () => {
+    const data = btoa(String.fromCharCode(129, 0, 127))
+    const decoded = decodeOwnershipQ8({ encoding: 'q8-base64', data })
+    expect(decoded[0]).toBeCloseTo(-1)
+    expect(decoded[1]).toBe(0)
+    expect(decoded[2]).toBeCloseTo(1)
+  })
+
+  it('indexes ownership by x y', () => {
+    const values = Array.from({ length: 361 }, (_, i) => i / 127)
+    expect(ownershipAt(values, 3, 4)).toBe(values[4 * 19 + 3])
+  })
+})
 ```
 
-After `game.importSgf`, set the returned game as selected and render the returned snapshot.
-
-- [x] **Step 5: Verify frontend tests pass**
+- [ ] **Step 3: Run tests to verify failure**
 
 Run:
 
 ```powershell
 cd web
-npm test -- --run
-npm run build
+npm test -- --run src/board/katrainStyle.test.ts src/board/ownership.test.ts
 ```
 
-Expected: both commands pass.
+Expected: FAIL because helper modules do not exist.
 
-- [x] **Step 6: Commit**
+- [ ] **Step 4: Implement coordinate helpers**
 
-```powershell
-git add web/src/components web/src/state web/src/App.tsx web/src/styles.css
-git commit -m "feat: add game library ui"
-```
+Create `web/src/board/coordinates.ts`:
 
-### Task 15: Board, Navigation, PV Animation, and Branch Controls
+```ts
+export const BOARD_SIZE = 19
+export const GTP_LETTERS = 'ABCDEFGHJKLMNOPQRST'
 
-**Files:**
-- Create: `web/src/components/Board.tsx`
-- Create: `web/src/components/Board.test.tsx`
-- Create: `web/src/components/NavigationControls.tsx`
-- Modify: `web/src/App.tsx`
-- Modify: `web/src/styles.css`
-
-- [x] **Step 1: Write board rendering test**
-
-Create `web/src/components/Board.test.tsx`:
-
-```tsx
-import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
-import { Board } from './Board'
-
-describe('Board', () => {
-  it('renders stones and candidate labels', () => {
-    render(
-      <Board
-        snapshot={{
-          gameId: 'g',
-          nodeId: 'main:1',
-          moveNumber: 1,
-          totalMoves: 1,
-          branchMode: 'main',
-          stones: [{ x: 15, y: 3, color: 'B' }],
-          toPlay: 'W',
-          rules: 'chinese',
-          komi: 7.5,
-          captures: { B: 0, W: 0 },
-          gameEnded: false,
-          canPrevious: true,
-          canNext: false,
-          canBackToMain: false,
-          analysis: {
-            winrate: 0.5,
-            scoreLead: 0,
-            visits: 500,
-            candidates: [{ move: 'D16', order: 0, visits: 500, winrate: 0.5, scoreLead: 0, pointLoss: 0, relativePointLoss: 0, winrateLoss: 0, pv: ['D16'], lowVisits: false }],
-          },
-        }}
-        onPlay={vi.fn()}
-        onPreviewPV={vi.fn()}
-        onClearPV={vi.fn()}
-      />,
-    )
-    expect(screen.getByLabelText('Go board')).toBeInTheDocument()
-  })
-})
-```
-
-- [x] **Step 2: Implement SVG board**
-
-Create `web/src/components/Board.tsx`:
-
-```tsx
-import { CandidateMove, Snapshot } from '../api/types'
-
-interface BoardProps {
-  snapshot?: Snapshot
-  activePV?: string[]
-  onPlay(gtp: string): void
-  onPreviewPV(candidate: CandidateMove): void
-  onClearPV(): void
+export interface BoardPoint {
+  x: number
+  y: number
 }
 
-const size = 19
-const pad = 28
-const gap = 28
-const boardSize = pad * 2 + gap * (size - 1)
-
-export function Board({ snapshot, activePV, onPlay, onPreviewPV, onClearPV }: BoardProps) {
-  const stones = snapshot?.stones ?? []
-  const candidates = snapshot?.analysis?.candidates ?? []
-  return (
-    <svg className="go-board" viewBox={`0 0 ${boardSize} ${boardSize}`} role="img" aria-label="Go board" onMouseLeave={onClearPV}>
-      <rect x="0" y="0" width={boardSize} height={boardSize} rx="6" fill="#d8a95f" />
-      {Array.from({ length: size }, (_, i) => (
-        <g key={i}>
-          <line x1={pad} y1={pad + i * gap} x2={boardSize - pad} y2={pad + i * gap} stroke="#2f2419" strokeWidth="1" />
-          <line x1={pad + i * gap} y1={pad} x2={pad + i * gap} y2={boardSize - pad} stroke="#2f2419" strokeWidth="1" />
-        </g>
-      ))}
-      {stones.map((stone) => (
-        <circle
-          key={`${stone.x}-${stone.y}`}
-          cx={pad + stone.x * gap}
-          cy={pad + stone.y * gap}
-          r={gap * 0.43}
-          fill={stone.color === 'B' ? '#111' : '#f5f2ea'}
-          stroke="#111"
-        />
-      ))}
-      {candidates.map((candidate) => {
-        const point = gtpToPoint(candidate.move)
-        if (!point) return null
-        return (
-          <g
-            key={candidate.move}
-            onMouseEnter={() => onPreviewPV(candidate)}
-            onClick={() => onPlay(candidate.move)}
-            opacity={candidate.lowVisits ? 0.45 : 1}
-          >
-            <circle cx={pad + point.x * gap} cy={pad + point.y * gap} r={gap * 0.34} fill={candidate.order === 0 ? '#4f8a5b' : '#e8c85c'} />
-            {!candidate.lowVisits && <text x={pad + point.x * gap} y={pad + point.y * gap + 4} textAnchor="middle" fontSize="9">{formatCandidate(candidate)}</text>}
-          </g>
-        )
-      })}
-      {(activePV ?? []).map((move, index) => {
-        const point = gtpToPoint(move)
-        if (!point) return null
-        return (
-          <g key={`${move}-${index}`}>
-            <circle cx={pad + point.x * gap} cy={pad + point.y * gap} r={gap * 0.38} fill={index % 2 === 0 ? '#111' : '#f5f2ea'} stroke="#111" />
-            <text x={pad + point.x * gap} y={pad + point.y * gap + 5} textAnchor="middle" fontSize="14" fill={index % 2 === 0 ? '#fff' : '#111'}>{index + 1}</text>
-          </g>
-        )
-      })}
-    </svg>
-  )
+export function pointToGTP(x: number, y: number) {
+  return `${GTP_LETTERS[x]}${BOARD_SIZE - y}`
 }
 
-function formatCandidate(candidate: CandidateMove) {
-  return `${candidate.pointLoss.toFixed(1)}\n${candidate.visits}`
-}
-
-function gtpToPoint(gtp: string): { x: number; y: number } | null {
+export function gtpToPoint(gtp: string): BoardPoint | null {
   if (gtp.toLowerCase() === 'pass') return null
-  const letters = 'ABCDEFGHJKLMNOPQRST'
-  const x = letters.indexOf(gtp[0]?.toUpperCase())
+  const x = GTP_LETTERS.indexOf(gtp[0]?.toUpperCase())
   const row = Number(gtp.slice(1))
   if (x < 0 || !row) return null
-  return { x, y: 19 - row }
+  return { x, y: BOARD_SIZE - row }
+}
+
+export function boardPoints() {
+  return Array.from({ length: BOARD_SIZE * BOARD_SIZE }, (_, index) => ({ x: index % BOARD_SIZE, y: Math.floor(index / BOARD_SIZE) }))
+}
+
+export function pointKey(x: number, y: number) {
+  return `${x}:${y}`
 }
 ```
 
-- [x] **Step 3: Implement navigation controls**
+- [ ] **Step 5: Implement KaTrain style helpers**
 
-Create `web/src/components/NavigationControls.tsx`:
-
-```tsx
-import { ChevronsLeft, ChevronLeft, ChevronRight, ChevronsRight, RotateCcw } from 'lucide-react'
-
-interface NavigationControlsProps {
-  moveNumber: number
-  totalMoves: number
-  canBackToMain: boolean
-  onFirst(): void
-  onPrevious(): void
-  onNext(): void
-  onLast(): void
-  onBackToMain(): void
-  onPass(): void
-  onDeleteVariationNode(): void
-  onClearVariation(): void
-}
-
-export function NavigationControls(props: NavigationControlsProps) {
-  return (
-    <nav className="navigation-controls">
-      <button aria-label="First move" onClick={props.onFirst}><ChevronsLeft size={18} /></button>
-      <button aria-label="Previous move" onClick={props.onPrevious}><ChevronLeft size={18} /></button>
-      <span>{props.moveNumber} / {props.totalMoves}</span>
-      <button aria-label="Next move" onClick={props.onNext}><ChevronRight size={18} /></button>
-      <button aria-label="Last move" onClick={props.onLast}><ChevronsRight size={18} /></button>
-      {props.canBackToMain && <button aria-label="Back to main line" onClick={props.onBackToMain}><RotateCcw size={18} /></button>}
-      <button onClick={props.onPass}>Pass</button>
-      <button onClick={props.onDeleteVariationNode}>Delete node</button>
-      <button onClick={props.onClearVariation}>Clear branch</button>
-    </nav>
-  )
-}
-```
-
-- [x] **Step 4: Wire RPC calls and keyboard shortcuts**
-
-In `web/src/App.tsx`, wire board/navigation to:
+Create `web/src/board/katrainStyle.ts`:
 
 ```ts
-client.call('game.goto', { gameId, moveNumber })
-client.call('game.play', { gameId, move: gtp })
-client.call('game.pass', { gameId })
-client.call('game.backToMain', { gameId })
-client.call('game.deleteVariationNode', { gameId })
-client.call('game.clearVariation', { gameId })
+export const KATRAIN_THRESHOLDS = [12, 6, 3, 1.5, 0.5, 0]
+export const KATRAIN_EVAL_COLORS = ['#72216b', '#cc0000', '#e6661a', '#f2f200', '#abdf2e', '#1e9600']
+export const TOP_MOVE_BORDER_COLOR = '#0ac8fa'
+
+export function evalClassForPointLoss(pointLoss: number) {
+  let index = 0
+  while (index < KATRAIN_THRESHOLDS.length - 1 && pointLoss < KATRAIN_THRESHOLDS[index]) index += 1
+  return index
+}
+
+export function katrainEvalColor(pointLoss: number) {
+  return KATRAIN_EVAL_COLORS[evalClassForPointLoss(pointLoss)]
+}
+
+export function formatCandidateDelta(pointsLost: number) {
+  const value = -pointsLost
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}`
+}
+
+export function formatVisits(visits: number) {
+  if (visits < 1000) return String(visits)
+  if (visits < 100000) return `${(visits / 1000).toFixed(1)}k`
+  if (visits < 1000000) return `${(visits / 1000).toFixed(0)}k`
+  return `${(visits / 1000000).toFixed(0)}M`
+}
 ```
 
-Add `keydown` listener:
+- [ ] **Step 6: Implement ownership helpers**
+
+Create `web/src/board/ownership.ts`:
 
 ```ts
-if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
-if (event.key === 'ArrowLeft') goPrevious()
-if (event.key === 'ArrowRight') goNext()
-if (event.key === 'Escape') clearPVOrBackToMainOrCloseLayer()
+import type { EncodedOwnership } from '../api/types'
+
+export function decodeOwnershipQ8(ownership?: EncodedOwnership): number[] {
+  if (!ownership || ownership.encoding !== 'q8-base64') return []
+  const raw = atob(ownership.data)
+  return Array.from(raw, (char) => {
+    const byte = char.charCodeAt(0)
+    const signed = byte > 127 ? byte - 256 : byte
+    return signed / 127
+  })
+}
+
+export function ownershipAt(values: number[], x: number, y: number) {
+  return values[y * 19 + x] ?? 0
+}
+
+export function ownershipOwner(value: number): 'B' | 'W' {
+  return value >= 0 ? 'B' : 'W'
+}
+
+export function ownershipAlpha(value: number) {
+  return Math.pow(Math.abs(value), 1 / 1.33)
+}
 ```
 
-- [x] **Step 5: Verify board tests and build pass**
+- [ ] **Step 7: Run tests**
 
 Run:
 
 ```powershell
 cd web
-npm test -- --run
-npm run build
+npm test -- --run src/board/katrainStyle.test.ts src/board/ownership.test.ts
 ```
 
 Expected: PASS.
 
-- [x] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```powershell
-git add web/src/components web/src/App.tsx web/src/styles.css
-git commit -m "feat: add board navigation variations"
+git add web/src/board
+git commit -m "feat: add katrain board display helpers"
 ```
 
-### Task 16: Analysis Panel, Charts, Bad Move List, and Engine Status
+## Task 8: Board Overlay Layers, Toggles, and Current Move Quality
 
 **Files:**
-- Create: `web/src/components/AnalysisPanel.tsx`
-- Create: `web/src/components/AnalysisCharts.tsx`
-- Create: `web/src/components/BadMoveList.tsx`
-- Create: `web/src/components/AnalysisPanel.test.tsx`
-- Modify: `web/src/App.tsx`
+- Modify: `web/src/components/Board.tsx`
+- Modify: `web/src/components/Board.test.tsx`
+- Create: `web/src/components/OverlayToggles.tsx`
+- Create: `web/src/components/OverlayToggles.test.tsx`
 - Modify: `web/src/styles.css`
+- Modify: `web/src/App.tsx`
 
-- [x] **Step 1: Write analysis panel test**
+- [ ] **Step 1: Write board overlay rendering test**
 
-Create `web/src/components/AnalysisPanel.test.tsx`:
+Replace or extend `web/src/components/Board.test.tsx` with:
+
+```tsx
+it('renders ownership, dead stone marks, candidate colors, and current move quality when enabled', () => {
+  const ownershipBytes = new Uint8Array(361)
+  ownershipBytes[3 * 19 + 15] = 129
+  const ownership = btoa(String.fromCharCode(...ownershipBytes))
+  render(
+    <Board
+      snapshot={{
+        gameId: 'g',
+        nodeId: 'main:1',
+        moveNumber: 1,
+        totalMoves: 1,
+        branchMode: 'main',
+        stones: [{ x: 15, y: 3, color: 'B' }],
+        lastMove: { nodeId: 'main:1', moveNumber: 1, color: 'B', gtp: 'Q16', pass: false },
+        children: [],
+        toPlay: 'W',
+        rules: 'chinese',
+        komi: 7.5,
+        blackName: 'B',
+        whiteName: 'W',
+        result: '',
+        captures: { B: 0, W: 0 },
+        gameEnded: false,
+        canPrevious: true,
+        canNext: false,
+        canBackToMain: false,
+      }}
+      candidates={[{ move: 'D16', order: 0, visits: 500, winrate: 0.5, scoreLead: 0, pv: ['D16'] }]}
+      ownership={{ encoding: 'q8-base64', data: ownership }}
+      playedPointLoss={3}
+      overlays={{ candidates: true, ownership: true, deadStones: true }}
+      activePV={undefined}
+      tryMode={false}
+      onPlay={vi.fn()}
+      onPreviewPV={vi.fn()}
+    />,
+  )
+  expect(screen.getByLabelText('Ownership overlay')).toBeInTheDocument()
+  expect(screen.getByLabelText('Weak stone marker Q16')).toBeInTheDocument()
+  expect(screen.getByLabelText('Current move quality Q16')).toBeInTheDocument()
+  expect(screen.getByLabelText('Recommended next move D16')).toBeInTheDocument()
+})
+```
+
+- [ ] **Step 2: Write overlay toggle persistence test**
+
+Create `web/src/components/OverlayToggles.test.tsx`:
 
 ```tsx
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import { AnalysisPanel } from './AnalysisPanel'
+import { OverlayToggles } from './OverlayToggles'
 
-describe('AnalysisPanel', () => {
-  it('shows black winrate score lead and candidates', () => {
-    render(
-      <AnalysisPanel
-        engineStatus={{ available: true }}
-        analysis={{
-          winrate: 0.625,
-          scoreLead: 4.2,
-          visits: 500,
-          candidates: [{ move: 'Q16', order: 0, visits: 400, winrate: 0.63, scoreLead: 4.4, pointLoss: 0, relativePointLoss: 0, winrateLoss: 0, pv: ['Q16'], lowVisits: false }],
-        }}
-        analysisState="idle"
-        onStart={vi.fn()}
-        onStop={vi.fn()}
-        onRestart={vi.fn()}
-        onCandidateClick={vi.fn()}
-      />,
-    )
-    expect(screen.getByText('62.5%')).toBeInTheDocument()
-    expect(screen.getByText('B +4.2')).toBeInTheDocument()
-    expect(screen.getByText('Q16')).toBeInTheDocument()
+describe('OverlayToggles', () => {
+  it('toggles candidate overlay', async () => {
+    const onChange = vi.fn()
+    render(<OverlayToggles value={{ candidates: true, ownership: true, deadStones: true }} onChange={onChange} />)
+    await userEvent.click(screen.getByLabelText('Toggle recommended moves'))
+    expect(onChange).toHaveBeenCalledWith({ candidates: false, ownership: true, deadStones: true })
   })
 })
 ```
 
-- [x] **Step 2: Implement analysis panel**
-
-Create `web/src/components/AnalysisPanel.tsx`:
-
-```tsx
-import { AnalysisResult, CandidateMove } from '../api/types'
-
-interface EngineStatus {
-  available: boolean
-  error?: string
-}
-
-interface AnalysisPanelProps {
-  engineStatus: EngineStatus
-  analysis?: AnalysisResult
-  analysisState: 'idle' | 'running' | 'stopped' | 'complete' | 'unavailable'
-  onStart(): void
-  onStop(): void
-  onRestart(): void
-  onCandidateClick(move: string): void
-}
-
-export function AnalysisPanel({ engineStatus, analysis, analysisState, onStart, onStop, onRestart, onCandidateClick }: AnalysisPanelProps) {
-  const action = analysisState === 'running'
-    ? <button onClick={onStop}>Stop analysis</button>
-    : analysisState === 'complete'
-      ? <button onClick={onRestart}>Re-analyze</button>
-      : <button onClick={onStart} disabled={!engineStatus.available}>Start analysis</button>
-  return (
-    <aside className="analysis-panel">
-      {!engineStatus.available && <div className="engine-error">Engine unavailable: {engineStatus.error}</div>}
-      <div className="analysis-summary">
-        <strong>{analysis ? `${(analysis.winrate * 100).toFixed(1)}%` : '-'}</strong>
-        <strong>{analysis ? formatScore(analysis.scoreLead) : '-'}</strong>
-        <span>{analysis?.visits ?? 0} visits</span>
-        {action}
-      </div>
-      <div className="candidate-list">
-        {(analysis?.candidates ?? []).map((candidate) => (
-          <CandidateRow key={candidate.move} candidate={candidate} onClick={() => onCandidateClick(candidate.move)} />
-        ))}
-      </div>
-    </aside>
-  )
-}
-
-function CandidateRow({ candidate, onClick }: { candidate: CandidateMove; onClick(): void }) {
-  return (
-    <button className={candidate.lowVisits ? 'candidate-row low-visits' : 'candidate-row'} onClick={onClick}>
-      <span>{candidate.move}</span>
-      <span>{candidate.visits}</span>
-      <span>{(candidate.winrate * 100).toFixed(1)}%</span>
-      <span>{formatScore(candidate.scoreLead)}</span>
-      <span>{candidate.pointLoss.toFixed(1)}</span>
-    </button>
-  )
-}
-
-function formatScore(scoreLead: number) {
-  return scoreLead >= 0 ? `B +${scoreLead.toFixed(1)}` : `W +${Math.abs(scoreLead).toFixed(1)}`
-}
-```
-
-- [x] **Step 3: Implement charts**
-
-Create `web/src/components/AnalysisCharts.tsx`:
-
-```tsx
-import ReactECharts from 'echarts-for-react'
-
-interface ChartPoint {
-  moveNumber: number
-  winrate: number
-  scoreLead: number
-}
-
-interface AnalysisChartsProps {
-  points: ChartPoint[]
-  onJump(moveNumber: number): void
-}
-
-export function AnalysisCharts({ points, onJump }: AnalysisChartsProps) {
-  const option = {
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: points.map((p) => p.moveNumber) },
-    yAxis: [
-      { type: 'value', min: 0, max: 100 },
-      { type: 'value' },
-    ],
-    series: [
-      { name: 'Black winrate', type: 'line', data: points.map((p) => Math.round(p.winrate * 1000) / 10), yAxisIndex: 0 },
-      { name: 'Score lead', type: 'line', data: points.map((p) => p.scoreLead), yAxisIndex: 1 },
-    ],
-  }
-  return <ReactECharts option={option} onEvents={{ click: (params: { dataIndex: number }) => onJump(points[params.dataIndex].moveNumber) }} />
-}
-```
-
-- [x] **Step 4: Implement bad move list**
-
-Create `web/src/components/BadMoveList.tsx`:
-
-```tsx
-interface BadMove {
-  nodeId: string
-  moveNumber: number
-  move: string
-  pointLoss: number
-  class: number
-}
-
-interface BadMoveListProps {
-  badMoves: BadMove[]
-  onJump(moveNumber: number): void
-}
-
-export function BadMoveList({ badMoves, onJump }: BadMoveListProps) {
-  return (
-    <section className="bad-move-list">
-      {badMoves.map((move) => (
-        <button key={move.nodeId} className={`bad-move class-${move.class}`} onClick={() => onJump(move.moveNumber)}>
-          <span>{move.moveNumber}</span>
-          <span>{move.move}</span>
-          <span>{move.pointLoss.toFixed(1)}</span>
-        </button>
-      ))}
-    </section>
-  )
-}
-```
-
-- [x] **Step 5: Wire analysis notifications**
-
-Modify `web/src/api/jsonrpc.ts` to support notification listeners:
-
-```ts
-type NotificationHandler = (params: unknown) => void
-private notifications = new Map<string, NotificationHandler[]>()
-
-on(method: string, handler: NotificationHandler) {
-  const list = this.notifications.get(method) ?? []
-  list.push(handler)
-  this.notifications.set(method, list)
-}
-```
-
-In `handleMessage`, when `message.method` exists and `message.id` is absent, call registered handlers. In `App.tsx`, handle `analysis.node` by updating a map keyed by `nodeId`, rebuilding chart points and bad move list.
-
-- [x] **Step 6: Verify frontend analysis tests pass**
+- [ ] **Step 3: Run tests to verify failure**
 
 Run:
 
 ```powershell
 cd web
-npm test -- --run
-npm run build
+npm test -- --run src/components/Board.test.tsx src/components/OverlayToggles.test.tsx
 ```
 
-Expected: PASS.
+Expected: FAIL because props and toggle component do not exist.
 
-- [x] **Step 7: Commit**
+- [ ] **Step 4: Implement overlay toggles**
 
-```powershell
-git add web/src/components web/src/api web/src/App.tsx web/src/styles.css
-git commit -m "feat: add analysis panels"
-```
-
-### Task 17: Responsive Layout and Basic PWA Shell
-
-**Files:**
-- Create: `web/src/components/RotatePrompt.tsx`
-- Create: `web/src/pwa/registerServiceWorker.ts`
-- Create: `web/public/manifest.webmanifest`
-- Create: `web/public/sw.js`
-- Modify: `web/src/main.tsx`
-- Modify: `web/src/styles.css`
-- Modify: `web/index.html`
-
-- [x] **Step 1: Add mobile rotation prompt component**
-
-Create `web/src/components/RotatePrompt.tsx`:
+Create `web/src/components/OverlayToggles.tsx`:
 
 ```tsx
-export function RotatePrompt() {
+export interface OverlayState {
+  candidates: boolean
+  ownership: boolean
+  deadStones: boolean
+}
+
+interface OverlayTogglesProps {
+  value: OverlayState
+  onChange(value: OverlayState): void
+}
+
+export function OverlayToggles({ value, onChange }: OverlayTogglesProps) {
   return (
-    <div className="rotate-prompt">
-      <h1>Rotate device</h1>
-      <p>JCGO review mode uses a horizontal board workspace.</p>
+    <div className="overlay-toggles" aria-label="Board overlays">
+      <button aria-label="Toggle recommended moves" className={value.candidates ? 'toggle active' : 'toggle'} onClick={() => onChange({ ...value, candidates: !value.candidates })}>
+        点
+      </button>
+      <button aria-label="Toggle ownership" className={value.ownership ? 'toggle active' : 'toggle'} onClick={() => onChange({ ...value, ownership: !value.ownership })}>
+        势
+      </button>
+      <button aria-label="Toggle weak stones" className={value.deadStones ? 'toggle active' : 'toggle'} onClick={() => onChange({ ...value, deadStones: !value.deadStones })}>
+        死
+      </button>
     </div>
   )
 }
 ```
 
-- [x] **Step 2: Add responsive CSS**
-
-Append to `web/src/styles.css`:
-
-```css
-.app-layout {
-  min-height: 100vh;
-  display: grid;
-  grid-template-columns: minmax(56px, 260px) minmax(420px, 1fr) minmax(320px, 420px);
-  gap: 12px;
-}
-
-.go-board {
-  width: min(76vh, 100%);
-  max-height: 92vh;
-}
-
-.navigation-controls {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.rotate-prompt {
-  display: none;
-}
-
-@media (orientation: portrait) and (max-width: 820px) {
-  .app-layout {
-    display: none;
-  }
-  .rotate-prompt {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    text-align: center;
-  }
-}
-
-@media (orientation: landscape) and (max-height: 520px) {
-  .app-layout {
-    grid-template-columns: 64px minmax(360px, 1fr) 56px minmax(260px, 340px);
-  }
-  .navigation-controls {
-    flex-direction: column;
-  }
-}
-```
-
-- [x] **Step 3: Add manifest and service worker**
-
-Create `web/public/manifest.webmanifest`:
-
-```json
-{
-  "name": "JCGO",
-  "short_name": "JCGO",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#f5f1e8",
-  "theme_color": "#2f5d50",
-  "icons": []
-}
-```
-
-Create `web/public/sw.js`:
-
-```js
-const CACHE_NAME = 'jcgo-static-v1'
-const STATIC_ASSETS = ['/', '/manifest.webmanifest']
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)))
-})
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return
-  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)))
-})
-```
-
-Create `web/src/pwa/registerServiceWorker.ts`:
+Add helper hooks in `App.tsx`:
 
 ```ts
-export function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => undefined)
-    })
-  }
+const defaultOverlays = { candidates: true, ownership: true, deadStones: true }
+const [overlays, setOverlays] = useState(() => {
+  const raw = localStorage.getItem('jcgo.boardOverlays')
+  return raw ? { ...defaultOverlays, ...JSON.parse(raw) } : defaultOverlays
+})
+const updateOverlays = (value: typeof defaultOverlays) => {
+  setOverlays(value)
+  localStorage.setItem('jcgo.boardOverlays', JSON.stringify(value))
 }
 ```
 
-- [x] **Step 4: Register PWA shell**
+- [ ] **Step 5: Refactor `Board` props**
 
-Modify `web/index.html` to include:
+Modify `web/src/components/Board.tsx` props:
 
-```html
-<link rel="manifest" href="/manifest.webmanifest" />
-<meta name="theme-color" content="#2f5d50" />
+```ts
+import type { CandidateView, EncodedOwnership, Snapshot } from '../api/types'
+import type { OverlayState } from './OverlayToggles'
+
+interface BoardProps {
+  snapshot?: Snapshot
+  candidates: CandidateView[]
+  ownership?: EncodedOwnership
+  playedPointLoss?: number | null
+  overlays: OverlayState
+  activePV?: string[]
+  tryMode: boolean
+  onPlay(gtp: string): void
+  onPreviewPV(candidate: CandidateView): void
+}
 ```
 
-Modify `web/src/main.tsx`:
+Use helpers from `web/src/board` and render layers in this order:
 
 ```tsx
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import { registerServiceWorker } from './pwa/registerServiceWorker'
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-)
-
-registerServiceWorker()
+<g className="ownership-layer" aria-label="Ownership overlay">...</g>
+<g className="grid-layer">...</g>
+<g className="stone-layer">...</g>
+<g className="weak-stone-layer">...</g>
+<g className="current-quality-layer">...</g>
+<g className="candidate-layer">...</g>
+<g className="actual-next-layer">...</g>
+<g className="pv-layer">...</g>
+<g className="click-target-layer">...</g>
 ```
 
-- [x] **Step 5: Verify PWA build**
+For ownership points, render soft rectangles centered on intersections:
+
+```tsx
+{overlays.ownership && ownershipValues.map((value, index) => {
+  const x = index % 19
+  const y = Math.floor(index / 19)
+  const alpha = ownershipAlpha(value)
+  if (alpha === 0) return null
+  return <rect key={index} x={pad + x * gap - gap / 2} y={pad + y * gap - gap / 2} width={gap} height={gap} fill={value >= 0 ? 'rgba(0,0,26,1)' : 'rgba(235,235,255,1)'} opacity={alpha * 0.75} />
+})}
+```
+
+For weak stone markers:
+
+```tsx
+{overlays.deadStones && stones.map((stone) => {
+  const value = ownershipAt(ownershipValues, stone.x, stone.y)
+  if (stone.color === ownershipOwner(value) || value === 0) return null
+  const size = gap * 0.43 * 2 * 0.42 * Math.abs(value)
+  return <rect aria-label={`Weak stone marker ${pointToGTP(stone.x, stone.y)}`} x={pad + stone.x * gap - size / 2} y={pad + stone.y * gap - size / 2} width={size} height={size} fill={ownershipOwner(value) === 'B' ? '#111' : '#f5f2ea'} opacity="0.9" />
+})}
+```
+
+For current move quality:
+
+```tsx
+{lastMovePoint && playedPointLoss !== undefined && playedPointLoss !== null && (
+  <circle aria-label={`Current move quality ${snapshot.lastMove.gtp}`} cx={pad + lastMovePoint.x * gap} cy={pad + lastMovePoint.y * gap} r={gap * 0.13} fill={katrainEvalColor(playedPointLoss)} />
+)}
+```
+
+- [ ] **Step 6: Wire board props from App**
+
+In `App.tsx`, pass:
+
+```tsx
+<OverlayToggles value={overlays} onChange={updateOverlays} />
+<Board
+  snapshot={snapshot}
+  candidates={candidates}
+  ownership={workspace.current?.ownership}
+  playedPointLoss={playedPointLossForCurrent(workspace)}
+  overlays={overlays}
+  activePV={activePV}
+  tryMode={tryMode}
+  onPlay={playMove}
+  onPreviewPV={previewPV}
+/>
+```
+
+Add `playedPointLossForCurrent` to selectors:
+
+```ts
+export function playedPointLossForCurrent(state?: StatePayload): number | null {
+  const timeline = activeTimeline(state)
+  const nodeId = state?.current?.nodeId
+  if (!timeline || !nodeId) return null
+  const index = timeline.nodeIds.indexOf(nodeId)
+  if (index < 0) return null
+  return timeline.playedPointLosses[index]
+}
+```
+
+- [ ] **Step 7: Run frontend tests**
 
 Run:
 
 ```powershell
 cd web
+npm test -- --run src/components/Board.test.tsx src/components/OverlayToggles.test.tsx
 npm run build
 ```
 
-Expected: `web/dist/manifest.webmanifest` and `web/dist/sw.js` exist.
+Expected: PASS.
 
-- [x] **Step 6: Commit**
+- [ ] **Step 8: Commit**
 
 ```powershell
-git add web/public web/src/pwa web/src/components/RotatePrompt.tsx web/src/main.tsx web/src/styles.css web/index.html
-git commit -m "feat: add responsive pwa shell"
+git add web/src/components web/src/board web/src/state web/src/App.tsx web/src/styles.css
+git commit -m "feat: render katrain board overlays"
 ```
 
-### Task 18: End-to-End Flow and Documentation
+## Task 9: PV, Try Mode, Variation Timeline, and Charts
 
 **Files:**
-- Create: `e2e/jcgo.spec.ts`
-- Create: `playwright.config.ts`
-- Modify: `README.md`
-- Modify: `web/package.json`
+- Modify: `web/src/App.tsx`
+- Modify: `web/src/components/AnalysisCharts.tsx`
+- Modify: `web/src/components/AnalysisCharts.test.tsx`
+- Modify: `web/src/components/AnalysisDetailTabs.tsx`
+- Modify: `web/src/components/NavigationControls.tsx`
+- Modify: `web/src/components/NavigationControls.test.tsx`
 
-- [x] **Step 1: Add Playwright config**
+- [ ] **Step 1: Write chart variation test**
 
-Create `playwright.config.ts`:
+Add to `web/src/components/AnalysisCharts.test.tsx`:
 
-```ts
-import { defineConfig, devices } from '@playwright/test'
-
-export default defineConfig({
-  testDir: './e2e',
-  timeout: 30_000,
-  use: {
-    baseURL: 'http://127.0.0.1:4380',
-    trace: 'on-first-retry',
-  },
-  projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'mobile-landscape', use: { viewport: { width: 932, height: 430 }, isMobile: true } },
-  ],
+```tsx
+it('renders variation move numbers using base move number', () => {
+  render(
+    <AnalysisCharts
+      points={[
+        { moveNumber: 121, winrate: 0.58, scoreLead: 2.4 },
+        { moveNumber: 122, winrate: 0.55, scoreLead: 1.8 },
+      ]}
+      currentMoveNumber={122}
+      onJump={vi.fn()}
+    />,
+  )
+  expect(screen.getByText('121')).toBeInTheDocument()
+  expect(screen.getByText('122')).toBeInTheDocument()
 })
 ```
 
-- [x] **Step 2: Add smoke e2e test**
+- [ ] **Step 2: Write PV/try-mode mutual exclusion test**
 
-Create `e2e/jcgo.spec.ts`:
+Add to `web/src/App.state.test.tsx`:
 
-```ts
-import { expect, test } from '@playwright/test'
-
-test('loads token gate', async ({ page }) => {
-  await page.goto('/')
-  await expect(page.getByText('JCGO')).toBeVisible()
-  await expect(page.getByLabel('Access token')).toBeVisible()
+```tsx
+it('clears PV when entering try mode', async () => {
+  const user = userEvent.setup()
+  render(<App />)
+  await connectWithTokenAndState()
+  await user.click(screen.getByLabelText('Recommended next move D16'))
+  expect(screen.getByText('1')).toBeInTheDocument()
+  await user.click(screen.getByLabelText('Enter try mode'))
+  expect(screen.queryByText('1')).not.toBeInTheDocument()
 })
 ```
 
-- [x] **Step 3: Add npm script**
+Use the existing RPC test helper in `App.state.test.tsx`. If there is no helper, create a local `connectWithTokenAndState` that seeds `localStorage`, mocks `RPCClient`, and returns a `StatePayload` with one current candidate.
 
-Modify `web/package.json` scripts:
+- [ ] **Step 3: Run tests to verify failure**
 
-```json
-{
-  "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "test": "vitest",
-    "preview": "vite preview"
+Run:
+
+```powershell
+cd web
+npm test -- --run src/components/AnalysisCharts.test.tsx src/App.state.test.tsx
+```
+
+Expected: FAIL until `App` and chart state use columnar variation data.
+
+- [ ] **Step 4: Ensure ordinary candidate click only previews PV**
+
+In `App.tsx`, keep:
+
+```ts
+const previewPV = (candidate: CandidateView) => {
+  if (tryMode) return
+  setActivePV(candidate.pv)
+}
+```
+
+Candidate clicks in `Board`:
+
+```ts
+if (tryMode) onPlay(candidate.move)
+else onPreviewPV(candidate)
+```
+
+Right-side candidate list uses the same `previewPV` handler.
+
+- [ ] **Step 5: Ensure entering try mode clears PV**
+
+In `App.tsx`:
+
+```ts
+const enterTryMode = () => {
+  setActivePV(undefined)
+  setTryMode(true)
+}
+```
+
+In `playMove`, keep try mode active and clear PV:
+
+```ts
+const playMove = async (move: string) => {
+  if (!client || !selectedGameId) return
+  const state = await client.call<StatePayload>('game.play', { gameId: selectedGameId, move })
+  setWorkspace(state)
+  setActivePV(undefined)
+  setTryMode(true)
+}
+```
+
+- [ ] **Step 6: Use active timeline chart points**
+
+Use `chartPointsForState(workspace)` from selectors. When `workspace.variation` exists, it returns variation points with `baseMoveNumber + index + 1`, so `AnalysisCharts` does not need special variation props.
+
+- [ ] **Step 7: Update NavigationControls labels**
+
+Ensure `NavigationControls` has an always-available `Enter try mode` button when not in try mode:
+
+```tsx
+{!props.tryMode && <button aria-label="Enter try mode" onClick={props.onEnterTryMode}>试下</button>}
+{props.tryMode && <button aria-label="Exit try mode" onClick={props.onExitTryMode}>退出试下</button>}
+```
+
+Remove unused close/clear branch buttons from the visible mobile control surface.
+
+- [ ] **Step 8: Run frontend tests**
+
+Run:
+
+```powershell
+cd web
+npm test -- --run src/components/AnalysisCharts.test.tsx src/components/NavigationControls.test.tsx src/App.state.test.tsx
+npm run build
+```
+
+Expected: PASS.
+
+- [ ] **Step 9: Commit**
+
+```powershell
+git add web/src/App.tsx web/src/components web/src/state
+git commit -m "feat: align pv and try mode"
+```
+
+## Task 10: Responsive Board Info and Right Rail Ordering
+
+**Files:**
+- Create: `web/src/components/BoardInfo.tsx`
+- Create: `web/src/components/BoardInfo.test.tsx`
+- Modify: `web/src/App.tsx`
+- Modify: `web/src/components/AnalysisPanel.tsx`
+- Modify: `web/src/components/AnalysisDetailTabs.tsx`
+- Modify: `web/src/styles.css`
+- Modify: `web/src/styles.test.ts`
+
+- [ ] **Step 1: Write BoardInfo test**
+
+Create `web/src/components/BoardInfo.test.tsx`:
+
+```tsx
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { BoardInfo } from './BoardInfo'
+
+describe('BoardInfo', () => {
+  it('shows players komi and rules', () => {
+    render(<BoardInfo blackName="Lee" whiteName="Cho" komi={6.5} rules="japanese" />)
+    expect(screen.getByText('黑 Lee')).toBeInTheDocument()
+    expect(screen.getByText('白 Cho')).toBeInTheDocument()
+    expect(screen.getByText('贴目 6.5')).toBeInTheDocument()
+    expect(screen.getByText('japanese')).toBeInTheDocument()
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify failure**
+
+Run:
+
+```powershell
+cd web
+npm test -- --run src/components/BoardInfo.test.tsx
+```
+
+Expected: FAIL because `BoardInfo` does not exist.
+
+- [ ] **Step 3: Implement BoardInfo**
+
+Create `web/src/components/BoardInfo.tsx`:
+
+```tsx
+interface BoardInfoProps {
+  blackName?: string
+  whiteName?: string
+  komi?: number
+  rules?: string
+}
+
+export function BoardInfo({ blackName, whiteName, komi, rules }: BoardInfoProps) {
+  return (
+    <aside className="board-info" aria-label="棋局信息">
+      <span>黑 {blackName || '黑'}</span>
+      <span>白 {whiteName || '白'}</span>
+      <span>贴目 {(komi ?? 7.5).toFixed(1)}</span>
+      <span>{rules || 'chinese'}</span>
+    </aside>
+  )
+}
+```
+
+- [ ] **Step 4: Wire BoardInfo into board stage**
+
+In `App.tsx`, wrap board with:
+
+```tsx
+<section className="board-stage">
+  <div className="board-layout">
+    <BoardInfo blackName={snapshot?.blackName} whiteName={snapshot?.whiteName} komi={snapshot?.komi} rules={snapshot?.rules} />
+    <Board ... />
+  </div>
+  {error && <p className="app-error">{error}</p>}
+</section>
+```
+
+- [ ] **Step 5: Update right rail ordering**
+
+In `App.tsx`, keep right rail order:
+
+```tsx
+<aside className="analysis-rail">
+  <section className="analysis-overview rail-section" aria-label="局面曲线">
+    <AnalysisPanel analysis={currentRootSummary} />
+    <AnalysisCharts points={chartPoints} currentMoveNumber={snapshot?.moveNumber} onJump={...} />
+  </section>
+  <AnalysisDetailTabs badMoves={badMoves} candidates={candidates} ... />
+</aside>
+```
+
+`AnalysisPanel` should consume a root summary object:
+
+```ts
+interface AnalysisSummary {
+  winrate: number
+  scoreLead: number
+  visits: number
+}
+```
+
+Build it from selectors:
+
+```ts
+const currentRootSummary = rootSummaryForCurrent(workspace)
+```
+
+- [ ] **Step 6: Add responsive CSS**
+
+In `web/src/styles.css`, add:
+
+```css
+.board-layout {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.board-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+@container board-stage (max-aspect-ratio: 19 / 10) {
+  .board-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .board-info {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 ```
 
-If the generated file already contains these keys, keep the generated values and add only missing keys.
+If container queries are not already enabled for `.board-stage`, add:
 
-- [x] **Step 4: Update README with local and server usage**
+```css
+.board-stage {
+  container-type: size;
+  container-name: board-stage;
+}
+```
 
-Replace `README.md`:
+- [ ] **Step 7: Run tests and build**
+
+Run:
+
+```powershell
+cd web
+npm test -- --run src/components/BoardInfo.test.tsx src/styles.test.ts
+npm run build
+```
+
+Expected: PASS.
+
+- [ ] **Step 8: Commit**
+
+```powershell
+git add web/src/components web/src/App.tsx web/src/styles.css
+git commit -m "feat: add responsive board info"
+```
+
+## Task 11: Backend State Compatibility Cleanup
+
+**Files:**
+- Modify: `internal/game/types.go`
+- Modify: `internal/app/workspace.go`
+- Modify: `internal/app/handlers.go`
+- Modify: `web/src/api/types.ts`
+- Modify: all tests that still reference old `Snapshot.Analysis`, `WorkspaceState.chartPoints`, `CandidateMove.pointLoss`, or `BadMove.class`
+
+- [ ] **Step 1: Search for old protocol fields**
+
+Run:
+
+```powershell
+rg -n "Snapshot\\.Analysis|\\.Analysis|WorkspaceState|chartPoints|CandidateMove|pointLoss|relativePointLoss|winrateLoss|lowVisits|class:" internal web/src
+```
+
+Expected: output shows remaining old protocol references.
+
+- [ ] **Step 2: Remove `Snapshot.Analysis` from backend snapshot**
+
+In `internal/game/types.go`, ensure `Snapshot` has no `Analysis *AnalysisResult` field.
+
+In `internal/app/workspace.go`, remove `withAnalysisLocked` and replace its call sites with raw `g.CurrentSnapshot()` because current detail now lives in `StatePayload.Current`.
+
+- [ ] **Step 3: Remove old frontend API types**
+
+In `web/src/api/types.ts`, remove:
+
+```ts
+export interface CandidateMove { ... }
+export interface AnalysisResult { ... }
+export interface WorkspaceState { ... }
+```
+
+Use `CandidateView`, `StatePayload`, `CurrentNodeState`, and selectors instead.
+
+- [ ] **Step 4: Update remaining component tests**
+
+For tests that need candidates, use:
+
+```ts
+const candidate = { move: 'Q16', order: 0, visits: 400, winrate: 0.63, scoreLead: 4.4, pv: ['Q16'] }
+```
+
+For tests that need bad moves, use:
+
+```ts
+const badMove = { nodeId: 'main:12', moveNumber: 12, color: 'B' as const, move: 'Q16', pointLoss: 3.5 }
+```
+
+- [ ] **Step 5: Run compatibility search again**
+
+Run:
+
+```powershell
+rg -n "Snapshot\\.Analysis|WorkspaceState|CandidateMove|relativePointLoss|winrateLoss|lowVisits|class:" internal web/src
+```
+
+Expected: no matches, except prose in tests if deliberately asserting absence.
+
+- [ ] **Step 6: Run tests**
+
+Run:
+
+```powershell
+go test .\internal\game .\internal\app .\internal\katago -count=1
+cd web
+npm test -- --run
+npm run build
+```
+
+Expected: PASS.
+
+- [ ] **Step 7: Commit**
+
+```powershell
+git add internal web/src
+git commit -m "refactor: remove old analysis protocol"
+```
+
+## Task 12: End-to-End Verification for New Analysis UX
+
+**Files:**
+- Modify: `e2e/jcgo.spec.ts`
+- Modify: `playwright.config.ts` if viewport labels need adjustment
+- Modify: `README.md`
+
+- [ ] **Step 1: Add e2e test for PV preview and try mode**
+
+Append to `e2e/jcgo.spec.ts`:
+
+```ts
+test('previews PV then enters and exits try mode', async ({ page }) => {
+  await page.goto('/')
+  await page.getByLabel('Access token').fill(process.env.JCGO_E2E_TOKEN ?? '213509')
+  await page.getByRole('button', { name: 'Connect' }).click()
+  await page.getByLabel('Import SGF').click()
+  await page.setInputFiles('input[type="file"]', 'testdata/sgf/simple-19.sgf')
+  await page.getByRole('button', { name: 'Import' }).click()
+  await page.getByRole('button', { name: /Start analysis|Run/ }).click()
+  await expect(page.getByLabel(/Recommended next move/).first()).toBeVisible({ timeout: 30000 })
+  await page.getByLabel(/Recommended next move/).first().click()
+  await expect(page.locator('.pv-layer')).toBeVisible()
+  await page.getByLabel('Enter try mode').click()
+  await expect(page.locator('.pv-layer')).toHaveCount(0)
+  await page.getByLabel(/Try move/).first().click()
+  await expect(page.getByLabel('Exit try mode')).toBeVisible()
+  await page.getByLabel('Exit try mode').click()
+  await expect(page.getByLabel('Enter try mode')).toBeVisible()
+})
+```
+
+- [ ] **Step 2: Add e2e test for overlay toggles**
+
+Append to `e2e/jcgo.spec.ts`:
+
+```ts
+test('board overlay toggles persist in local storage', async ({ page }) => {
+  await page.goto('/')
+  const token = process.env.JCGO_E2E_TOKEN ?? '213509'
+  await page.evaluate((value) => localStorage.setItem('jcgo.accessToken', value), token)
+  await page.reload()
+  await page.getByLabel('Toggle ownership').click()
+  await expect(page.getByLabel('Toggle ownership')).not.toHaveClass(/active/)
+  await page.reload()
+  await expect(page.getByLabel('Toggle ownership')).not.toHaveClass(/active/)
+})
+```
+
+- [ ] **Step 3: Update README with new protocol summary**
+
+Add this section to `README.md`:
 
 ```markdown
-# JCGO
+## Analysis State Protocol
 
-JCGO is a remote single-token Go + React PWA for SGF-based KataGo analysis review.
-
-## Development
-
-Backend tests:
-
-```powershell
-go test ./...
+The server sends full workspace state as a columnar `state` payload. The main `timeline` is fixed-length (`totalMoves + 1`) and uses `null` for unanalyzed root values. The `current` section contains only the selected node's candidate moves and q8-base64 ownership data. Variation analysis uses a separate `variation.timeline` and is deleted when leaving try mode.
 ```
 
-Frontend tests and build:
-
-```powershell
-cd web
-npm test -- --run
-npm run build
-```
-
-Run the server:
-
-```powershell
-$env:JCGO_ACCESS_TOKEN='dev-token'
-$env:JCGO_DATA_DIR='.data'
-$env:JCGO_KATAGO_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\KataGo\katago.exe'
-$env:JCGO_MODEL_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\models\kata1-b18c384nbt-s9996604416-d4316597426.bin.gz'
-$env:JCGO_ANALYSIS_CONFIG_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\KataGo\analysis_config.cfg'
-go run ./cmd/jcgo
-```
-
-Open `http://127.0.0.1:4380` and enter `dev-token`.
-```
-
-- [ ] **Step 5: Run full verification**
+- [ ] **Step 4: Run full verification**
 
 Run:
 
@@ -3600,30 +2304,33 @@ npm run build
 
 Expected: PASS.
 
-Run:
+Run Playwright only with a running server configured with KataGo:
 
 ```powershell
+$env:JCGO_E2E_TOKEN='213509'
 npx playwright test
 ```
 
-Expected: PASS after the server is running with `JCGO_ACCESS_TOKEN`.
+Expected: PASS. If KataGo is not configured, record that e2e analysis tests were skipped because the engine was unavailable and run all unit/component tests instead.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```powershell
-git add README.md playwright.config.ts e2e web/package.json
-git commit -m "test: add e2e smoke coverage"
+git add e2e README.md playwright.config.ts
+git commit -m "test: cover refreshed analysis ux"
 ```
 
 ## Final Verification Checklist
 
-Before marking the plan complete, run these commands from `D:\Code\JCGO`:
+Run from `D:\Code\JCGO`:
 
 ```powershell
 go test ./...
 ```
 
 Expected: PASS.
+
+Run:
 
 ```powershell
 cd web
@@ -3633,19 +2340,21 @@ npm run build
 
 Expected: PASS.
 
-Start the server with the README environment variables, open `http://127.0.0.1:4380`, enter the token, import `testdata/sgf/simple-19.sgf`, and verify:
+Manual verification with server running at `http://127.0.0.1:4380/` and token `213509`:
 
-- The imported game appears at the top of the left list.
-- The board opens at move `0 / 4`.
-- `Start analysis` returns engine status if KataGo is unavailable and live analysis if configured.
-- Arrow keys move through the mainline.
-- Clicking a candidate or legal empty point enters variation mode.
-- `Esc` clears PV first, then returns to mainline when in a variation.
-- Reconnecting with the same token restores in-process workspace state.
+- Import a 19x19 SGF.
+- Start analysis.
+- Confirm `analysis.update` payload has `type: "state"` and columnar `timeline`.
+- Confirm ownership overlay appears when ownership is present.
+- Toggle recommended moves, ownership, and weak stones from the left toolbar; reload and confirm toggle state persists.
+- Click a candidate in ordinary mode and confirm PV appears without entering try mode.
+- Enter try mode, click an empty point, and confirm PV disappears and variation curve appears.
+- Exit try mode and confirm variation data disappears and main bad move list remains unchanged.
+- Reconnect with the same token and confirm current node, main analysis, and active variation state restore while the server process remains alive.
 
 ## Plan Review Notes
 
-- The plan intentionally implements v1 SGF parsing and rules support only: standard SGF, single game, 19x19, root setup stones, mainline only.
-- The plan keeps front-end state derived from backend snapshots. The browser never becomes the rules authority.
-- The plan treats KaTrain as behavior reference for analysis normalization, point-loss thresholds, candidate display, and PV animation, not as a code dependency.
-- The plan avoids persisted analysis caches. SQLite remains a game index, while SGF source files live in the configured games directory.
+- The old v1 plan was replaced because it predated the confirmed ownership, columnar payload, and PV/try-mode decisions.
+- The backend plan intentionally stores raw KataGo candidate values and ownership; frontend display-only values stay in selectors and board helpers.
+- Mainline bad moves are server-derived business data. Candidate colors and labels remain frontend-derived KaTrain display data.
+- The plan keeps SQLite as minimal game index storage and does not persist analysis caches.

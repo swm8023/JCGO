@@ -7,7 +7,7 @@ interface AnalysisDetailTabsProps {
   badMoves: BadMove[]
   candidates: CandidateMove[]
   onJump(moveNumber: number): void
-  onCandidateClick(move: string): void
+  onCandidateClick(candidate: CandidateMove): void
 }
 
 type DetailTab = 'black-bad' | 'white-bad' | 'candidates'
