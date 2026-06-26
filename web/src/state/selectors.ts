@@ -5,9 +5,15 @@ export function activeTimeline(state?: StatePayload): TimelineColumns | undefine
 }
 
 export function chartPointsForState(state?: StatePayload): ChartPoint[] {
-  const timeline = activeTimeline(state)
+  const variation = state?.variation
+  if (!variation) return chartPointsFromTimeline(state?.timeline)
+  const mainPoints = chartPointsFromTimeline(state.timeline).filter((point) => point.moveNumber <= variation.baseMoveNumber)
+  const variationPoints = chartPointsFromTimeline(variation.timeline, variation.baseMoveNumber + 1)
+  return [...mainPoints, ...variationPoints]
+}
+
+function chartPointsFromTimeline(timeline?: TimelineColumns, startMoveNumber = 0): ChartPoint[] {
   if (!timeline) return []
-  const baseMoveNumber = state?.variation?.baseMoveNumber ?? 0
   const nodeIds = timeline.nodeIds ?? []
   const rootWinrates = timeline.rootWinrates ?? []
   const rootScoreLeads = timeline.rootScoreLeads ?? []
@@ -15,7 +21,7 @@ export function chartPointsForState(state?: StatePayload): ChartPoint[] {
     const winrate = rootWinrates[index]
     const scoreLead = rootScoreLeads[index]
     if (winrate === null || winrate === undefined || scoreLead === null || scoreLead === undefined) return []
-    return [{ moveNumber: baseMoveNumber + index, winrate, scoreLead }]
+    return [{ moveNumber: startMoveNumber + index, winrate, scoreLead }]
   })
 }
 

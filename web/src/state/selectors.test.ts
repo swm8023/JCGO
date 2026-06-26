@@ -62,6 +62,48 @@ describe('state selectors', () => {
     expect(chartPointsForState(state)).toEqual([{ moveNumber: 0, winrate: 0.52, scoreLead: 1.4 }])
   })
 
+  it('keeps mainline chart points before a trial branch and appends trial analysis after the fork', () => {
+    const variationState = {
+      ...state,
+      timeline: {
+        ...state.timeline,
+        nodeIds: ['main:0', 'main:1', 'main:2', 'main:3'],
+        moves: [null, 'Q16', 'D4', 'C3'],
+        moveColors: [null, 'B', 'W', 'B'],
+        passes: [false, false, false, false],
+        toPlays: ['B', 'W', 'B', 'W'],
+        rootWinrates: [0.52, 0.49, 0.46, 0.42],
+        rootScoreLeads: [1.4, 0.8, -0.2, -1.1],
+        rootVisits: [100, 120, 140, 160],
+        playedPointLosses: [null, 0.3, 0.5, 0.9],
+      },
+      variation: {
+        baseNodeId: 'main:2',
+        baseMoveNumber: 2,
+        currentNodeId: 'var:3',
+        timeline: {
+          nodeIds: ['var:1', 'var:2', 'var:3'],
+          moves: ['Q4', 'pass', 'D16'],
+          moveColors: ['B', 'W', 'B'],
+          passes: [false, true, false],
+          toPlays: ['W', 'B', 'W'],
+          rootWinrates: [0.55, null, 0.58],
+          rootScoreLeads: [0.6, null, 1.2],
+          rootVisits: [80, null, 90],
+          playedPointLosses: [null, null, 0.4],
+        },
+      },
+    } satisfies StatePayload
+
+    expect(chartPointsForState(variationState)).toEqual([
+      { moveNumber: 0, winrate: 0.52, scoreLead: 1.4 },
+      { moveNumber: 1, winrate: 0.49, scoreLead: 0.8 },
+      { moveNumber: 2, winrate: 0.46, scoreLead: -0.2 },
+      { moveNumber: 3, winrate: 0.55, scoreLead: 0.6 },
+      { moveNumber: 5, winrate: 0.58, scoreLead: 1.2 },
+    ])
+  })
+
   it('derives candidate display losses from raw root and candidate score', () => {
     const candidates = currentCandidates(state)
     expect(candidates[0]).toMatchObject({ move: 'Q16', pointLoss: -0.4, lowVisits: false })
