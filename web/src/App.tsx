@@ -12,7 +12,7 @@ import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
 import { RotatePrompt } from './components/RotatePrompt'
 import { TokenGate } from './components/TokenGate'
-import { analysisForCurrent, badMovesForState, chartPointsForState, playedPointLossForCurrent } from './state/selectors'
+import { analysisForCurrent, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
 
@@ -244,6 +244,7 @@ export default function App() {
             playedPointLoss={playedPointLossForCurrent(workspace)}
             overlays={overlays}
             activePV={activePV}
+            trialMoves={trialMovesForState(workspace)}
             tryMode={tryMode}
             onPlay={playMove}
             onPreviewPV={previewPV}

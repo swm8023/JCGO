@@ -87,6 +87,17 @@ export function badMovesForState(state?: StatePayload): BadMove[] {
   }))
 }
 
+export function trialMovesForState(state?: StatePayload): string[] {
+  const variation = state?.variation
+  if (!variation) return []
+  const moves = variation.timeline.moves ?? []
+  const passes = variation.timeline.passes ?? []
+  return moves.flatMap((move, index) => {
+    if (!move || passes[index]) return []
+    return [move]
+  })
+}
+
 function rootForCurrent(state: StatePayload): { winrate: number; scoreLead: number; visits: number } | undefined {
   const timeline = activeTimeline(state)
   const nodeId = state.current?.nodeId

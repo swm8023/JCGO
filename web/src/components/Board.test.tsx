@@ -247,6 +247,46 @@ describe('Board', () => {
     expect(candidate).toHaveAttribute('opacity', '0.5')
   })
 
+  it('renders trial branch stones like faded PV stones with move numbers', () => {
+    render(
+      <Board
+        snapshot={{
+          gameId: 'g',
+          nodeId: 'var:2',
+          moveNumber: 3,
+          totalMoves: 3,
+          branchMode: 'variation',
+          stones: [
+            { x: 15, y: 3, color: 'B' },
+            { x: 15, y: 15, color: 'W' },
+            { x: 3, y: 15, color: 'B' },
+          ],
+          children: [],
+          toPlay: 'W',
+          rules: 'chinese',
+          komi: 7.5,
+          captures: { B: 0, W: 0 },
+          gameEnded: false,
+          canPrevious: true,
+          canNext: false,
+          canBackToMain: true,
+        }}
+        trialMoves={['Q4', 'D4']}
+        tryMode={false}
+        onPlay={vi.fn()}
+        onPreviewPV={vi.fn()}
+      />,
+    )
+
+    const board = screen.getByLabelText('Go board')
+    expect(board.querySelector('.stone.black-stone')).toBeInTheDocument()
+    expect(screen.getByLabelText('Trial move 1 Q4')).toHaveAttribute('opacity', '0.82')
+    expect(screen.getByLabelText('Trial move 1 Q4')).toHaveTextContent('1')
+    expect(screen.getByLabelText('Trial move 1 Q4').querySelector('circle')).toHaveAttribute('fill', 'url(#white-stone-gradient)')
+    expect(screen.getByLabelText('Trial move 2 D4')).toHaveAttribute('opacity', '0.74')
+    expect(screen.getByLabelText('Trial move 2 D4')).toHaveTextContent('2')
+  })
+
   it('uses click to preview candidate PV before try mode can play it', () => {
     const onPlay = vi.fn()
     const onPreviewPV = vi.fn()

@@ -11,6 +11,7 @@ interface BoardProps {
   playedPointLoss?: number | null
   overlays?: OverlayState
   activePV?: string[]
+  trialMoves?: string[]
   tryMode: boolean
   onPlay(gtp: string): void
   onPreviewPV(candidate: CandidateMove): void
@@ -31,11 +32,12 @@ const stoneShadowId = 'stone-shadow'
 const starPoints = [3, 9, 15]
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
 
-export function Board({ snapshot, candidates: candidateProps, ownership, playedPointLoss, overlays = defaultOverlays, activePV, tryMode, onPlay, onPreviewPV }: BoardProps) {
+export function Board({ snapshot, candidates: candidateProps, ownership, playedPointLoss, overlays = defaultOverlays, activePV, trialMoves, tryMode, onPlay, onPreviewPV }: BoardProps) {
   const stones = snapshot?.stones ?? []
   const candidates = candidateProps ?? snapshot?.analysis?.candidates ?? []
   const children = snapshot?.children ?? []
   const occupied = new Set(stones.map((stone) => pointKey(stone.x, stone.y)))
+  const trialMoveByPoint = trialMovesByPoint(trialMoves)
   const lastMovePoint = snapshot?.lastMove && !snapshot.lastMove.pass ? gtpToPoint(snapshot.lastMove.gtp) : null
   const topCandidatePoint = gtpToPoint(candidates.find((candidate) => candidate.order === 0)?.move ?? '')
   const ownershipValues = decodeOwnershipQ8(ownership)
@@ -146,19 +148,57 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
               />
             )
           })}
-      {stones.map((stone) => (
-        <circle
-          key={`${stone.x}-${stone.y}`}
-          className={`stone ${stone.color === 'B' ? 'black-stone' : 'white-stone'}`}
-          cx={pad + stone.x * gap}
-          cy={pad + stone.y * gap}
-          r={gap * 0.43}
-          fill={`url(#${stone.color === 'B' ? blackStoneGradientId : whiteStoneGradientId})`}
-          stroke={stone.color === 'B' ? '#030303' : '#9f9788'}
-          strokeWidth="0.8"
-          filter={`url(#${stoneShadowId})`}
-        />
-      ))}
+      {stones.map((stone) => {
+        const trialMove = trialMoveByPoint.get(pointKey(stone.x, stone.y))
+        if (trialMove) {
+          return (
+            <g
+              key={`${stone.x}-${stone.y}`}
+              aria-label={`Trial move ${trialMove.number} ${trialMove.move}`}
+              className="trial-stone"
+              opacity={sequenceStoneOpacity(trialMove.number - 1)}
+              pointerEvents="none"
+            >
+              <circle
+                cx={pad + stone.x * gap}
+                cy={pad + stone.y * gap}
+                r={gap * 0.38}
+                fill={`url(#${stone.color === 'B' ? blackStoneGradientId : whiteStoneGradientId})`}
+                stroke={stone.color === 'B' ? '#030303' : '#9f9788'}
+                strokeWidth="0.8"
+                filter={`url(#${stoneShadowId})`}
+              />
+              <text
+                x={pad + stone.x * gap}
+                y={pad + stone.y * gap + 5}
+                textAnchor="middle"
+                fontSize="14"
+                fontWeight="700"
+                fill={stone.color === 'B' ? '#fff' : '#111'}
+                paintOrder="stroke"
+                stroke={stone.color === 'B' ? 'rgba(0, 0, 0, 0.52)' : 'rgba(245, 242, 234, 0.74)'}
+                strokeWidth="1.6"
+                strokeLinejoin="round"
+              >
+                {trialMove.number}
+              </text>
+            </g>
+          )
+        }
+        return (
+          <circle
+            key={`${stone.x}-${stone.y}`}
+            className={`stone ${stone.color === 'B' ? 'black-stone' : 'white-stone'}`}
+            cx={pad + stone.x * gap}
+            cy={pad + stone.y * gap}
+            r={gap * 0.43}
+            fill={`url(#${stone.color === 'B' ? blackStoneGradientId : whiteStoneGradientId})`}
+            stroke={stone.color === 'B' ? '#030303' : '#9f9788'}
+            strokeWidth="0.8"
+            filter={`url(#${stoneShadowId})`}
+          />
+        )
+      })}
       {overlays.deadStones &&
         ownershipValues.length > 0 &&
         stones.map((stone) => {
@@ -333,7 +373,7 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
       {(activePV ?? []).map((move, index) => {
         const point = gtpToPoint(move)
         if (!point) return null
-        const opacity = Math.max(0.45, 0.82 - index * 0.08)
+        const opacity = sequenceStoneOpacity(index)
         return (
           <g key={`${move}-${index}`} className="pv-stone" opacity={opacity}>
             <circle cx={pad + point.x * gap} cy={pad + point.y * gap} r={gap * 0.38} fill={index % 2 === 0 ? '#111' : '#f5f2ea'} stroke="#111" />
@@ -345,6 +385,20 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
       })}
     </svg>
   )
+}
+
+function trialMovesByPoint(trialMoves?: string[]) {
+  const moves = new Map<string, { move: string; number: number }>()
+  ;(trialMoves ?? []).forEach((move, index) => {
+    const point = gtpToPoint(move)
+    if (!point) return
+    moves.set(pointKey(point.x, point.y), { move, number: index + 1 })
+  })
+  return moves
+}
+
+function sequenceStoneOpacity(index: number) {
+  return Math.max(0.45, 0.82 - index * 0.08)
 }
 
 function formatCandidate(candidate: CandidateMove) {

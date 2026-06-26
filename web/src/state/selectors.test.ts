@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StatePayload } from '../api/types'
-import { analysisForCurrent, badMovesForState, chartPointsForState, currentCandidates } from './selectors'
+import { analysisForCurrent, badMovesForState, chartPointsForState, currentCandidates, trialMovesForState } from './selectors'
 
 const state: StatePayload = {
   type: 'state',
@@ -98,5 +98,30 @@ describe('state selectors', () => {
 
     expect(currentCandidates(nullColumnState)).toEqual([])
     expect(badMovesForState(nullColumnState)).toEqual([])
+  })
+
+  it('extracts visible trial branch moves from variation timeline', () => {
+    const variationState = {
+      ...state,
+      variation: {
+        baseNodeId: 'main:1',
+        baseMoveNumber: 1,
+        currentNodeId: 'var:3',
+        timeline: {
+          nodeIds: ['var:1', 'var:2', 'var:3'],
+          moves: ['Q4', 'pass', 'D4'],
+          moveColors: ['W', 'B', 'B'],
+          passes: [false, true, false],
+          toPlays: ['B', 'B', 'W'],
+          rootWinrates: [null, null, null],
+          rootScoreLeads: [null, null, null],
+          rootVisits: [null, null, null],
+          playedPointLosses: [null, null, null],
+        },
+      },
+    } satisfies StatePayload
+
+    expect(trialMovesForState(variationState)).toEqual(['Q4', 'D4'])
+    expect(trialMovesForState(state)).toEqual([])
   })
 })
