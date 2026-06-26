@@ -113,6 +113,18 @@ func (w *Workspace) GotoMain(gameID string, moveNumber int) (game.Snapshot, erro
 	return snapshot, err
 }
 
+func (w *Workspace) GotoNode(gameID string, nodeID string) (game.Snapshot, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	g, err := w.game(gameID)
+	if err != nil {
+		return game.Snapshot{}, err
+	}
+	w.selectedGameID = gameID
+	snapshot, err := g.GotoNode(nodeID)
+	return snapshot, err
+}
+
 func (w *Workspace) Play(gameID string, gtp string) (game.Snapshot, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

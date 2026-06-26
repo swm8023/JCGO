@@ -81,6 +81,8 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.selectGame(ctx, token, params)
 	case "game.goto":
 		return h.gotoMain(ctx, token, params)
+	case "game.gotoNode":
+		return h.gotoNode(ctx, token, params)
 	case "game.play":
 		return h.play(ctx, token, params)
 	case "game.pass":
@@ -247,6 +249,21 @@ func (h *Handler) gotoMain(ctx context.Context, token string, params json.RawMes
 		return nil, err
 	}
 	if _, err := ws.GotoMain(in.GameID, in.MoveNumber); err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
+}
+
+func (h *Handler) gotoNode(ctx context.Context, token string, params json.RawMessage) (any, error) {
+	var in gotoNodeParams
+	if err := decodeParams(params, &in); err != nil {
+		return nil, err
+	}
+	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := ws.GotoNode(in.GameID, in.NodeID); err != nil {
 		return nil, err
 	}
 	return h.workspaceState(ctx, token)
@@ -467,6 +484,11 @@ type gameIDParams struct {
 type gotoParams struct {
 	GameID     string `json:"gameId"`
 	MoveNumber int    `json:"moveNumber"`
+}
+
+type gotoNodeParams struct {
+	GameID string `json:"gameId"`
+	NodeID string `json:"nodeId"`
 }
 
 type playParams struct {

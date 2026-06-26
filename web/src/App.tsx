@@ -16,6 +16,8 @@ import { analysisForCurrent, badMovesForState, chartPointsForState, playedPointL
 
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
 
+type NavigationCommand = { method: 'game.goto'; moveNumber: number } | { method: 'game.gotoNode'; nodeId: string }
+
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem('jcgo.accessToken'))
   const [client, setClient] = useState<RPCClient>()
@@ -138,16 +140,23 @@ export default function App() {
     setTryMode(false)
   }
 
-  const gotoMove = async (moveNumber: number) => {
-    if (!client || !selectedGameId) return
-    const state = await client.call<StatePayload>('game.goto', { gameId: selectedGameId, moveNumber })
+  const runNavigation = async (command: NavigationCommand | undefined, keepTryMode = false) => {
+    if (!client || !selectedGameId || !command) return
+    const params = command.method === 'game.goto'
+      ? { gameId: selectedGameId, moveNumber: command.moveNumber }
+      : { gameId: selectedGameId, nodeId: command.nodeId }
+    const state = await client.call<StatePayload>(command.method, params)
     applyWorkspaceState(state)
     setActivePV(undefined)
-    setTryMode(false)
+    if (!keepTryMode) setTryMode(false)
   }
 
-  const goPrevious = () => gotoMove(Math.max(0, (snapshot?.moveNumber ?? 0) - 1))
-  const goNext = () => gotoMove(Math.min(snapshot?.totalMoves ?? 0, (snapshot?.moveNumber ?? 0) + 1))
+  const gotoMove = async (moveNumber: number) => runNavigation({ method: 'game.goto', moveNumber })
+  const keepTrialNavigation = () => tryMode || snapshot?.branchMode === 'variation'
+  const goFirst = () => runNavigation(firstNavigation(snapshot, workspace), keepTrialNavigation())
+  const goPrevious = () => runNavigation(previousNavigation(snapshot, workspace), keepTrialNavigation())
+  const goNext = () => runNavigation(nextNavigation(snapshot, workspace, tryMode), keepTrialNavigation())
+  const goLast = () => runNavigation(lastNavigation(snapshot, workspace), keepTrialNavigation())
 
   const playMove = async (move: string) => {
     if (!client || !selectedGameId) return
@@ -242,10 +251,10 @@ export default function App() {
           totalMoves={snapshot?.totalMoves ?? 0}
           canBackToMain={snapshot?.canBackToMain ?? false}
           tryMode={tryMode}
-          onFirst={() => void gotoMove(0)}
+          onFirst={() => void goFirst()}
           onPrevious={() => void goPrevious()}
           onNext={() => void goNext()}
-          onLast={() => void gotoMove(snapshot?.totalMoves ?? 0)}
+          onLast={() => void goLast()}
           onEnterTryMode={enterTryMode}
           onExitTryMode={() => void exitTryMode()}
         />
@@ -267,6 +276,56 @@ export default function App() {
 function websocketURL() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${protocol}//${window.location.host}/ws`
+}
+
+function firstNavigation(snapshot?: Snapshot, workspace?: StatePayload): NavigationCommand | undefined {
+  if (!snapshot) return undefined
+  if (snapshot.branchMode === 'variation' && workspace?.variation) {
+    return { method: 'game.goto', moveNumber: workspace.variation.baseMoveNumber }
+  }
+  return { method: 'game.goto', moveNumber: 0 }
+}
+
+function previousNavigation(snapshot?: Snapshot, workspace?: StatePayload): NavigationCommand | undefined {
+  if (!snapshot) return undefined
+  if (snapshot.branchMode === 'variation' && workspace?.variation) {
+    const nodeIDs = workspace.variation.timeline.nodeIds ?? []
+    const index = nodeIDs.indexOf(snapshot.nodeId)
+    if (index > 0) return { method: 'game.gotoNode', nodeId: nodeIDs[index - 1] }
+    return { method: 'game.goto', moveNumber: workspace.variation.baseMoveNumber }
+  }
+  return { method: 'game.goto', moveNumber: Math.max(0, snapshot.moveNumber - 1) }
+}
+
+function nextNavigation(snapshot?: Snapshot, workspace?: StatePayload, tryMode = false): NavigationCommand | undefined {
+  if (!snapshot) return undefined
+  if (snapshot.branchMode === 'variation' && workspace?.variation) {
+    const nodeIDs = workspace.variation.timeline.nodeIds ?? []
+    const index = nodeIDs.indexOf(snapshot.nodeId)
+    if (index >= 0 && index < nodeIDs.length - 1) return { method: 'game.gotoNode', nodeId: nodeIDs[index + 1] }
+    return variationChildNavigation(snapshot)
+  }
+  if (tryMode) {
+    const variationChild = variationChildNavigation(snapshot)
+    if (variationChild) return variationChild
+  }
+  return { method: 'game.goto', moveNumber: Math.min(snapshot.totalMoves, snapshot.moveNumber + 1) }
+}
+
+function lastNavigation(snapshot?: Snapshot, workspace?: StatePayload): NavigationCommand | undefined {
+  if (!snapshot) return undefined
+  if (snapshot.branchMode === 'variation' && workspace?.variation) {
+    const nodeIDs = workspace.variation.timeline.nodeIds ?? []
+    const lastNodeID = nodeIDs.at(-1)
+    if (lastNodeID) return { method: 'game.gotoNode', nodeId: lastNodeID }
+  }
+  return { method: 'game.goto', moveNumber: snapshot.totalMoves }
+}
+
+function variationChildNavigation(snapshot: Snapshot): NavigationCommand | undefined {
+  const child = snapshot.children.find((candidate) => candidate.nodeId.startsWith('var:'))
+  if (!child) return undefined
+  return { method: 'game.gotoNode', nodeId: child.nodeId }
 }
 
 function readOverlayState(): OverlayState {

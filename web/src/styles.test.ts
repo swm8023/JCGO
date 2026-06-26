@@ -25,10 +25,11 @@ describe('responsive layout CSS', () => {
   })
 
   it('fixes the cockpit to the viewport with the board as the dominant work surface', () => {
-    expect(styles).toContain('body {\n  height: 100%;\n  margin: 0;\n  overflow: hidden;')
+    expect(styles).toContain('body {\n  margin: 0;\n  overscroll-behavior: none;')
     expect(styles).toContain('--app-height: 100dvh;')
     expect(styles).toContain('--app-content-height: calc(var(--app-height) - var(--app-safe-top) - var(--app-safe-bottom));')
     expect(styles).toContain('--app-safe-bottom: env(safe-area-inset-bottom, 0px);')
+    expect(styles).toContain('html,\nbody,\n#root {\n  height: 100%;\n  overflow: hidden;\n  background: var(--paper);')
     expect(styles).toContain('.app-layout {\n  height: var(--app-height);')
     expect(styles).toContain('padding: var(--app-safe-top) var(--app-safe-right) 0 var(--app-safe-left);')
     expect(styles).toContain('grid-template-columns: 48px 1fr 48px minmax(340px, 420px);')
@@ -41,9 +42,11 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.board-stage {\n  position: relative;')
     expect(styles).toContain('justify-items: center;')
     expect(styles).toContain('background: var(--paper);')
+    expect(styles).toContain('.board-layout {\n  display: grid;\n  width: 100%;\n  height: 100%;')
     expect(styles).toContain('.go-board {\n  position: relative;')
-    expect(styles).toContain('width: 100%;')
-    expect(styles).toContain('height: 100%;')
+    expect(styles).toContain('width: min(calc(var(--app-content-height) - 34px), 100%);')
+    expect(styles).toContain('height: auto;')
+    expect(styles).toContain('max-width: 100%;')
     expect(styles).toContain('filter: drop-shadow(0 20px 40px rgb(42 30 14 / 0.25));')
     expect(styles).toContain('.action-rail {')
     expect(styles).toContain('.navigation-controls {')
@@ -63,7 +66,7 @@ describe('responsive layout CSS', () => {
   })
 
   it('keeps mobile landscape navigation beside the board and import visible', () => {
-    expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1100px) and (pointer: coarse)')
+    expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
     expect(styles).toContain('--app-height: 100svh;')
     expect(styles).toContain('grid-template-columns: 44px 1fr 44px minmax(240px, 320px);')
     expect(styles).toContain('height: var(--app-height);')
@@ -75,6 +78,12 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.analysis-detail-tabs {\n    grid-template-rows: 26px minmax(0, 1fr);\n    gap: 4px;')
     expect(styles).toContain('.analysis-tab {\n    height: 26px;\n    border-radius: 6px;')
     expect(styles).toContain('.candidate-row,\n  .bad-move {\n    min-height: 28px;')
+  })
+
+  it('treats 11 inch iPad landscape as a tablet workspace with a square board box', () => {
+    expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
+    expect(styles).toContain('@media (min-width: 1101px) and (max-width: 1180px) and (orientation: landscape) and (pointer: fine)')
+    expect(styles).toContain('.go-board {\n    width: min(calc(var(--app-content-height) - 16px), 100%);\n    height: auto;\n    max-width: 100%;\n    max-height: calc(var(--app-content-height) - 16px);')
   })
 
   it('keeps narrow phone landscape focused on the board instead of squeezing three rails', () => {

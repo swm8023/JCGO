@@ -308,6 +308,23 @@ func TestPlayVariationQueuesAnalysisForCurrentNode(t *testing.T) {
 	}
 }
 
+func TestGotoNodeNavigatesVariation(t *testing.T) {
+	h, token := newTestHandler(t)
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd];W[dd])",
+	})
+	_ = callResult[StatePayload](t, h, token, "game.goto", map[string]any{"gameId": imported.Game.ID, "moveNumber": 1})
+	_ = callResult[StatePayload](t, h, token, "game.play", map[string]any{"gameId": imported.Game.ID, "move": "Q4"})
+	_ = callResult[StatePayload](t, h, token, "game.play", map[string]any{"gameId": imported.Game.ID, "move": "D4"})
+	_ = callResult[StatePayload](t, h, token, "game.backToMain", map[string]any{"gameId": imported.Game.ID})
+
+	state := callResult[StatePayload](t, h, token, "game.gotoNode", map[string]any{"gameId": imported.Game.ID, "nodeId": "var:2"})
+	if state.Snapshot.NodeID != "var:2" || state.Snapshot.BranchMode != "variation" || state.Current.NodeID != "var:2" {
+		t.Fatalf("state = %#v", state)
+	}
+}
+
 func TestWorkspaceStateRestoresSelectedSnapshotAndAnalysisView(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()

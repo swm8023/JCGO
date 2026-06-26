@@ -95,6 +95,14 @@ func (g *Game) GotoMain(moveNumber int) (Snapshot, error) {
 	return g.CurrentSnapshot(), nil
 }
 
+func (g *Game) GotoNode(nodeID string) (Snapshot, error) {
+	if _, ok := g.node(nodeID); !ok {
+		return Snapshot{}, fmt.Errorf("node not found")
+	}
+	g.currentID = nodeID
+	return g.CurrentSnapshot(), nil
+}
+
 func (g *Game) CurrentSnapshot() Snapshot {
 	current, _ := g.node(g.currentID)
 	return g.snapshot(current)

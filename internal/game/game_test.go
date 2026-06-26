@@ -169,6 +169,37 @@ func TestPlayVariationFromMainNodeAndBackToMain(t *testing.T) {
 	}
 }
 
+func TestGotoVariationNode(t *testing.T) {
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd];W[dd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, err := NewFromSGF("game-1", doc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.GotoMain(1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.PlayVariation(White, "Q4"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.PlayVariation(Black, "D4"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.BackToMain(); err != nil {
+		t.Fatal(err)
+	}
+
+	snap, err := g.GotoNode("var:2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.NodeID != "var:2" || snap.BranchMode != "variation" || snap.MoveNumber != 3 || snap.LastMove == nil || snap.LastMove.GTP != "D4" {
+		t.Fatalf("variation snapshot = %#v", snap)
+	}
+}
+
 func TestDeleteAndClearVariation(t *testing.T) {
 	g := NewEmpty("game-1", "chinese", 7.5)
 	if _, err := g.PlayVariation(Black, "D4"); err != nil {
