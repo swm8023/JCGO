@@ -50,9 +50,27 @@ export default function App() {
     localStorage.setItem('jcgo.boardOverlays', JSON.stringify(value))
   }
 
+  const returnToTokenGate = () => {
+    localStorage.removeItem('jcgo.accessToken')
+    setToken(null)
+    setClient(undefined)
+    setGames([])
+    setSelectedGameId(undefined)
+    setSnapshot(undefined)
+    setActivePV(undefined)
+    setTryMode(false)
+    setChartPoints([])
+    setBadMoves([])
+    setAnalysisState('idle')
+    setWorkspace(undefined)
+    setShowImport(false)
+    setGameListOpen(false)
+  }
+
   useEffect(() => {
     if (!token) return
     const nextClient = new RPCClient()
+    setError(undefined)
     setClient(nextClient)
     nextClient.on('analysis.update', (params) => applyWorkspaceState(params as StatePayload))
     nextClient
@@ -61,7 +79,7 @@ export default function App() {
         const state = await nextClient.call<StatePayload>('workspace.state')
         applyWorkspaceState(state)
       })
-      .catch((reason: unknown) => setError(reason instanceof Error ? reason.message : String(reason)))
+      .catch(() => returnToTokenGate())
   }, [token, wsUrl])
 
   useEffect(() => {
