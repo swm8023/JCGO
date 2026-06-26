@@ -19,10 +19,10 @@ interface BoardProps {
 const pad = 28
 const gap = 28
 const boardSize = pad * 2 + gap * (BOARD_SIZE - 1)
-const boardClipX = pad - gap / 2
-const boardClipSize = gap * BOARD_SIZE
 const ownershipFilterId = 'ownership-soften'
-const ownershipClipId = 'ownership-clip'
+const ownershipMaskId = 'ownership-edge-fade'
+const ownershipFadeSize = gap * 0.75
+const ownershipFadeInnerSize = boardSize - ownershipFadeSize * 2
 const candidateGradientPrefix = 'candidate-fill'
 const blackStoneGradientId = 'black-stone-gradient'
 const whiteStoneGradientId = 'white-stone-gradient'
@@ -42,9 +42,30 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
   return (
     <svg className="go-board" viewBox={`0 0 ${boardSize} ${boardSize}`} role="img" aria-label="Go board">
       <defs>
-        <clipPath id={ownershipClipId}>
-          <rect x={boardClipX} y={boardClipX} width={boardClipSize} height={boardClipSize} rx={gap * 0.32} />
-        </clipPath>
+        <linearGradient id="ownership-fade-left" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={ownershipFadeSize} y2="0">
+          <stop offset="0%" stopColor="black" />
+          <stop offset="100%" stopColor="white" />
+        </linearGradient>
+        <linearGradient id="ownership-fade-right" gradientUnits="userSpaceOnUse" x1={boardSize - ownershipFadeSize} y1="0" x2={boardSize} y2="0">
+          <stop offset="0%" stopColor="white" />
+          <stop offset="100%" stopColor="black" />
+        </linearGradient>
+        <linearGradient id="ownership-fade-top" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={ownershipFadeSize}>
+          <stop offset="0%" stopColor="black" />
+          <stop offset="100%" stopColor="white" />
+        </linearGradient>
+        <linearGradient id="ownership-fade-bottom" gradientUnits="userSpaceOnUse" x1="0" y1={boardSize - ownershipFadeSize} x2="0" y2={boardSize}>
+          <stop offset="0%" stopColor="white" />
+          <stop offset="100%" stopColor="black" />
+        </linearGradient>
+        <mask id={ownershipMaskId} maskUnits="userSpaceOnUse" x="0" y="0" width={boardSize} height={boardSize}>
+          <rect x="0" y="0" width={boardSize} height={boardSize} fill="black" />
+          <rect x={ownershipFadeSize} y={ownershipFadeSize} width={ownershipFadeInnerSize} height={ownershipFadeInnerSize} fill="white" />
+          <rect className="ownership-edge-fade left" x="0" y={ownershipFadeSize} width={ownershipFadeSize} height={ownershipFadeInnerSize} fill="url(#ownership-fade-left)" />
+          <rect className="ownership-edge-fade right" x={boardSize - ownershipFadeSize} y={ownershipFadeSize} width={ownershipFadeSize} height={ownershipFadeInnerSize} fill="url(#ownership-fade-right)" />
+          <rect className="ownership-edge-fade top" x={ownershipFadeSize} y="0" width={ownershipFadeInnerSize} height={ownershipFadeSize} fill="url(#ownership-fade-top)" />
+          <rect className="ownership-edge-fade bottom" x={ownershipFadeSize} y={boardSize - ownershipFadeSize} width={ownershipFadeInnerSize} height={ownershipFadeSize} fill="url(#ownership-fade-bottom)" />
+        </mask>
         <filter id={ownershipFilterId} x="-12%" y="-12%" width="124%" height="124%" colorInterpolationFilters="sRGB">
           <feGaussianBlur stdDeviation="11" />
         </filter>
@@ -71,7 +92,7 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
       </defs>
       <rect x="0" y="0" width={boardSize} height={boardSize} rx="6" fill="var(--board-wood)" />
       {overlays.ownership && ownershipValues.length > 0 && (
-        <g className="ownership-layer smooth" aria-label="Ownership overlay" pointerEvents="none" clipPath={`url(#${ownershipClipId})`}>
+        <g className="ownership-layer smooth" aria-label="Ownership overlay" pointerEvents="none" mask={`url(#${ownershipMaskId})`}>
           {(['B', 'W'] as const).map((owner) => (
             <g key={owner} className={`ownership-soft-layer ${owner === 'B' ? 'black' : 'white'}`} filter={`url(#${ownershipFilterId})`}>
               {boardPoints().map((point) => {

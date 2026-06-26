@@ -53,7 +53,11 @@ describe('Board', () => {
       />,
     )
     const board = screen.getByLabelText('Go board')
-    expect(board.querySelector('.ownership-layer.smooth')).toBeInTheDocument()
+    expect(board.querySelector('.ownership-layer.smooth')).toHaveAttribute('mask', 'url(#ownership-edge-fade)')
+    expect(board.querySelector('.ownership-layer.smooth')).not.toHaveAttribute('clip-path')
+    expect(board.querySelector('#ownership-edge-fade')).toBeInTheDocument()
+    expect(board.querySelector('.ownership-edge-fade.right')).toHaveAttribute('fill', 'url(#ownership-fade-right)')
+    expect(board.querySelector('.ownership-edge-fade.right')).toHaveAttribute('width', '21')
     expect(board.querySelector('.ownership-soft-layer.black')).toHaveAttribute('filter', 'url(#ownership-soften)')
     expect(board.querySelector('feGaussianBlur')).toHaveAttribute('stdDeviation', '11')
     expect(board.querySelector('.ownership-sample')).toHaveAttribute('fill', 'rgb(244 244 255)')
