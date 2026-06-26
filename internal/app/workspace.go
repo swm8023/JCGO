@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -291,6 +292,50 @@ func (w *Workspace) AnalysisView(gameID string) ([]game.ChartPoint, []game.BadMo
 	return w.analysisViewLocked(gameID)
 }
 
+func (w *Workspace) BadMovePrompt(gameID string, nodeID string) (string, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	g, err := w.game(gameID)
+	if err != nil {
+		return "", err
+	}
+	moveNumber, ok := mainlineMoveNumber(nodeID)
+	if !ok || moveNumber == 0 {
+		return "", fmt.Errorf("bad move node not found")
+	}
+	inputs := g.MainlineAnalysisInputs()
+	if moveNumber >= len(inputs) || inputs[moveNumber].NodeID != nodeID {
+		return "", fmt.Errorf("bad move node not found")
+	}
+	badMoveInput := inputs[moveNumber]
+	if badMoveInput.Move == "" {
+		return "", fmt.Errorf("bad move node has no move")
+	}
+	beforeInput := inputs[moveNumber-1]
+	beforeAnalysis, ok := w.analysis[analysisCacheKey(gameID, beforeInput.NodeID)]
+	if !ok {
+		return "", fmt.Errorf("analysis before bad move is unavailable")
+	}
+	afterAnalysis, ok := w.analysis[analysisCacheKey(gameID, badMoveInput.NodeID)]
+	if !ok {
+		return "", fmt.Errorf("analysis after bad move is unavailable")
+	}
+	pointsLost := playedMovePointLoss(badMoveInput.MoveColor, beforeAnalysis.Root.ScoreLead, afterAnalysis.Root.ScoreLead)
+	if !game.IsBadMove(pointsLost) {
+		return "", fmt.Errorf("node is not a bad move")
+	}
+	bestMove, ok := bestCandidateMove(beforeAnalysis.Candidates)
+	if !ok {
+		return "", fmt.Errorf("best move is unavailable")
+	}
+	beforeSnapshot, err := g.SnapshotAtNode(beforeInput.NodeID)
+	if err != nil {
+		return "", err
+	}
+	return formatBadMovePrompt(beforeSnapshot, badMoveInput.Move, pointsLost, bestMove), nil
+}
+
 func (w *Workspace) analysisViewLocked(gameID string) ([]game.ChartPoint, []game.BadMove, AnalysisState, error) {
 	g, err := w.game(gameID)
 	if err != nil {
@@ -335,6 +380,65 @@ func playedMovePointLoss(color game.Color, parentScore float64, score float64) f
 		sign = -1
 	}
 	return sign * (parentScore - score)
+}
+
+func formatBadMovePrompt(before game.Snapshot, move string, pointsLost float64, bestMove string) string {
+	blackStones, whiteStones := stoneCoordinates(before.Stones)
+	return fmt.Sprintf(
+		"当前棋局黑棋占 %s，白棋占 %s，现在轮到%s，走在 %s，这一步AI认为不好，损失%.1f子，AI认为最佳点在 %s。帮我分析下为什么不好，原因是什么，以及为什么推荐下在%s",
+		formatCoordinateList(blackStones),
+		formatCoordinateList(whiteStones),
+		colorName(before.ToPlay),
+		move,
+		pointsLost,
+		bestMove,
+		bestMove,
+	)
+}
+
+func stoneCoordinates(stones []game.Stone) ([]string, []string) {
+	blackStones := make([]string, 0)
+	whiteStones := make([]string, 0)
+	for _, stone := range stones {
+		coordinate := game.FormatGTP(stone.X, stone.Y)
+		if stone.Color == game.White {
+			whiteStones = append(whiteStones, coordinate)
+			continue
+		}
+		blackStones = append(blackStones, coordinate)
+	}
+	return blackStones, whiteStones
+}
+
+func formatCoordinateList(coordinates []string) string {
+	if len(coordinates) == 0 {
+		return "无"
+	}
+	return strings.Join(coordinates, " ")
+}
+
+func colorName(color game.Color) string {
+	if color == game.White {
+		return "白棋"
+	}
+	return "黑棋"
+}
+
+func bestCandidateMove(candidates []game.CandidateRaw) (string, bool) {
+	for _, candidate := range candidates {
+		if candidate.Order == 0 && candidate.Move != "" {
+			return candidate.Move, true
+		}
+	}
+	return "", false
+}
+
+func mainlineMoveNumber(nodeID string) (int, bool) {
+	if !strings.HasPrefix(nodeID, "main:") {
+		return 0, false
+	}
+	moveNumber, err := strconv.Atoi(strings.TrimPrefix(nodeID, "main:"))
+	return moveNumber, err == nil
 }
 
 func (w *Workspace) MainlineAnalysisInputs(gameID string) []NodeInput {

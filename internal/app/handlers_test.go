@@ -379,6 +379,34 @@ func TestWorkspaceStateRestoresSelectedSnapshotAndAnalysisView(t *testing.T) {
 	}
 }
 
+func TestBadMovePromptDescribesPositionBeforeBadMove(t *testing.T) {
+	h, token := newTestHandler(t)
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd];W[dd];B[qp])",
+	})
+	gameID := imported.Game.ID
+	ws := h.workspaces.ForToken(token)
+	ws.SetAnalysis(gameID, "main:2", game.AnalysisResult{
+		Root: game.RootAnalysis{ScoreLead: 2.0, Visits: 500},
+		Candidates: []game.CandidateRaw{
+			{Move: "D4", Order: 0, Visits: 500, ScoreLead: 2.5},
+			{Move: "R4", Order: 1, Visits: 100, ScoreLead: -1.5},
+		},
+	})
+	ws.SetAnalysis(gameID, "main:3", game.AnalysisResult{
+		Root: game.RootAnalysis{ScoreLead: -1.5, Visits: 500},
+	})
+
+	result := callResult[struct {
+		Prompt string `json:"prompt"`
+	}](t, h, token, "analysis.badMovePrompt", map[string]any{"gameId": gameID, "nodeId": "main:3"})
+	want := "当前棋局黑棋占 Q16，白棋占 D16，现在轮到黑棋，走在 R4，这一步AI认为不好，损失3.5子，AI认为最佳点在 D4。帮我分析下为什么不好，原因是什么，以及为什么推荐下在D4"
+	if result.Prompt != want {
+		t.Fatalf("prompt = %q, want %q", result.Prompt, want)
+	}
+}
+
 func TestWorkspaceStateReturnsColumnarPayload(t *testing.T) {
 	h, token := newTestHandler(t)
 	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{

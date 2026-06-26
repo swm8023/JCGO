@@ -52,6 +52,10 @@ type DeleteResult struct {
 	GameID string `json:"gameId"`
 }
 
+type BadMovePromptResult struct {
+	Prompt string `json:"prompt"`
+}
+
 func NewHandler(repo *store.Repository, files store.FileStore, workspaces *WorkspaceStore, analysis AnalysisController) *Handler {
 	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis}
 	if analysis != nil {
@@ -103,6 +107,8 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.analysisCall(ctx, token, params, "stop")
 	case "analysis.restart":
 		return h.analysisCall(ctx, token, params, "restart")
+	case "analysis.badMovePrompt":
+		return h.badMovePrompt(ctx, token, params)
 	default:
 		return nil, errors.New("method not found")
 	}
@@ -414,6 +420,22 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 	return h.workspaceState(ctx, token)
 }
 
+func (h *Handler) badMovePrompt(ctx context.Context, token string, params json.RawMessage) (BadMovePromptResult, error) {
+	var in badMovePromptParams
+	if err := decodeParams(params, &in); err != nil {
+		return BadMovePromptResult{}, err
+	}
+	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
+	if err != nil {
+		return BadMovePromptResult{}, err
+	}
+	prompt, err := ws.BadMovePrompt(in.GameID, in.NodeID)
+	if err != nil {
+		return BadMovePromptResult{}, err
+	}
+	return BadMovePromptResult{Prompt: prompt}, nil
+}
+
 func (h *Handler) ensureWorkspaceGame(ctx context.Context, token string, gameID string) (*Workspace, error) {
 	ws := h.workspaces.ForToken(token)
 	if ws.HasGame(gameID) {
@@ -494,4 +516,9 @@ type gotoNodeParams struct {
 type playParams struct {
 	GameID string `json:"gameId"`
 	Move   string `json:"move"`
+}
+
+type badMovePromptParams struct {
+	GameID string `json:"gameId"`
+	NodeID string `json:"nodeId"`
 }

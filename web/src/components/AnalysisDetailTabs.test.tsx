@@ -62,4 +62,31 @@ describe('AnalysisDetailTabs', () => {
     expect(screen.getByRole('tabpanel', { name: '白恶手 1' })).toHaveTextContent('D16')
     expect(screen.queryByText('Q4')).not.toBeInTheDocument()
   })
+
+  it('copies a server-generated bad move prompt without jumping to the move', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    const onJump = vi.fn()
+    const onRequestBadMovePrompt = vi.fn().mockResolvedValue('prompt text')
+    render(
+      <AnalysisDetailTabs
+        badMoves={[{ nodeId: 'main:3', moveNumber: 3, color: 'B', move: 'R4', pointLoss: 3.5, class: 2 }]}
+        candidates={[]}
+        onCandidateClick={vi.fn()}
+        onJump={onJump}
+        onRequestBadMovePrompt={onRequestBadMovePrompt}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('tab', { name: '黑恶手 1' }))
+    await userEvent.click(screen.getByRole('button', { name: '复制 R4' }))
+
+    expect(onRequestBadMovePrompt).toHaveBeenCalledWith({ nodeId: 'main:3', moveNumber: 3, color: 'B', move: 'R4', pointLoss: 3.5, class: 2 })
+    expect(writeText).toHaveBeenCalledWith('prompt text')
+    expect(onJump).not.toHaveBeenCalled()
+    expect(await screen.findByRole('button', { name: '已复制 R4' })).toBeInTheDocument()
+  })
 })

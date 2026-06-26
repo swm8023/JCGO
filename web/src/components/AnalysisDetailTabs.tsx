@@ -8,11 +8,12 @@ interface AnalysisDetailTabsProps {
   candidates: CandidateMove[]
   onJump(moveNumber: number): void
   onCandidateClick(candidate: CandidateMove): void
+  onRequestBadMovePrompt?(move: BadMove): Promise<string>
 }
 
 type DetailTab = 'black-bad' | 'white-bad' | 'candidates'
 
-export function AnalysisDetailTabs({ badMoves, candidates, onJump, onCandidateClick }: AnalysisDetailTabsProps) {
+export function AnalysisDetailTabs({ badMoves, candidates, onJump, onCandidateClick, onRequestBadMovePrompt }: AnalysisDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<DetailTab>('candidates')
   const blackBadMoves = useMemo(() => badMoves.filter((move) => move.color === 'B'), [badMoves])
   const whiteBadMoves = useMemo(() => badMoves.filter((move) => move.color === 'W'), [badMoves])
@@ -44,8 +45,8 @@ export function AnalysisDetailTabs({ badMoves, candidates, onJump, onCandidateCl
         ))}
       </div>
       <div id={`analysis-panel-${active.id}`} className="analysis-tab-panel rail-section-body" role="tabpanel" aria-labelledby={`analysis-tab-${active.id}`}>
-        {activeTab === 'black-bad' && <BadMoveListContent badMoves={blackBadMoves} onJump={onJump} emptyLabel="暂无黑棋恶手" />}
-        {activeTab === 'white-bad' && <BadMoveListContent badMoves={whiteBadMoves} onJump={onJump} emptyLabel="暂无白棋恶手" />}
+        {activeTab === 'black-bad' && <BadMoveListContent badMoves={blackBadMoves} onJump={onJump} onRequestBadMovePrompt={onRequestBadMovePrompt} emptyLabel="暂无黑棋恶手" />}
+        {activeTab === 'white-bad' && <BadMoveListContent badMoves={whiteBadMoves} onJump={onJump} onRequestBadMovePrompt={onRequestBadMovePrompt} emptyLabel="暂无白棋恶手" />}
         {activeTab === 'candidates' && <CandidateListContent candidates={candidates} onCandidateClick={onCandidateClick} />}
       </div>
     </section>

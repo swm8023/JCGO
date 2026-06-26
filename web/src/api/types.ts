@@ -110,6 +110,10 @@ export interface BadMove {
   class?: number
 }
 
+export interface BadMovePromptResult {
+  prompt: string
+}
+
 export interface StatePayload {
   type: 'state'
   schema: number

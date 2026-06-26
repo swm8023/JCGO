@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RPCClient } from './api/jsonrpc'
-import type { AnalysisState, BadMove, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload } from './api/types'
+import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
 import { AnalysisDetailTabs } from './components/AnalysisDetailTabs'
 import { AnalysisPanel } from './components/AnalysisPanel'
@@ -170,6 +170,12 @@ export default function App() {
     setActivePV(candidate.pv)
   }
 
+  const requestBadMovePrompt = async (move: BadMove) => {
+    if (!client || !selectedGameId) throw new Error('game not selected')
+    const result = await client.call<BadMovePromptResult>('analysis.badMovePrompt', { gameId: selectedGameId, nodeId: move.nodeId })
+    return result.prompt
+  }
+
   const enterTryMode = () => {
     setActivePV(undefined)
     setTryMode(true)
@@ -264,7 +270,13 @@ export default function App() {
           <AnalysisPanel analysis={snapshot?.analysis} />
           <AnalysisCharts points={chartPoints} currentMoveNumber={snapshot?.moveNumber} onJump={(moveNumber) => void gotoMove(moveNumber)} />
         </section>
-        <AnalysisDetailTabs badMoves={badMoves} candidates={snapshot?.analysis?.candidates ?? []} onJump={(moveNumber) => void gotoMove(moveNumber)} onCandidateClick={previewPV} />
+        <AnalysisDetailTabs
+          badMoves={badMoves}
+          candidates={snapshot?.analysis?.candidates ?? []}
+          onJump={(moveNumber) => void gotoMove(moveNumber)}
+          onCandidateClick={previewPV}
+          onRequestBadMovePrompt={requestBadMovePrompt}
+        />
       </aside>
       {showImport && <ImportDialog onImport={importGame} onCancel={() => setShowImport(false)} />}
       </main>

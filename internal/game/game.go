@@ -108,6 +108,14 @@ func (g *Game) CurrentSnapshot() Snapshot {
 	return g.snapshot(current)
 }
 
+func (g *Game) SnapshotAtNode(nodeID string) (Snapshot, error) {
+	n, ok := g.node(nodeID)
+	if !ok {
+		return Snapshot{}, fmt.Errorf("node not found")
+	}
+	return g.snapshot(n), nil
+}
+
 func (g *Game) PlayVariation(color Color, gtp string) (Snapshot, error) {
 	prev, ok := g.node(g.currentID)
 	if !ok {

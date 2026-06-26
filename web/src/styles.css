@@ -616,7 +616,6 @@ textarea:focus-visible {
   border-radius: 8px;
   background: var(--surface);
   color: var(--ink);
-  cursor: pointer;
   box-shadow: inset 0 -1px 0 rgb(26 26 46 / 0.04);
 }
 
@@ -645,7 +644,7 @@ textarea:focus-visible {
 }
 
 .candidate-row,
-.bad-move {
+.bad-move-jump {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
@@ -671,7 +670,45 @@ textarea:focus-visible {
 }
 
 .bad-move {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0;
+  overflow: hidden;
+}
+
+.bad-move-jump {
+  min-width: 0;
   padding: 6px 8px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.bad-move-copy {
+  min-width: 54px;
+  padding: 0 8px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--table);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bad-move-jump:hover,
+.bad-move-copy:hover {
+  transform: none;
+}
+
+.bad-move-copy:disabled {
+  color: var(--muted);
+  cursor: default;
 }
 
 .chart-body {
@@ -1086,6 +1123,16 @@ textarea:focus-visible {
     min-height: 28px;
     gap: 4px;
     font-size: 12px;
+  }
+
+  .bad-move-jump {
+    padding: 4px 6px;
+  }
+
+  .bad-move-copy {
+    min-width: 46px;
+    padding: 0 6px;
+    font-size: 11px;
   }
 }
 
