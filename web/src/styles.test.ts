@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const styles = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf8')
+const styles = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf8').replaceAll('\r\n', '\n')
 
 describe('responsive layout CSS', () => {
   it('defines a focused Go studio design system', () => {
