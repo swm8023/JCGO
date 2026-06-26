@@ -1,6 +1,6 @@
 import type { CandidateMove, EncodedOwnership, Snapshot } from '../api/types'
 import { BOARD_SIZE, GTP_LETTERS, boardPoints, gtpToPoint, pointKey, pointToGTP } from '../board/coordinates'
-import { KATRAIN_EVAL_COLORS, evalClassForPointLoss, formatCandidateDelta, formatVisits, katrainEvalColor } from '../board/katrainStyle'
+import { KATRAIN_EVAL_COLORS, evalClassForPointLoss, formatCandidateDelta, formatVisits } from '../board/katrainStyle'
 import { decodeOwnershipQ8, ownershipAt, ownershipDisplay, ownershipOwner } from '../board/ownership'
 import type { OverlayState } from './OverlayToggles'
 
@@ -24,6 +24,9 @@ const boardClipSize = gap * BOARD_SIZE
 const ownershipFilterId = 'ownership-soften'
 const ownershipClipId = 'ownership-clip'
 const candidateGradientPrefix = 'candidate-fill'
+const blackStoneGradientId = 'black-stone-gradient'
+const whiteStoneGradientId = 'white-stone-gradient'
+const stoneShadowId = 'stone-shadow'
 const starPoints = [3, 9, 15]
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
 
@@ -35,7 +38,7 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
   const lastMovePoint = snapshot?.lastMove && !snapshot.lastMove.pass ? gtpToPoint(snapshot.lastMove.gtp) : null
   const topCandidatePoint = gtpToPoint(candidates.find((candidate) => candidate.order === 0)?.move ?? '')
   const ownershipValues = decodeOwnershipQ8(ownership)
-  const currentMoveMarker = snapshot?.lastMove ? currentMoveMarkerVisual(snapshot.lastMove.color, playedPointLoss) : null
+  const currentMoveMarker = snapshot?.lastMove ? currentMoveMarkerVisual(snapshot.lastMove.color) : null
   return (
     <svg className="go-board" viewBox={`0 0 ${boardSize} ${boardSize}`} role="img" aria-label="Go board">
       <defs>
@@ -52,6 +55,19 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
             <stop offset="100%" stopColor={color} stopOpacity="0.18" />
           </radialGradient>
         ))}
+        <radialGradient id={blackStoneGradientId} cx="34%" cy="28%" r="72%">
+          <stop offset="0%" stopColor="#5b5b58" />
+          <stop offset="36%" stopColor="#20201f" />
+          <stop offset="100%" stopColor="#050505" />
+        </radialGradient>
+        <radialGradient id={whiteStoneGradientId} cx="34%" cy="27%" r="74%">
+          <stop offset="0%" stopColor="#fffdf8" />
+          <stop offset="56%" stopColor="#ece7dc" />
+          <stop offset="100%" stopColor="#b7aea0" />
+        </radialGradient>
+        <filter id={stoneShadowId} x="-18%" y="-18%" width="136%" height="136%" colorInterpolationFilters="sRGB">
+          <feDropShadow dx="0.7" dy="1.1" stdDeviation="0.8" floodColor="#000000" floodOpacity="0.28" />
+        </filter>
       </defs>
       <rect x="0" y="0" width={boardSize} height={boardSize} rx="6" fill="var(--board-wood)" />
       {overlays.ownership && ownershipValues.length > 0 && (
@@ -128,11 +144,14 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
       {stones.map((stone) => (
         <circle
           key={`${stone.x}-${stone.y}`}
+          className={`stone ${stone.color === 'B' ? 'black-stone' : 'white-stone'}`}
           cx={pad + stone.x * gap}
           cy={pad + stone.y * gap}
           r={gap * 0.43}
-          fill={stone.color === 'B' ? '#111' : '#f5f2ea'}
-          stroke="#111"
+          fill={`url(#${stone.color === 'B' ? blackStoneGradientId : whiteStoneGradientId})`}
+          stroke={stone.color === 'B' ? '#030303' : '#9f9788'}
+          strokeWidth="0.8"
+          filter={`url(#${stoneShadowId})`}
         />
       ))}
       {overlays.deadStones &&
@@ -153,11 +172,44 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
               stroke={stone.color === 'B' ? '#f5f2ea' : '#111'}
               strokeWidth="2.2"
               strokeLinecap="round"
-              opacity="0.42"
+              opacity={weakStoneMarkerOpacity(value)}
               pointerEvents="none"
             />
           )
         })}
+      {snapshot?.lastMove && lastMovePoint && playedPointLoss !== undefined && playedPointLoss !== null && (
+        <g
+          aria-label={`Current move quality ${snapshot.lastMove.gtp}`}
+          className="current-move-quality"
+          opacity={qualityMarkerVisual().opacity}
+          pointerEvents="none"
+        >
+          <circle
+            className="move-quality-dot current-move-quality-dot"
+            cx={pad + lastMovePoint.x * gap}
+            cy={pad + lastMovePoint.y * gap}
+            r={qualityMarkerVisual().radius}
+            fill={`url(#${candidateGradientId(playedPointLoss)})`}
+            stroke="rgba(17, 17, 17, 0.14)"
+            strokeWidth="0.5"
+          />
+          <text
+            className="move-quality-label"
+            x={pad + lastMovePoint.x * gap}
+            y={pad + lastMovePoint.y * gap + 3}
+            textAnchor="middle"
+            fontSize="8"
+            fontWeight="700"
+            fill="#16120b"
+            paintOrder="stroke"
+            stroke="rgba(236, 198, 125, 0.7)"
+            strokeWidth="2.2"
+            strokeLinejoin="round"
+          >
+            {formatCandidateDelta(playedPointLoss)}
+          </text>
+        </g>
+      )}
       {snapshot?.lastMove && lastMovePoint && (
         <circle
           aria-label={`Current move ${snapshot.lastMove.gtp}`}
@@ -190,18 +242,8 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
             }}
             opacity={visual.opacity}
           >
-            {visual.showText && (
-              <circle
-                className="candidate-backplate"
-                cx={x}
-                cy={y}
-                r={visual.backplateRadius}
-                fill="var(--board-wood)"
-                opacity="0.68"
-              />
-            )}
             <circle
-              className="candidate-dot"
+              className="candidate-dot move-quality-dot"
               cx={x}
               cy={y}
               r={visual.radius}
@@ -211,13 +253,17 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
             />
             {visual.showText && (
               <text
-                className="candidate-label"
+                className="candidate-label move-quality-label"
                 x={x}
                 y={visual.showVisits ? y - 2 : y + 3}
                 textAnchor="middle"
                 fontSize={visual.primary ? 8.6 : 8}
                 fontWeight="700"
                 fill="#16120b"
+                paintOrder="stroke"
+                stroke="rgba(236, 198, 125, 0.7)"
+                strokeWidth="2.2"
+                strokeLinejoin="round"
                 pointerEvents="none"
               >
                 <tspan x={x}>{label.deltaScore}</tspan>
@@ -298,8 +344,14 @@ function candidateVisual(candidate: CandidateMove) {
     showText,
     showVisits: primary,
     radius: primary ? gap * 0.32 : showText ? gap * 0.27 : gap * 0.16,
-    backplateRadius: primary ? gap * 0.4 : gap * 0.34,
     opacity: candidate.lowVisits ? 0.5 : primary ? 0.92 : 0.78,
+  }
+}
+
+function qualityMarkerVisual() {
+  return {
+    radius: gap * 0.27,
+    opacity: 0.78,
   }
 }
 
@@ -307,19 +359,15 @@ function candidateGradientId(pointLoss: number) {
   return `${candidateGradientPrefix}-${evalClassForPointLoss(pointLoss)}`
 }
 
-function currentMoveMarkerVisual(color: 'B' | 'W', pointLoss?: number | null) {
-  if (pointLoss === undefined || pointLoss === null) {
-    return {
-      radius: gap * 0.18,
-      stroke: color === 'B' ? '#f5f2ea' : '#111',
-      strokeWidth: 2,
-      opacity: 1,
-    }
-  }
+function currentMoveMarkerVisual(color: 'B' | 'W') {
   return {
-    radius: gap * 0.25,
-    stroke: katrainEvalColor(pointLoss),
-    strokeWidth: 2.4,
-    opacity: 0.86,
+    radius: gap * 0.46,
+    stroke: color === 'B' ? '#f5f2ea' : '#111',
+    strokeWidth: 1.6,
+    opacity: 0.9,
   }
+}
+
+function weakStoneMarkerOpacity(value: number) {
+  return String(Math.round((0.12 + 0.28 * Math.min(1, Math.abs(value))) * 100) / 100)
 }

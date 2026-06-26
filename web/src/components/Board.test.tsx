@@ -59,12 +59,57 @@ describe('Board', () => {
     expect(board.querySelector('.ownership-sample')).toHaveAttribute('fill', 'rgb(244 244 255)')
     expect(board.querySelector('.ownership-sample')).toHaveAttribute('r', '31.360000000000003')
     expect(board.querySelector('.ownership-layer rect')).not.toBeInTheDocument()
+    expect(board.querySelector('.stone.black-stone')).toHaveAttribute('fill', 'url(#black-stone-gradient)')
+    expect(board.querySelector('.stone.black-stone')).toHaveAttribute('filter', 'url(#stone-shadow)')
     expect(screen.getByLabelText('Weak stone marker Q16').tagName).toBe('path')
-    expect(screen.getByLabelText('Weak stone marker Q16')).toHaveAttribute('opacity', '0.42')
-    expect(screen.queryByLabelText('Current move quality Q16')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Current move Q16')).toHaveAttribute('stroke', '#f2f200')
+    expect(screen.getByLabelText('Weak stone marker Q16')).toHaveAttribute('opacity', '0.4')
+    const currentQuality = screen.getByLabelText('Current move quality Q16')
+    expect(currentQuality).toHaveTextContent('-2.0')
+    expect(currentQuality.querySelector('.move-quality-dot')).toHaveAttribute('fill', 'url(#candidate-fill-3)')
+    expect(currentQuality.querySelector('.candidate-backplate')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Current move Q16')).toHaveAttribute('stroke', '#f5f2ea')
+    expect(screen.getByLabelText('Current move Q16')).toHaveAttribute('r', '12.88')
     expect(screen.getByLabelText('Recommended next move D16').querySelector('.candidate-dot')).toHaveAttribute('fill', 'url(#candidate-fill-4)')
     expect(screen.getByLabelText('Recommended next move D16').querySelector('.candidate-dot')).toHaveAttribute('stroke', 'rgba(10, 200, 250, 0.55)')
+  })
+
+  it('scales weak stone marker opacity by ownership certainty', () => {
+    const ownershipBytes = new Uint8Array(361)
+    ownershipBytes[3 * 19 + 15] = 129
+    ownershipBytes[15 * 19 + 3] = 224
+    const ownership = btoa(String.fromCharCode(...ownershipBytes))
+    render(
+      <Board
+        snapshot={{
+          gameId: 'g',
+          nodeId: 'main:1',
+          moveNumber: 1,
+          totalMoves: 1,
+          branchMode: 'main',
+          stones: [
+            { x: 15, y: 3, color: 'B' },
+            { x: 3, y: 15, color: 'B' },
+          ],
+          children: [],
+          toPlay: 'W',
+          rules: 'chinese',
+          komi: 7.5,
+          captures: { B: 0, W: 0 },
+          gameEnded: false,
+          canPrevious: false,
+          canNext: false,
+          canBackToMain: false,
+        }}
+        ownership={{ encoding: 'q8-base64', data: ownership }}
+        overlays={{ candidates: false, ownership: true, deadStones: true }}
+        tryMode={false}
+        onPlay={vi.fn()}
+        onPreviewPV={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByLabelText('Weak stone marker Q16')).toHaveAttribute('opacity', '0.4')
+    expect(screen.getByLabelText('Weak stone marker D4')).toHaveAttribute('opacity', '0.19')
   })
 
   it('renders board coordinates, star points, stones, current move, and next-move candidates', () => {
@@ -142,7 +187,8 @@ describe('Board', () => {
     expect(candidateD16).toBeInTheDocument()
     expect(candidateD16).toHaveTextContent('-0.3')
     expect(candidateD16).toHaveTextContent('500')
-    expect(candidateD16.querySelector('.candidate-backplate')).toBeInTheDocument()
+    expect(candidateD16.querySelector('.candidate-backplate')).not.toBeInTheDocument()
+    expect(candidateD16.querySelector('.candidate-label')).toHaveAttribute('paint-order', 'stroke')
     expect(candidateQ4).toBeInTheDocument()
     expect(candidateQ4).toHaveTextContent('+0.4')
     expect(candidateQ4).not.toHaveTextContent('1.5k')
