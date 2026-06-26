@@ -89,4 +89,58 @@ describe('AnalysisDetailTabs', () => {
     expect(onJump).not.toHaveBeenCalled()
     expect(await screen.findByRole('button', { name: '已复制 R4' })).toBeInTheDocument()
   })
+
+  it('falls back to a document copy when async clipboard write fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard blocked'))
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    })
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: vi.fn().mockReturnValue(true),
+    })
+    const execCommand = vi.mocked(document.execCommand)
+    render(
+      <AnalysisDetailTabs
+        badMoves={[{ nodeId: 'main:3', moveNumber: 3, color: 'B', move: 'R4', pointLoss: 3.5, class: 2 }]}
+        candidates={[]}
+        onCandidateClick={vi.fn()}
+        onJump={vi.fn()}
+        onRequestBadMovePrompt={vi.fn().mockResolvedValue('prompt text')}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('tab', { name: '黑恶手 1' }))
+    await userEvent.click(screen.getByRole('button', { name: '复制 R4' }))
+
+    expect(writeText).toHaveBeenCalledWith('prompt text')
+    expect(execCommand).toHaveBeenCalledWith('copy')
+    expect(await screen.findByRole('button', { name: '已复制 R4' })).toBeInTheDocument()
+  })
+
+  it('shows a failure state when prompt copy cannot be written', async () => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error('clipboard blocked')) },
+    })
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: vi.fn().mockReturnValue(false),
+    })
+    render(
+      <AnalysisDetailTabs
+        badMoves={[{ nodeId: 'main:3', moveNumber: 3, color: 'B', move: 'R4', pointLoss: 3.5, class: 2 }]}
+        candidates={[]}
+        onCandidateClick={vi.fn()}
+        onJump={vi.fn()}
+        onRequestBadMovePrompt={vi.fn().mockResolvedValue('prompt text')}
+      />,
+    )
+
+    await userEvent.click(screen.getByRole('tab', { name: '黑恶手 1' }))
+    await userEvent.click(screen.getByRole('button', { name: '复制 R4' }))
+
+    expect(await screen.findByRole('button', { name: '复制失败 R4' })).toBeInTheDocument()
+  })
 })

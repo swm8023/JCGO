@@ -20,21 +20,33 @@ export function BadMoveList({ badMoves, onJump, onRequestBadMovePrompt, emptyLab
 
 export function BadMoveListContent({ badMoves, onJump, onRequestBadMovePrompt, emptyLabel = '暂无恶手' }: BadMoveListProps) {
   const [copiedNodeId, setCopiedNodeId] = useState<string>()
+  const [failedNodeId, setFailedNodeId] = useState<string>()
   const [copyingNodeId, setCopyingNodeId] = useState<string>()
   if (badMoves.length === 0) return <p className="empty-list">{emptyLabel}</p>
 
   const copyPrompt = async (move: BadMove) => {
     if (!onRequestBadMovePrompt) return
     setCopyingNodeId(move.nodeId)
+    setCopiedNodeId((current) => (current === move.nodeId ? undefined : current))
+    setFailedNodeId((current) => (current === move.nodeId ? undefined : current))
     try {
       const prompt = await onRequestBadMovePrompt(move)
-      await navigator.clipboard.writeText(prompt)
-      setCopiedNodeId(move.nodeId)
+      if (await copyText(prompt)) {
+        setCopiedNodeId(move.nodeId)
+        window.setTimeout(() => {
+          setCopiedNodeId((current) => (current === move.nodeId ? undefined : current))
+        }, 1400)
+        return
+      }
+      setFailedNodeId(move.nodeId)
       window.setTimeout(() => {
-        setCopiedNodeId((current) => (current === move.nodeId ? undefined : current))
+        setFailedNodeId((current) => (current === move.nodeId ? undefined : current))
       }, 1400)
     } catch {
-      // Copy failures leave the row unchanged.
+      setFailedNodeId(move.nodeId)
+      window.setTimeout(() => {
+        setFailedNodeId((current) => (current === move.nodeId ? undefined : current))
+      }, 1400)
     } finally {
       setCopyingNodeId((current) => (current === move.nodeId ? undefined : current))
     }
@@ -53,15 +65,52 @@ export function BadMoveListContent({ badMoves, onJump, onRequestBadMovePrompt, e
             <button
               type="button"
               className="bad-move-copy"
-              aria-label={`${copiedNodeId === move.nodeId ? '已复制' : '复制'} ${move.move}`}
+              aria-label={`${copyLabel(move.nodeId, copiedNodeId, failedNodeId)} ${move.move}`}
               disabled={copyingNodeId === move.nodeId}
               onClick={() => void copyPrompt(move)}
             >
-              {copiedNodeId === move.nodeId ? '已复制' : '复制'}
+              {copyLabel(move.nodeId, copiedNodeId, failedNodeId)}
             </button>
           )}
         </div>
       ))}
     </div>
   )
+}
+
+async function copyText(text: string) {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      // Fall through to the document copy path.
+    }
+  }
+  return copyTextWithSelection(text)
+}
+
+function copyTextWithSelection(text: string) {
+  if (typeof document.execCommand !== 'function') return false
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.left = '-9999px'
+  textarea.style.top = '0'
+  document.body.appendChild(textarea)
+  textarea.focus()
+  textarea.select()
+  textarea.setSelectionRange(0, text.length)
+  try {
+    return document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+}
+
+function copyLabel(nodeId: string, copiedNodeId?: string, failedNodeId?: string) {
+  if (copiedNodeId === nodeId) return '已复制'
+  if (failedNodeId === nodeId) return '复制失败'
+  return '复制'
 }
