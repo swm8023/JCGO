@@ -1,6 +1,6 @@
 import type { CandidateMove, EncodedOwnership, Snapshot } from '../api/types'
 import { BOARD_SIZE, GTP_LETTERS, boardPoints, gtpToPoint, pointKey, pointToGTP } from '../board/coordinates'
-import { TOP_MOVE_BORDER_COLOR, formatCandidateDelta, formatVisits, katrainEvalColor } from '../board/katrainStyle'
+import { KATRAIN_EVAL_COLORS, evalClassForPointLoss, formatCandidateDelta, formatVisits, katrainEvalColor } from '../board/katrainStyle'
 import { decodeOwnershipQ8, ownershipAt, ownershipDisplay, ownershipOwner } from '../board/ownership'
 import type { OverlayState } from './OverlayToggles'
 
@@ -23,6 +23,7 @@ const boardClipX = pad - gap / 2
 const boardClipSize = gap * BOARD_SIZE
 const ownershipFilterId = 'ownership-soften'
 const ownershipClipId = 'ownership-clip'
+const candidateGradientPrefix = 'candidate-fill'
 const starPoints = [3, 9, 15]
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
 
@@ -34,15 +35,23 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
   const lastMovePoint = snapshot?.lastMove && !snapshot.lastMove.pass ? gtpToPoint(snapshot.lastMove.gtp) : null
   const topCandidatePoint = gtpToPoint(candidates.find((candidate) => candidate.order === 0)?.move ?? '')
   const ownershipValues = decodeOwnershipQ8(ownership)
+  const currentMoveMarker = snapshot?.lastMove ? currentMoveMarkerVisual(snapshot.lastMove.color, playedPointLoss) : null
   return (
     <svg className="go-board" viewBox={`0 0 ${boardSize} ${boardSize}`} role="img" aria-label="Go board">
       <defs>
         <clipPath id={ownershipClipId}>
           <rect x={boardClipX} y={boardClipX} width={boardClipSize} height={boardClipSize} rx={gap * 0.32} />
         </clipPath>
-        <filter id={ownershipFilterId} x="-8%" y="-8%" width="116%" height="116%" colorInterpolationFilters="sRGB">
-          <feGaussianBlur stdDeviation="7" />
+        <filter id={ownershipFilterId} x="-12%" y="-12%" width="124%" height="124%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation="11" />
         </filter>
+        {KATRAIN_EVAL_COLORS.map((color, index) => (
+          <radialGradient key={color} id={`${candidateGradientPrefix}-${index}`} cx="50%" cy="45%" r="62%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.94" />
+            <stop offset="68%" stopColor={color} stopOpacity="0.78" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.18" />
+          </radialGradient>
+        ))}
       </defs>
       <rect x="0" y="0" width={boardSize} height={boardSize} rx="6" fill="var(--board-wood)" />
       {overlays.ownership && ownershipValues.length > 0 && (
@@ -58,7 +67,7 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
                     className={`ownership-sample ${owner === 'B' ? 'ownership-black' : 'ownership-white'}`}
                     cx={pad + point.x * gap}
                     cy={pad + point.y * gap}
-                    r={gap * 0.86}
+                    r={gap * 1.12}
                     fill={display.fill}
                     opacity={display.alpha}
                   />
@@ -131,24 +140,20 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
         stones.map((stone) => {
           const value = ownershipAt(ownershipValues, stone.x, stone.y)
           if (value === 0 || stone.color === ownershipOwner(value)) return null
-          const markerSize = Math.max(4, gap * 0.43 * 2 * 0.34 * Math.abs(value))
+          const markerSize = Math.max(5, gap * 0.43 * 2 * 0.36 * Math.abs(value))
           const x = pad + stone.x * gap
           const y = pad + stone.y * gap
           return (
-            <rect
+            <path
               key={`weak-${stone.x}-${stone.y}`}
               aria-label={`Weak stone marker ${pointToGTP(stone.x, stone.y)}`}
               className="weak-stone-marker"
-              x={x - markerSize / 2}
-              y={y - markerSize / 2}
-              width={markerSize}
-              height={markerSize}
-              rx={markerSize * 0.16}
-              fill={ownershipOwner(value) === 'B' ? '#111' : '#f5f2ea'}
-              opacity="0.78"
+              d={`M ${x - markerSize / 2} ${y - markerSize / 2} L ${x + markerSize / 2} ${y + markerSize / 2} M ${x + markerSize / 2} ${y - markerSize / 2} L ${x - markerSize / 2} ${y + markerSize / 2}`}
+              fill="none"
               stroke={stone.color === 'B' ? '#f5f2ea' : '#111'}
-              strokeWidth="0.8"
-              transform={`rotate(45 ${x} ${y})`}
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              opacity="0.42"
               pointerEvents="none"
             />
           )
@@ -159,23 +164,11 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
           className="current-move-marker"
           cx={pad + lastMovePoint.x * gap}
           cy={pad + lastMovePoint.y * gap}
-          r={gap * 0.18}
+          r={currentMoveMarker?.radius}
           fill="none"
-          stroke={snapshot.lastMove.color === 'B' ? '#f5f2ea' : '#111'}
-          strokeWidth="2"
-        />
-      )}
-      {snapshot?.lastMove && lastMovePoint && playedPointLoss !== undefined && playedPointLoss !== null && (
-        <circle
-          aria-label={`Current move quality ${snapshot.lastMove.gtp}`}
-          className="current-move-quality"
-          cx={pad + lastMovePoint.x * gap}
-          cy={pad + lastMovePoint.y * gap}
-          r={gap * 0.29}
-          fill="none"
-          stroke={katrainEvalColor(playedPointLoss)}
-          strokeWidth="3"
-          opacity="0.9"
+          stroke={currentMoveMarker?.stroke}
+          strokeWidth={currentMoveMarker?.strokeWidth}
+          opacity={currentMoveMarker?.opacity}
           pointerEvents="none"
         />
       )}
@@ -204,9 +197,7 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
                 cy={y}
                 r={visual.backplateRadius}
                 fill="var(--board-wood)"
-                stroke="rgba(75, 55, 34, 0.34)"
-                strokeWidth="0.8"
-                opacity="0.94"
+                opacity="0.68"
               />
             )}
             <circle
@@ -214,9 +205,9 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
               cx={x}
               cy={y}
               r={visual.radius}
-              fill={katrainEvalColor(candidate.pointLoss)}
-              stroke={visual.primary ? TOP_MOVE_BORDER_COLOR : 'rgba(17, 17, 17, 0.24)'}
-              strokeWidth={visual.primary ? 2 : 0.8}
+              fill={`url(#${candidateGradientId(candidate.pointLoss)})`}
+              stroke={visual.primary ? 'rgba(10, 200, 250, 0.55)' : 'rgba(17, 17, 17, 0.14)'}
+              strokeWidth={visual.primary ? 1.2 : 0.5}
             />
             {visual.showText && (
               <text
@@ -306,8 +297,29 @@ function candidateVisual(candidate: CandidateMove) {
     primary,
     showText,
     showVisits: primary,
-    radius: primary ? gap * 0.34 : showText ? gap * 0.29 : gap * 0.19,
-    backplateRadius: primary ? gap * 0.45 : gap * 0.38,
-    opacity: candidate.lowVisits ? 0.52 : primary ? 1 : 0.88,
+    radius: primary ? gap * 0.32 : showText ? gap * 0.27 : gap * 0.16,
+    backplateRadius: primary ? gap * 0.4 : gap * 0.34,
+    opacity: candidate.lowVisits ? 0.5 : primary ? 0.92 : 0.78,
+  }
+}
+
+function candidateGradientId(pointLoss: number) {
+  return `${candidateGradientPrefix}-${evalClassForPointLoss(pointLoss)}`
+}
+
+function currentMoveMarkerVisual(color: 'B' | 'W', pointLoss?: number | null) {
+  if (pointLoss === undefined || pointLoss === null) {
+    return {
+      radius: gap * 0.18,
+      stroke: color === 'B' ? '#f5f2ea' : '#111',
+      strokeWidth: 2,
+      opacity: 1,
+    }
+  }
+  return {
+    radius: gap * 0.25,
+    stroke: katrainEvalColor(pointLoss),
+    strokeWidth: 2.4,
+    opacity: 0.86,
   }
 }

@@ -55,11 +55,16 @@ describe('Board', () => {
     const board = screen.getByLabelText('Go board')
     expect(board.querySelector('.ownership-layer.smooth')).toBeInTheDocument()
     expect(board.querySelector('.ownership-soft-layer.black')).toHaveAttribute('filter', 'url(#ownership-soften)')
-    expect(board.querySelector('.ownership-sample')).toHaveAttribute('fill', 'rgb(235 235 255)')
+    expect(board.querySelector('feGaussianBlur')).toHaveAttribute('stdDeviation', '11')
+    expect(board.querySelector('.ownership-sample')).toHaveAttribute('fill', 'rgb(244 244 255)')
+    expect(board.querySelector('.ownership-sample')).toHaveAttribute('r', '31.360000000000003')
     expect(board.querySelector('.ownership-layer rect')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Weak stone marker Q16')).toHaveAttribute('transform', 'rotate(45 448 112)')
-    expect(screen.getByLabelText('Current move quality Q16')).toHaveAttribute('fill', 'none')
-    expect(screen.getByLabelText('Recommended next move D16').querySelector('.candidate-dot')).toHaveAttribute('fill', '#abdf2e')
+    expect(screen.getByLabelText('Weak stone marker Q16').tagName).toBe('path')
+    expect(screen.getByLabelText('Weak stone marker Q16')).toHaveAttribute('opacity', '0.42')
+    expect(screen.queryByLabelText('Current move quality Q16')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Current move Q16')).toHaveAttribute('stroke', '#f2f200')
+    expect(screen.getByLabelText('Recommended next move D16').querySelector('.candidate-dot')).toHaveAttribute('fill', 'url(#candidate-fill-4)')
+    expect(screen.getByLabelText('Recommended next move D16').querySelector('.candidate-dot')).toHaveAttribute('stroke', 'rgba(10, 200, 250, 0.55)')
   })
 
   it('renders board coordinates, star points, stones, current move, and next-move candidates', () => {
@@ -186,8 +191,8 @@ describe('Board', () => {
     const candidate = screen.getByLabelText('Recommended next move Q4')
     expect(candidate).not.toHaveTextContent('-2.5')
     expect(candidate.querySelector('.candidate-backplate')).not.toBeInTheDocument()
-    expect(candidate.querySelector('.candidate-dot')).toHaveAttribute('r', '5.32')
-    expect(candidate).toHaveAttribute('opacity', '0.52')
+    expect(candidate.querySelector('.candidate-dot')).toHaveAttribute('r', '4.48')
+    expect(candidate).toHaveAttribute('opacity', '0.5')
   })
 
   it('uses click to preview candidate PV before try mode can play it', () => {

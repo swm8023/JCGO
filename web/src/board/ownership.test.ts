@@ -17,8 +17,8 @@ describe('ownership helpers', () => {
 
   it('maps ownership into softened display samples', () => {
     expect(ownershipDisplay(0.01)).toBeNull()
-    expect(ownershipDisplay(1)).toMatchObject({ owner: 'B', fill: 'rgb(0 0 26)' })
-    expect(ownershipDisplay(-1)).toMatchObject({ owner: 'W', fill: 'rgb(235 235 255)' })
+    expect(ownershipDisplay(1)).toMatchObject({ owner: 'B', fill: 'rgb(28 24 20)', alpha: 0.22 })
+    expect(ownershipDisplay(-1)).toMatchObject({ owner: 'W', fill: 'rgb(244 244 255)', alpha: 0.26 })
     expect(ownershipDisplay(0.25)?.alpha).toBeLessThan(ownershipDisplay(1)?.alpha ?? 0)
   })
 })
