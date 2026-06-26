@@ -5,7 +5,9 @@ interface NavigationControlsProps {
   tryMode: boolean
   onFirst(): void
   onPrevious(): void
+  onBackFive(): void
   onNext(): void
+  onForwardFive(): void
   onLast(): void
   onEnterTryMode(): void
   onExitTryMode(): void
@@ -17,6 +19,9 @@ export function NavigationControls(props: NavigationControlsProps) {
       <button aria-label="First move" onClick={props.onFirst}>
         |&lt;
       </button>
+      <button aria-label="Back 5 moves" onClick={props.onBackFive}>
+        -5
+      </button>
       <button aria-label="Previous move" onClick={props.onPrevious}>
         &lt;
       </button>
@@ -25,6 +30,9 @@ export function NavigationControls(props: NavigationControlsProps) {
       </span>
       <button aria-label="Next move" onClick={props.onNext}>
         &gt;
+      </button>
+      <button aria-label="Forward 5 moves" onClick={props.onForwardFive}>
+        +5
       </button>
       <button aria-label="Last move" onClick={props.onLast}>
         &gt;|

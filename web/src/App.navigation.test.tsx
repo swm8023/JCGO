@@ -101,7 +101,165 @@ describe('App variation navigation', () => {
       params: { gameId: 'game-1', nodeId: 'var:2' },
     })
   })
+
+  it('clamps backward five-move navigation to the first mainline move', async () => {
+    const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.state = mainlineState(3, 12)
+
+    render(<App />)
+
+    await screen.findByText('3 / 12')
+    await userEvent.click(screen.getByRole('button', { name: 'Back 5 moves' }))
+
+    expect(rpc.calls.at(-1)).toEqual({
+      method: 'game.goto',
+      params: { gameId: 'game-1', moveNumber: 0 },
+    })
+  })
+
+  it('clamps forward five-move navigation to the last mainline move', async () => {
+    const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.state = mainlineState(10, 12)
+
+    render(<App />)
+
+    await screen.findByText('10 / 12')
+    await userEvent.click(screen.getByRole('button', { name: 'Forward 5 moves' }))
+
+    expect(rpc.calls.at(-1)).toEqual({
+      method: 'game.goto',
+      params: { gameId: 'game-1', moveNumber: 12 },
+    })
+  })
+
+  it('clamps backward five-move navigation in a trial branch to the fork point', async () => {
+    const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.state = variationState()
+
+    render(<App />)
+
+    await screen.findByText('3 / 3')
+    await userEvent.click(screen.getByRole('button', { name: 'Back 5 moves' }))
+
+    expect(rpc.calls.at(-1)).toEqual({
+      method: 'game.goto',
+      params: { gameId: 'game-1', moveNumber: 1 },
+    })
+  })
+
+  it('clamps forward five-move navigation in a trial branch to the last visible variation node', async () => {
+    const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.state = {
+      ...variationState(),
+      currentNodeId: 'var:1',
+      snapshot: {
+        ...variationState().snapshot,
+        nodeId: 'var:1',
+        moveNumber: 2,
+        lastMove: { nodeId: 'var:1', moveNumber: 2, color: 'W', gtp: 'Q4', pass: false },
+        children: [],
+      },
+      variation: {
+        ...variationState().variation!,
+        currentNodeId: 'var:1',
+        timeline: {
+          ...variationState().variation!.timeline,
+          nodeIds: ['var:1', 'var:2', 'var:3'],
+          moves: ['Q4', 'D4', 'R4'],
+          moveColors: ['W', 'B', 'W'],
+          passes: [false, false, false],
+          toPlays: ['B', 'W', 'B'],
+          rootWinrates: [null, null, null],
+          rootScoreLeads: [null, null, null],
+          rootVisits: [null, null, null],
+          playedPointLosses: [null, null, null],
+        },
+      },
+      current: {
+        nodeId: 'var:1',
+        candidates: { moves: [], orders: [], visits: [], winrates: [], scoreLeads: [], pvs: [] },
+      },
+    }
+
+    render(<App />)
+
+    await screen.findByText('2 / 3')
+    await userEvent.click(screen.getByRole('button', { name: 'Forward 5 moves' }))
+
+    expect(rpc.calls.at(-1)).toEqual({
+      method: 'game.gotoNode',
+      params: { gameId: 'game-1', nodeId: 'var:3' },
+    })
+  })
 })
+
+function mainlineState(moveNumber: number, totalMoves: number): StatePayload {
+  return {
+    type: 'state',
+    schema: 1,
+    games: [{ gameId: 'game-1', displayName: 'Demo', result: '', sgfFilename: 'game-1.sgf', createdAt: '2026-06-26T00:00:00Z' }],
+    gameId: 'game-1',
+    currentNodeId: `main:${moveNumber}`,
+    analysisState: 'idle',
+    snapshot: {
+      gameId: 'game-1',
+      nodeId: `main:${moveNumber}`,
+      moveNumber,
+      totalMoves,
+      branchMode: 'main',
+      stones: [],
+      children: [],
+      toPlay: moveNumber % 2 === 0 ? 'B' : 'W',
+      rules: 'chinese',
+      komi: 7.5,
+      captures: { B: 0, W: 0 },
+      gameEnded: false,
+      canPrevious: moveNumber > 0,
+      canNext: moveNumber < totalMoves,
+      canBackToMain: false,
+    },
+    timeline: {
+      nodeIds: Array.from({ length: totalMoves + 1 }, (_, index) => `main:${index}`),
+      moves: Array.from({ length: totalMoves + 1 }, (_, index) => (index === 0 ? null : 'Q16')),
+      moveColors: Array.from({ length: totalMoves + 1 }, (_, index) => (index === 0 ? null : index % 2 === 1 ? 'B' : 'W')),
+      passes: Array.from({ length: totalMoves + 1 }, () => false),
+      toPlays: Array.from({ length: totalMoves + 1 }, (_, index) => (index % 2 === 0 ? 'B' : 'W')),
+      rootWinrates: Array.from({ length: totalMoves + 1 }, () => null),
+      rootScoreLeads: Array.from({ length: totalMoves + 1 }, () => null),
+      rootVisits: Array.from({ length: totalMoves + 1 }, () => null),
+      playedPointLosses: Array.from({ length: totalMoves + 1 }, () => null),
+    },
+    badMoves: { nodeIds: [], moveNumbers: [], colors: [], moves: [], pointLosses: [] },
+    current: {
+      nodeId: `main:${moveNumber}`,
+      candidates: { moves: [], orders: [], visits: [], winrates: [], scoreLeads: [], pvs: [] },
+    },
+  }
+}
 
 function variationState(): StatePayload {
   return {

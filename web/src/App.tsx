@@ -15,6 +15,7 @@ import { TokenGate } from './components/TokenGate'
 import { analysisForCurrent, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
+const jumpStep = 5
 
 type NavigationCommand = { method: 'game.goto'; moveNumber: number } | { method: 'game.gotoNode'; nodeId: string }
 
@@ -155,7 +156,9 @@ export default function App() {
   const keepTrialNavigation = () => tryMode || snapshot?.branchMode === 'variation'
   const goFirst = () => runNavigation(firstNavigation(snapshot, workspace), keepTrialNavigation())
   const goPrevious = () => runNavigation(previousNavigation(snapshot, workspace), keepTrialNavigation())
+  const goBackFive = () => runNavigation(jumpNavigation(snapshot, workspace, -jumpStep), keepTrialNavigation())
   const goNext = () => runNavigation(nextNavigation(snapshot, workspace, tryMode), keepTrialNavigation())
+  const goForwardFive = () => runNavigation(jumpNavigation(snapshot, workspace, jumpStep), keepTrialNavigation())
   const goLast = () => runNavigation(lastNavigation(snapshot, workspace), keepTrialNavigation())
 
   const playMove = async (move: string) => {
@@ -260,7 +263,9 @@ export default function App() {
           tryMode={tryMode}
           onFirst={() => void goFirst()}
           onPrevious={() => void goPrevious()}
+          onBackFive={() => void goBackFive()}
           onNext={() => void goNext()}
+          onForwardFive={() => void goForwardFive()}
           onLast={() => void goLast()}
           onEnterTryMode={enterTryMode}
           onExitTryMode={() => void exitTryMode()}
@@ -310,6 +315,20 @@ function previousNavigation(snapshot?: Snapshot, workspace?: StatePayload): Navi
   return { method: 'game.goto', moveNumber: Math.max(0, snapshot.moveNumber - 1) }
 }
 
+function jumpNavigation(snapshot: Snapshot | undefined, workspace: StatePayload | undefined, delta: number): NavigationCommand | undefined {
+  if (!snapshot) return undefined
+  if (snapshot.branchMode === 'variation' && workspace?.variation) {
+    const nodeIDs = workspace.variation.timeline.nodeIds ?? []
+    const index = nodeIDs.indexOf(snapshot.nodeId)
+    if (index < 0) return undefined
+    const targetIndex = index + delta
+    if (targetIndex < 0) return { method: 'game.goto', moveNumber: workspace.variation.baseMoveNumber }
+    const targetNodeID = nodeIDs[Math.min(nodeIDs.length - 1, targetIndex)]
+    return targetNodeID ? { method: 'game.gotoNode', nodeId: targetNodeID } : undefined
+  }
+  return { method: 'game.goto', moveNumber: clamp(snapshot.moveNumber + delta, 0, snapshot.totalMoves) }
+}
+
 function nextNavigation(snapshot?: Snapshot, workspace?: StatePayload, tryMode = false): NavigationCommand | undefined {
   if (!snapshot) return undefined
   if (snapshot.branchMode === 'variation' && workspace?.variation) {
@@ -333,6 +352,10 @@ function lastNavigation(snapshot?: Snapshot, workspace?: StatePayload): Navigati
     if (lastNodeID) return { method: 'game.gotoNode', nodeId: lastNodeID }
   }
   return { method: 'game.goto', moveNumber: snapshot.totalMoves }
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
 }
 
 function variationChildNavigation(snapshot: Snapshot): NavigationCommand | undefined {

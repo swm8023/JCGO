@@ -14,7 +14,9 @@ describe('NavigationControls', () => {
         tryMode={false}
         onFirst={vi.fn()}
         onPrevious={vi.fn()}
+        onBackFive={vi.fn()}
         onNext={vi.fn()}
+        onForwardFive={vi.fn()}
         onLast={vi.fn()}
         onEnterTryMode={onEnterTryMode}
         onExitTryMode={vi.fn()}
@@ -23,9 +25,11 @@ describe('NavigationControls', () => {
     const controls = within(container)
 
     expect(controls.getByRole('button', { name: 'First move' })).toBeInTheDocument()
+    expect(controls.getByRole('button', { name: 'Back 5 moves' })).toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Previous move' })).toBeInTheDocument()
     expect(controls.getByText('12 / 180')).toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Next move' })).toBeInTheDocument()
+    expect(controls.getByRole('button', { name: 'Forward 5 moves' })).toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Last move' })).toBeInTheDocument()
     controls.getByRole('button', { name: 'Try selected recommendation' }).click()
     expect(onEnterTryMode).toHaveBeenCalledTimes(1)
@@ -44,7 +48,9 @@ describe('NavigationControls', () => {
         tryMode
         onFirst={vi.fn()}
         onPrevious={vi.fn()}
+        onBackFive={vi.fn()}
         onNext={vi.fn()}
+        onForwardFive={vi.fn()}
         onLast={vi.fn()}
         onEnterTryMode={vi.fn()}
         onExitTryMode={onExitTryMode}
@@ -67,7 +73,9 @@ describe('NavigationControls', () => {
         tryMode={false}
         onFirst={vi.fn()}
         onPrevious={vi.fn()}
+        onBackFive={vi.fn()}
         onNext={vi.fn()}
+        onForwardFive={vi.fn()}
         onLast={vi.fn()}
         onEnterTryMode={onEnterTryMode}
         onExitTryMode={vi.fn()}
@@ -77,5 +85,33 @@ describe('NavigationControls', () => {
 
     controls.getByRole('button', { name: 'Try selected recommendation' }).click()
     expect(onEnterTryMode).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls five-move jump callbacks', () => {
+    const onBackFive = vi.fn()
+    const onForwardFive = vi.fn()
+    const { container } = render(
+      <NavigationControls
+        moveNumber={12}
+        totalMoves={180}
+        canBackToMain={false}
+        tryMode={false}
+        onFirst={vi.fn()}
+        onPrevious={vi.fn()}
+        onBackFive={onBackFive}
+        onNext={vi.fn()}
+        onForwardFive={onForwardFive}
+        onLast={vi.fn()}
+        onEnterTryMode={vi.fn()}
+        onExitTryMode={vi.fn()}
+      />,
+    )
+    const controls = within(container)
+
+    controls.getByRole('button', { name: 'Back 5 moves' }).click()
+    controls.getByRole('button', { name: 'Forward 5 moves' }).click()
+
+    expect(onBackFive).toHaveBeenCalledTimes(1)
+    expect(onForwardFive).toHaveBeenCalledTimes(1)
   })
 })
