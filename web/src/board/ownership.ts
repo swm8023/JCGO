@@ -18,6 +18,22 @@ export function ownershipOwner(value: number): 'B' | 'W' {
   return value >= 0 ? 'B' : 'W'
 }
 
+export const OWNERSHIP_DISPLAY_THRESHOLD = 0.035
+export const OWNERSHIP_COLORS = {
+  B: 'rgb(0 0 26)',
+  W: 'rgb(235 235 255)',
+} as const
+
 export function ownershipAlpha(value: number) {
-  return Math.pow(Math.abs(value), 1 / 1.33)
+  return Math.pow(Math.min(1, Math.abs(value)), 1 / 1.33)
+}
+
+export function ownershipDisplay(value: number) {
+  if (Math.abs(value) < OWNERSHIP_DISPLAY_THRESHOLD) return null
+  const owner = ownershipOwner(value)
+  return {
+    owner,
+    fill: OWNERSHIP_COLORS[owner],
+    alpha: ownershipAlpha(value) * (owner === 'B' ? 0.38 : 0.42),
+  }
 }

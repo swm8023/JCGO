@@ -53,10 +53,13 @@ describe('Board', () => {
       />,
     )
     const board = screen.getByLabelText('Go board')
-    expect(board.querySelector('.ownership-layer')).toBeInTheDocument()
-    expect(screen.getByLabelText('Weak stone marker Q16')).toBeInTheDocument()
-    expect(screen.getByLabelText('Current move quality Q16')).toBeInTheDocument()
-    expect(screen.getByLabelText('Recommended next move D16').querySelector('circle')).toHaveAttribute('fill', '#abdf2e')
+    expect(board.querySelector('.ownership-layer.smooth')).toBeInTheDocument()
+    expect(board.querySelector('.ownership-soft-layer.black')).toHaveAttribute('filter', 'url(#ownership-soften)')
+    expect(board.querySelector('.ownership-sample')).toHaveAttribute('fill', 'rgb(235 235 255)')
+    expect(board.querySelector('.ownership-layer rect')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Weak stone marker Q16')).toHaveAttribute('transform', 'rotate(45 448 112)')
+    expect(screen.getByLabelText('Current move quality Q16')).toHaveAttribute('fill', 'none')
+    expect(screen.getByLabelText('Recommended next move D16').querySelector('.candidate-dot')).toHaveAttribute('fill', '#abdf2e')
   })
 
   it('renders board coordinates, star points, stones, current move, and next-move candidates', () => {
@@ -134,9 +137,57 @@ describe('Board', () => {
     expect(candidateD16).toBeInTheDocument()
     expect(candidateD16).toHaveTextContent('-0.3')
     expect(candidateD16).toHaveTextContent('500')
+    expect(candidateD16.querySelector('.candidate-backplate')).toBeInTheDocument()
     expect(candidateQ4).toBeInTheDocument()
     expect(candidateQ4).toHaveTextContent('+0.4')
-    expect(candidateQ4).toHaveTextContent('1.5k')
+    expect(candidateQ4).not.toHaveTextContent('1.5k')
+  })
+
+  it('keeps low-visit candidates as quiet dots without labels', () => {
+    render(
+      <Board
+        snapshot={{
+          gameId: 'g',
+          nodeId: 'main:1',
+          moveNumber: 1,
+          totalMoves: 1,
+          branchMode: 'main',
+          stones: [],
+          children: [],
+          toPlay: 'B',
+          rules: 'chinese',
+          komi: 7.5,
+          captures: { B: 0, W: 0 },
+          gameEnded: false,
+          canPrevious: false,
+          canNext: false,
+          canBackToMain: false,
+        }}
+        candidates={[
+          {
+            move: 'Q4',
+            order: 5,
+            visits: 4,
+            winrate: 0.47,
+            scoreLead: -2,
+            pointLoss: 2.5,
+            relativePointLoss: 0,
+            winrateLoss: 0,
+            pv: ['Q4'],
+            lowVisits: true,
+          },
+        ]}
+        tryMode={false}
+        onPlay={vi.fn()}
+        onPreviewPV={vi.fn()}
+      />,
+    )
+
+    const candidate = screen.getByLabelText('Recommended next move Q4')
+    expect(candidate).not.toHaveTextContent('-2.5')
+    expect(candidate.querySelector('.candidate-backplate')).not.toBeInTheDocument()
+    expect(candidate.querySelector('.candidate-dot')).toHaveAttribute('r', '5.32')
+    expect(candidate).toHaveAttribute('opacity', '0.52')
   })
 
   it('uses click to preview candidate PV before try mode can play it', () => {
