@@ -21,8 +21,9 @@ const gap = 28
 const boardSize = pad * 2 + gap * (BOARD_SIZE - 1)
 const ownershipFilterId = 'ownership-soften'
 const ownershipMaskId = 'ownership-edge-fade'
-const ownershipFadeSize = gap * 0.75
-const ownershipFadeInnerSize = boardSize - ownershipFadeSize * 2
+const ownershipMaskFilterId = 'ownership-mask-soften'
+const ownershipMaskRadius = gap * 0.55
+const ownershipMaskBlur = 9
 const candidateGradientPrefix = 'candidate-fill'
 const blackStoneGradientId = 'black-stone-gradient'
 const whiteStoneGradientId = 'white-stone-gradient'
@@ -38,33 +39,16 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
   const lastMovePoint = snapshot?.lastMove && !snapshot.lastMove.pass ? gtpToPoint(snapshot.lastMove.gtp) : null
   const topCandidatePoint = gtpToPoint(candidates.find((candidate) => candidate.order === 0)?.move ?? '')
   const ownershipValues = decodeOwnershipQ8(ownership)
-  const currentMoveMarker = snapshot?.lastMove ? currentMoveMarkerVisual(snapshot.lastMove.color) : null
+  const currentMoveMarker = currentMoveMarkerVisual()
   return (
     <svg className="go-board" viewBox={`0 0 ${boardSize} ${boardSize}`} role="img" aria-label="Go board">
       <defs>
-        <linearGradient id="ownership-fade-left" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2={ownershipFadeSize} y2="0">
-          <stop offset="0%" stopColor="black" />
-          <stop offset="100%" stopColor="white" />
-        </linearGradient>
-        <linearGradient id="ownership-fade-right" gradientUnits="userSpaceOnUse" x1={boardSize - ownershipFadeSize} y1="0" x2={boardSize} y2="0">
-          <stop offset="0%" stopColor="white" />
-          <stop offset="100%" stopColor="black" />
-        </linearGradient>
-        <linearGradient id="ownership-fade-top" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={ownershipFadeSize}>
-          <stop offset="0%" stopColor="black" />
-          <stop offset="100%" stopColor="white" />
-        </linearGradient>
-        <linearGradient id="ownership-fade-bottom" gradientUnits="userSpaceOnUse" x1="0" y1={boardSize - ownershipFadeSize} x2="0" y2={boardSize}>
-          <stop offset="0%" stopColor="white" />
-          <stop offset="100%" stopColor="black" />
-        </linearGradient>
+        <filter id={ownershipMaskFilterId} x="-10%" y="-10%" width="120%" height="120%" colorInterpolationFilters="sRGB">
+          <feGaussianBlur stdDeviation={ownershipMaskBlur} />
+        </filter>
         <mask id={ownershipMaskId} maskUnits="userSpaceOnUse" x="0" y="0" width={boardSize} height={boardSize}>
           <rect x="0" y="0" width={boardSize} height={boardSize} fill="black" />
-          <rect x={ownershipFadeSize} y={ownershipFadeSize} width={ownershipFadeInnerSize} height={ownershipFadeInnerSize} fill="white" />
-          <rect className="ownership-edge-fade left" x="0" y={ownershipFadeSize} width={ownershipFadeSize} height={ownershipFadeInnerSize} fill="url(#ownership-fade-left)" />
-          <rect className="ownership-edge-fade right" x={boardSize - ownershipFadeSize} y={ownershipFadeSize} width={ownershipFadeSize} height={ownershipFadeInnerSize} fill="url(#ownership-fade-right)" />
-          <rect className="ownership-edge-fade top" x={ownershipFadeSize} y="0" width={ownershipFadeInnerSize} height={ownershipFadeSize} fill="url(#ownership-fade-top)" />
-          <rect className="ownership-edge-fade bottom" x={ownershipFadeSize} y={boardSize - ownershipFadeSize} width={ownershipFadeInnerSize} height={ownershipFadeSize} fill="url(#ownership-fade-bottom)" />
+          <rect className="ownership-edge-fade-field" x="0" y="0" width={boardSize} height={boardSize} rx={ownershipMaskRadius} fill="white" filter={`url(#${ownershipMaskFilterId})`} />
         </mask>
         <filter id={ownershipFilterId} x="-12%" y="-12%" width="124%" height="124%" colorInterpolationFilters="sRGB">
           <feGaussianBlur stdDeviation="11" />
@@ -232,18 +216,31 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
         </g>
       )}
       {snapshot?.lastMove && lastMovePoint && (
-        <circle
+        <g
           aria-label={`Current move ${snapshot.lastMove.gtp}`}
           className="current-move-marker"
-          cx={pad + lastMovePoint.x * gap}
-          cy={pad + lastMovePoint.y * gap}
-          r={currentMoveMarker?.radius}
-          fill="none"
-          stroke={currentMoveMarker?.stroke}
-          strokeWidth={currentMoveMarker?.strokeWidth}
-          opacity={currentMoveMarker?.opacity}
           pointerEvents="none"
-        />
+          opacity={currentMoveMarker.opacity}
+        >
+          <path
+            className="current-move-tick-shadow"
+            d={currentMoveMarkerPath(pad + lastMovePoint.x * gap, pad + lastMovePoint.y * gap, currentMoveMarker)}
+            fill="none"
+            stroke="rgba(36, 24, 10, 0.42)"
+            strokeWidth={currentMoveMarker.shadowStrokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            className="current-move-tick"
+            d={currentMoveMarkerPath(pad + lastMovePoint.x * gap, pad + lastMovePoint.y * gap, currentMoveMarker)}
+            fill="none"
+            stroke={currentMoveMarker.stroke}
+            strokeWidth={currentMoveMarker.strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
       )}
       {overlays.candidates && candidates.map((candidate) => {
         const point = gtpToPoint(candidate.move)
@@ -380,13 +377,26 @@ function candidateGradientId(pointLoss: number) {
   return `${candidateGradientPrefix}-${evalClassForPointLoss(pointLoss)}`
 }
 
-function currentMoveMarkerVisual(color: 'B' | 'W') {
+function currentMoveMarkerVisual() {
   return {
-    radius: gap * 0.46,
-    stroke: color === 'B' ? '#f5f2ea' : '#111',
-    strokeWidth: 1.6,
-    opacity: 0.9,
+    halfSize: gap * 0.48,
+    tickLength: gap * 0.15,
+    stroke: '#f2c15d',
+    strokeWidth: 1.35,
+    shadowStrokeWidth: 2.7,
+    opacity: 0.95,
   }
+}
+
+function currentMoveMarkerPath(x: number, y: number, marker: ReturnType<typeof currentMoveMarkerVisual>) {
+  const h = marker.halfSize
+  const l = marker.tickLength
+  return [
+    `M ${x - h} ${y - h + l} L ${x - h} ${y - h} L ${x - h + l} ${y - h}`,
+    `M ${x + h - l} ${y - h} L ${x + h} ${y - h} L ${x + h} ${y - h + l}`,
+    `M ${x + h} ${y + h - l} L ${x + h} ${y + h} L ${x + h - l} ${y + h}`,
+    `M ${x - h + l} ${y + h} L ${x - h} ${y + h} L ${x - h} ${y + h - l}`,
+  ].join(' ')
 }
 
 function weakStoneMarkerOpacity(value: number) {
