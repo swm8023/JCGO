@@ -68,23 +68,23 @@ export function GameSidebar({
               <small>{game.result || 'Unknown result'}</small>
             </button>
             <button
-              className="icon-button"
+              className="game-row-action"
               aria-label={`Rename ${game.displayName}`}
               onClick={() => {
                 const name = window.prompt('Rename game', game.displayName)
                 if (name && name.trim()) onRename(game.gameId, name.trim())
               }}
             >
-              A
+              <span aria-hidden="true">✎</span>
             </button>
             <button
-              className="icon-button"
+              className="game-row-action danger"
               aria-label={`Delete ${game.displayName}`}
               onClick={() => {
                 if (window.confirm(`Delete ${game.displayName}?`)) onDelete(game.gameId)
               }}
             >
-              x
+              <span aria-hidden="true">×</span>
             </button>
           </div>
         ))}

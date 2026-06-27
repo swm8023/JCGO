@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 
-export function RotatePrompt() {
+interface RotatePromptProps {
+  onImport?: () => void
+}
+
+export function RotatePrompt({ onImport }: RotatePromptProps) {
   const [isIOS, setIsIOS] = useState(false)
 
   useEffect(() => {
@@ -10,8 +14,13 @@ export function RotatePrompt() {
 
   return (
     <div className="rotate-prompt">
-      <h1>请旋转设备</h1>
-      <p>JCGO 需要横屏使用</p>
+      <h1>Choose SGF in portrait</h1>
+      <p>Review games in landscape</p>
+      {onImport && (
+        <button className="portrait-import-button" onClick={onImport}>
+          Choose SGF
+        </button>
+      )}
       {isIOS && (
         <p className="rotate-hint">
           请关闭控制中心的竖屏锁定，然后将设备横置

@@ -24,6 +24,11 @@ const accessTokenKey = 'jcgo.accessToken'
 const selectedGameKey = 'jcgo.selectedGameId'
 const viewGameKey = 'jcgo.view.gameId'
 const viewNodeKey = 'jcgo.view.nodeId'
+const sharedSGFURL = '/shared-sgf/latest'
+const shareTargetRedirectPath = '/?share-target=sgf'
+
+type SharedSGFFile = { name: string; text: string }
+type SharedSGFPayload = { files?: Array<{ name?: unknown; text?: unknown }> }
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem(accessTokenKey))
@@ -44,6 +49,7 @@ export default function App() {
   const [connectionAttempt, setConnectionAttempt] = useState(0)
   const wasConnected = useRef(false)
   const currentViewRef = useRef<RememberedView>(readRememberedView())
+  const handledShareTargetRef = useRef(false)
   const wsUrl = useMemo(() => websocketURL(), [])
 
   const applyWorkspaceState = (state: StatePayload) => {
@@ -125,6 +131,61 @@ export default function App() {
     }
   }, [token, wsUrl, connectionAttempt])
 
+  const refreshWorkspaceState = async (activeClient = client) => {
+    if (!activeClient) return
+    const state = await activeClient.call<StatePayload>('workspace.state')
+    applyWorkspaceState(state)
+  }
+
+  const importGame = async (displayName: string, originalFilename: string, sgfText: string) => {
+    if (!client) return
+    await client.call('game.importSgf', { displayName, originalFilename, sgfText })
+    await refreshWorkspaceState()
+    setActivePV(undefined)
+    setTryMode(false)
+    setShowImport(false)
+    setGameListOpen(true)
+  }
+
+  useEffect(() => {
+    if (!token || !client || handledShareTargetRef.current || !isShareTargetLaunch()) return
+    handledShareTargetRef.current = true
+    let cancelled = false
+    const importSharedSGF = async () => {
+      try {
+        const response = await fetch(sharedSGFURL, { cache: 'no-store' })
+        if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) return
+        const payload = (await response.json()) as SharedSGFPayload
+        await fetch(sharedSGFURL, { method: 'DELETE' }).catch(() => undefined)
+        const files = (payload.files ?? []).filter(isSharedSGFFile)
+        for (const file of files) {
+          if (cancelled) return
+          await client.call('game.importSgf', {
+            displayName: displayNameFromFilename(file.name),
+            originalFilename: file.name,
+            sgfText: file.text,
+          })
+        }
+        if (cancelled || files.length === 0) return
+        const state = await client.call<StatePayload>('workspace.state')
+        if (cancelled) return
+        applyWorkspaceState(state)
+        setActivePV(undefined)
+        setTryMode(false)
+        setShowImport(false)
+        setGameListOpen(true)
+      } catch (reason) {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : 'shared SGF import failed')
+      } finally {
+        if (!cancelled) window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash}`)
+      }
+    }
+    void importSharedSGF()
+    return () => {
+      cancelled = true
+    }
+  }, [client, token])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
@@ -141,22 +202,6 @@ export default function App() {
   })
 
   if (!token) return <TokenGate onSubmit={setToken} />
-
-  const refreshWorkspaceState = async (activeClient = client) => {
-    if (!activeClient) return
-    const state = await activeClient.call<StatePayload>('workspace.state')
-    applyWorkspaceState(state)
-  }
-
-  const importGame = async (displayName: string, originalFilename: string, sgfText: string) => {
-    if (!client) return
-    await client.call('game.importSgf', { displayName, originalFilename, sgfText })
-    await refreshWorkspaceState()
-    setActivePV(undefined)
-    setTryMode(false)
-    setShowImport(false)
-    setGameListOpen(true)
-  }
 
   const selectGame = async (gameId: string) => {
     if (!client) return
@@ -325,9 +370,9 @@ export default function App() {
           onRequestBadMovePrompt={requestBadMovePrompt}
         />
       </aside>
-      {showImport && <ImportDialog onImport={importGame} onCancel={() => setShowImport(false)} />}
       </main>
-      <RotatePrompt />
+      {showImport && <ImportDialog onImport={importGame} onCancel={() => setShowImport(false)} />}
+      <RotatePrompt onImport={() => setShowImport(true)} />
     </>
   )
 }
@@ -335,6 +380,20 @@ export default function App() {
 function websocketURL() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
   return `${protocol}//${window.location.host}/ws`
+}
+
+function isShareTargetLaunch() {
+  const current = new URLSearchParams(window.location.search)
+  const expected = new URLSearchParams(new URL(shareTargetRedirectPath, window.location.href).search)
+  return current.get('share-target') === expected.get('share-target')
+}
+
+function isSharedSGFFile(file: { name?: unknown; text?: unknown }): file is SharedSGFFile {
+  return typeof file.name === 'string' && typeof file.text === 'string'
+}
+
+function displayNameFromFilename(name: string) {
+  return name.replace(/\.sgf$/i, '').trim() || 'Shared SGF'
 }
 
 function firstNavigation(snapshot?: Snapshot, workspace?: StatePayload): NavigationCommand | undefined {

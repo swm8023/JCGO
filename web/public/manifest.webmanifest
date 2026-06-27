@@ -5,8 +5,21 @@
   "scope": "/",
   "display": "standalone",
   "display_override": ["fullscreen", "standalone"],
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#1e293b",
   "theme_color": "#1e293b",
+  "share_target": {
+    "action": "/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "sgf",
+          "accept": [".sgf", "application/x-go-sgf", "application/octet-stream", "text/plain"]
+        }
+      ]
+    }
+  },
   "icons": []
 }

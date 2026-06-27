@@ -26,4 +26,21 @@ describe('right rail layout', () => {
     expect(start).toBeGreaterThan(sidebar)
     expect(start).toBeLessThan(rail)
   })
+
+  it('imports SGF payloads staged by the share target service worker', () => {
+    expect(app).toContain("'/?share-target=sgf'")
+    expect(app).toContain("'/shared-sgf/latest'")
+    expect(app).toContain("method: 'DELETE'")
+    expect(app).toContain("'game.importSgf'")
+  })
+
+  it('renders the import dialog outside the hidden landscape layout for portrait use', () => {
+    const mainClose = app.indexOf('</main>')
+    const importDialog = app.indexOf('{showImport && <ImportDialog')
+    const rotatePrompt = app.indexOf('<RotatePrompt')
+
+    expect(mainClose).toBeGreaterThan(0)
+    expect(importDialog).toBeGreaterThan(mainClose)
+    expect(rotatePrompt).toBeGreaterThan(importDialog)
+  })
 })

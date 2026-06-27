@@ -83,4 +83,32 @@ describe('GameSidebar', () => {
     action.click()
     expect(onStartAnalysis).toHaveBeenCalledTimes(1)
   })
+
+  it('uses compact aligned icon actions in each game row', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{ gameId: '1', displayName: 'Demo', result: '', sgfFilename: '1.sgf', createdAt: '2026-06-24T01:00:00Z' }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const rename = screen.getByLabelText('Rename Demo')
+    const remove = screen.getByLabelText('Delete Demo')
+    expect(rename).toHaveClass('game-row-action')
+    expect(remove).toHaveClass('game-row-action', 'danger')
+    expect(rename).toHaveTextContent('✎')
+    expect(remove).toHaveTextContent('×')
+    expect(container.querySelector('.game-row')).toBeInTheDocument()
+  })
 })

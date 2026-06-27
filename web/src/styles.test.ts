@@ -68,6 +68,19 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.analysis-detail-tabs {\n  grid-template-rows: 30px minmax(0, 1fr);')
   })
 
+  it('keeps imported game rows aligned with compact icon actions', () => {
+    expect(styles).toContain('.game-row {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) 34px 34px;')
+    expect(styles).toContain('.game-title span,\n.game-title small {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;')
+    expect(styles).toContain('.game-row-action {\n  width: 34px;\n  height: 34px;')
+    expect(styles).toContain('.game-row-action.danger')
+  })
+
+  it('keeps portrait import available while the board workspace asks for landscape', () => {
+    expect(styles).toContain('.portrait-import-button {\n  min-height: 42px;')
+    expect(styles).toContain('.import-dialog {\n  position: fixed;\n  inset: 0;\n  z-index: 40;')
+    expect(styles).toContain('.import-dialog-body {\n  width: min(320px, 100%);')
+  })
+
   it('keeps mobile landscape navigation beside the board and import visible', () => {
     expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
     expect(styles).toContain('--app-height: 100svh;')

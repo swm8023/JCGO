@@ -6,8 +6,24 @@ const manifest = JSON.parse(readFileSync(join(process.cwd(), 'public', 'manifest
 const indexHtml = readFileSync(join(process.cwd(), 'index.html'), 'utf8')
 
 describe('PWA install metadata', () => {
-  it('requests landscape orientation when launched as an installed app', () => {
-    expect(manifest.orientation).toBe('landscape')
+  it('allows runtime orientation changes so mobile import can use portrait', () => {
+    expect(manifest.orientation).toBe('any')
+  })
+
+  it('registers as an installed app share target for SGF files', () => {
+    expect(manifest.share_target).toEqual({
+      action: '/share-target',
+      method: 'POST',
+      enctype: 'multipart/form-data',
+      params: {
+        files: [
+          {
+            name: 'sgf',
+            accept: ['.sgf', 'application/x-go-sgf', 'application/octet-stream', 'text/plain'],
+          },
+        ],
+      },
+    })
   })
 
   it('prefers fullscreen display when the installed app runtime supports it', () => {
