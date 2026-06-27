@@ -247,6 +247,49 @@ describe('Board', () => {
     expect(candidate).toHaveAttribute('opacity', '0.5')
   })
 
+  it('does not render recommended moves on occupied points', () => {
+    render(
+      <Board
+        snapshot={{
+          gameId: 'g',
+          nodeId: 'main:1',
+          moveNumber: 1,
+          totalMoves: 1,
+          branchMode: 'main',
+          stones: [{ x: 15, y: 3, color: 'B' }],
+          children: [],
+          toPlay: 'W',
+          rules: 'chinese',
+          komi: 7.5,
+          captures: { B: 0, W: 0 },
+          gameEnded: false,
+          canPrevious: true,
+          canNext: false,
+          canBackToMain: false,
+        }}
+        candidates={[
+          {
+            move: 'Q16',
+            order: 0,
+            visits: 500,
+            winrate: 0.5,
+            scoreLead: 0,
+            pointLoss: 0,
+            relativePointLoss: 0,
+            winrateLoss: 0,
+            pv: ['Q16'],
+            lowVisits: false,
+          },
+        ]}
+        tryMode={false}
+        onPlay={vi.fn()}
+        onPreviewPV={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByLabelText('Recommended next move Q16')).not.toBeInTheDocument()
+  })
+
   it('renders trial branch stones like faded PV stones with move numbers', () => {
     render(
       <Board

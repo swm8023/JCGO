@@ -11,6 +11,7 @@ interface PendingCall {
 }
 
 type NotificationHandler = (params: unknown) => void
+type CloseHandler = () => void
 
 export function buildProtocols(token: string): string[] {
   return ['jcgo-jsonrpc', `token.${token}`]
@@ -25,23 +26,51 @@ export class RPCClient {
   private seq = 0
   private pending = new Map<string, PendingCall>()
   private notifications = new Map<string, NotificationHandler[]>()
+  private closeHandlers: CloseHandler[] = []
+  private closedByClient = false
 
   connect(url: string, token: string): Promise<void> {
-    this.ws = new WebSocket(url, buildProtocols(token))
-    this.ws.onmessage = (event) => this.handleMessage(event.data)
+    this.closedByClient = false
+    const ws = new WebSocket(url, buildProtocols(token))
+    this.ws = ws
+    ws.onmessage = (event) => this.handleMessage(event.data)
     return new Promise((resolve, reject) => {
-      if (!this.ws) return reject(new Error('websocket not initialized'))
-      this.ws.onopen = () => resolve()
-      this.ws.onerror = () => reject(new Error('websocket connection failed'))
+      let settled = false
+      const rejectOnce = (reason: Error) => {
+        if (settled) return
+        settled = true
+        reject(reason)
+      }
+      ws.onopen = () => {
+        settled = true
+        resolve()
+      }
+      ws.onerror = () => rejectOnce(new Error('websocket connection failed'))
+      ws.onclose = () => {
+        const reason = new Error('websocket closed')
+        this.rejectPending(reason)
+        rejectOnce(reason)
+        if (!this.closedByClient) {
+          for (const handler of this.closeHandlers) handler()
+        }
+      }
     })
   }
 
   call<T>(method: string, params?: unknown): Promise<T> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error('websocket is not connected'))
+    }
     const id = String(++this.seq)
     const request = makeRequest(id, method, params)
     return new Promise<T>((resolve, reject) => {
       this.pending.set(id, { resolve: resolve as (value: unknown) => void, reject })
-      this.ws?.send(JSON.stringify(request))
+      try {
+        this.ws?.send(JSON.stringify(request))
+      } catch (reason) {
+        this.pending.delete(id)
+        reject(reason)
+      }
     })
   }
 
@@ -49,6 +78,17 @@ export class RPCClient {
     const list = this.notifications.get(method) ?? []
     list.push(handler)
     this.notifications.set(method, list)
+  }
+
+  onClose(handler: CloseHandler) {
+    this.closeHandlers.push(handler)
+  }
+
+  close() {
+    this.closedByClient = true
+    this.rejectPending(new Error('websocket closed'))
+    this.ws?.close()
+    this.ws = undefined
   }
 
   private handleMessage(raw: string) {
@@ -63,5 +103,10 @@ export class RPCClient {
     this.pending.delete(String(message.id))
     if (message.error) pending.reject(message.error)
     else pending.resolve(message.result)
+  }
+
+  private rejectPending(reason: Error) {
+    for (const pending of this.pending.values()) pending.reject(reason)
+    this.pending.clear()
   }
 }

@@ -13,6 +13,7 @@ class RejectingWebSocket {
   }
 
   send = vi.fn()
+  close = vi.fn()
 }
 
 describe('App token authentication', () => {

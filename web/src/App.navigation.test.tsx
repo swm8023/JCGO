@@ -8,16 +8,19 @@ import App from './App'
 const rpc = vi.hoisted(() => ({
   calls: [] as { method: string; params?: unknown }[],
   state: undefined as StatePayload | undefined,
+  responses: [] as StatePayload[],
 }))
 
 vi.mock('./api/jsonrpc', () => ({
   RPCClient: class {
     connect = vi.fn(() => Promise.resolve())
     on = vi.fn()
+    onClose = vi.fn()
+    close = vi.fn()
 
     call(method: string, params?: unknown) {
       rpc.calls.push({ method, params })
-      return Promise.resolve(rpc.state)
+      return Promise.resolve(rpc.responses.shift() ?? rpc.state)
     }
   },
 }))
@@ -28,6 +31,7 @@ describe('App variation navigation', () => {
     vi.unstubAllGlobals()
     rpc.calls.length = 0
     rpc.state = undefined
+    rpc.responses = []
   })
 
   it('uses variation node ids for previous navigation inside a trial branch', async () => {
@@ -217,7 +221,36 @@ describe('App variation navigation', () => {
       params: { gameId: 'game-1', nodeId: 'var:3' },
     })
   })
+
+  it('restores the browser-selected game when a reconnected backend has no selected workspace game', async () => {
+    const storage = new Map<string, string>([
+      ['jcgo.accessToken', 'secret'],
+      ['jcgo.selectedGameId', 'game-1'],
+    ])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.responses = [emptyWorkspaceState(), mainlineState(4, 12)]
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 4, black to play')
+    expect(rpc.calls[0]).toEqual({ method: 'workspace.state', params: undefined })
+    expect(rpc.calls[1]).toEqual({ method: 'game.select', params: { gameId: 'game-1' } })
+  })
 })
+
+function emptyWorkspaceState(): StatePayload {
+  return {
+    type: 'state',
+    schema: 1,
+    games: [{ gameId: 'game-1', displayName: 'Demo', result: '', sgfFilename: 'game-1.sgf', createdAt: '2026-06-26T00:00:00Z' }],
+    analysisState: 'idle',
+  }
+}
 
 function mainlineState(moveNumber: number, totalMoves: number): StatePayload {
   return {

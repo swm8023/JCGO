@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { RPCClient } from './api/jsonrpc'
 import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
@@ -35,6 +35,8 @@ export default function App() {
   const [showImport, setShowImport] = useState(false)
   const [gameListOpen, setGameListOpen] = useState(false)
   const [error, setError] = useState<string>()
+  const [connectionAttempt, setConnectionAttempt] = useState(0)
+  const wasConnected = useRef(false)
   const wsUrl = useMemo(() => websocketURL(), [])
 
   const applyWorkspaceState = (state: StatePayload) => {
@@ -46,6 +48,7 @@ export default function App() {
     setChartPoints(chartPointsForState(state))
     setBadMoves(badMovesForState(state))
     setAnalysisState(state.analysisState)
+    rememberSelectedGame(state)
   }
 
   const updateOverlays = (value: OverlayState) => {
@@ -55,6 +58,8 @@ export default function App() {
 
   const returnToTokenGate = () => {
     localStorage.removeItem('jcgo.accessToken')
+    localStorage.removeItem('jcgo.selectedGameId')
+    wasConnected.current = false
     setToken(null)
     setClient(undefined)
     setGames([])
@@ -73,17 +78,41 @@ export default function App() {
   useEffect(() => {
     if (!token) return
     const nextClient = new RPCClient()
+    let cancelled = false
+    let reconnectTimer: number | undefined
+    const reconnect = () => {
+      if (cancelled) return
+      if (reconnectTimer !== undefined) return
+      setClient(undefined)
+      setError('连接已断开，正在重连...')
+      reconnectTimer = window.setTimeout(() => setConnectionAttempt((attempt) => attempt + 1), 500)
+    }
     setError(undefined)
     setClient(nextClient)
     nextClient.on('analysis.update', (params) => applyWorkspaceState(params as StatePayload))
+    nextClient.onClose(() => {
+      if (wasConnected.current) reconnect()
+    })
     nextClient
       .connect(wsUrl, token)
       .then(async () => {
+        if (cancelled) return
+        wasConnected.current = true
         const state = await nextClient.call<StatePayload>('workspace.state')
-        applyWorkspaceState(state)
+        const restoredState = await restoreSelectedGame(nextClient, state)
+        if (!cancelled) applyWorkspaceState(restoredState)
       })
-      .catch(() => returnToTokenGate())
-  }, [token, wsUrl])
+      .catch(() => {
+        if (cancelled) return
+        if (wasConnected.current) reconnect()
+        else returnToTokenGate()
+      })
+    return () => {
+      cancelled = true
+      if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer)
+      nextClient.close()
+    }
+  }, [token, wsUrl, connectionAttempt])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -372,5 +401,27 @@ function readOverlayState(): OverlayState {
     return { ...defaultOverlays, ...JSON.parse(raw) }
   } catch {
     return defaultOverlays
+  }
+}
+
+async function restoreSelectedGame(client: RPCClient, state: StatePayload) {
+  if (state.gameId || state.snapshot) return state
+  const rememberedGameId = localStorage.getItem('jcgo.selectedGameId')
+  if (!rememberedGameId) return state
+  if (!(state.games ?? []).some((game) => game.gameId === rememberedGameId)) {
+    localStorage.removeItem('jcgo.selectedGameId')
+    return state
+  }
+  return client.call<StatePayload>('game.select', { gameId: rememberedGameId })
+}
+
+function rememberSelectedGame(state: StatePayload) {
+  if (state.gameId) {
+    localStorage.setItem('jcgo.selectedGameId', state.gameId)
+    return
+  }
+  const rememberedGameId = localStorage.getItem('jcgo.selectedGameId')
+  if (rememberedGameId && !(state.games ?? []).some((game) => game.gameId === rememberedGameId)) {
+    localStorage.removeItem('jcgo.selectedGameId')
   }
 }

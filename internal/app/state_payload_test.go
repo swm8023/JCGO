@@ -72,6 +72,35 @@ func TestStatePayloadIncludesVariationTimelineAndExcludesVariationBadMoves(t *te
 	}
 }
 
+func TestStatePayloadExcludesOccupiedCurrentCandidates(t *testing.T) {
+	ws := newWorkspace()
+	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese];B[pd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ws.LoadGame("game-1", doc); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ws.GotoMain("game-1", 1); err != nil {
+		t.Fatal(err)
+	}
+	ws.SetAnalysis("game-1", "main:1", game.AnalysisResult{
+		Root: game.RootAnalysis{Winrate: 0.52, ScoreLead: 1.4, Visits: 100},
+		Candidates: []game.CandidateRaw{
+			{Move: "Q16", Order: 0, Visits: 100, Winrate: 0.52, ScoreLead: 1.4},
+			{Move: "D4", Order: 1, Visits: 50, Winrate: 0.50, ScoreLead: 1.0},
+		},
+	})
+
+	state, err := ws.StatePayload("game-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := state.Current.Candidates.Moves; len(got) != 1 || got[0] != "D4" {
+		t.Fatalf("candidate moves = %#v, want only D4", got)
+	}
+}
+
 func TestStatePayloadJSONUsesEmptyArraysForMissingColumns(t *testing.T) {
 	ws := newWorkspace()
 	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese])`)

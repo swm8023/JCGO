@@ -34,9 +34,10 @@ const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadS
 
 export function Board({ snapshot, candidates: candidateProps, ownership, playedPointLoss, overlays = defaultOverlays, activePV, trialMoves, tryMode, onPlay, onPreviewPV }: BoardProps) {
   const stones = snapshot?.stones ?? []
-  const candidates = candidateProps ?? snapshot?.analysis?.candidates ?? []
+  const rawCandidates = candidateProps ?? snapshot?.analysis?.candidates ?? []
   const children = snapshot?.children ?? []
   const occupied = new Set(stones.map((stone) => pointKey(stone.x, stone.y)))
+  const candidates = rawCandidates.filter((candidate) => isOpenCandidate(candidate, occupied))
   const trialMoveByPoint = trialMovesByPoint(trialMoves)
   const lastMovePoint = snapshot?.lastMove && !snapshot.lastMove.pass ? gtpToPoint(snapshot.lastMove.gtp) : null
   const topCandidatePoint = gtpToPoint(candidates.find((candidate) => candidate.order === 0)?.move ?? '')
@@ -385,6 +386,11 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
       })}
     </svg>
   )
+}
+
+function isOpenCandidate(candidate: CandidateMove, occupied: Set<string>) {
+  const point = gtpToPoint(candidate.move)
+  return !!point && !occupied.has(pointKey(point.x, point.y))
 }
 
 function trialMovesByPoint(trialMoves?: string[]) {

@@ -296,7 +296,7 @@ func TestPlayVariationQueuesAnalysisForCurrentNode(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if payload.Current.NodeID == "var:1" && len(payload.Current.Candidates.Moves) == 1 {
+		if payload.Current.NodeID == "var:1" && payload.Variation != nil && len(payload.Variation.Timeline.RootVisits) == 1 && payload.Variation.Timeline.RootVisits[0] != nil {
 			return
 		}
 		select {
