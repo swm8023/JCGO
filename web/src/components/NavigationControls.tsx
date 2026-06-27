@@ -1,6 +1,9 @@
+import type { Color } from '../api/types'
+
 interface NavigationControlsProps {
   moveNumber: number
   totalMoves: number
+  moveColor?: Color
   canBackToMain: boolean
   tryMode: boolean
   onFirst(): void
@@ -25,8 +28,8 @@ export function NavigationControls(props: NavigationControlsProps) {
       <button aria-label="Previous move" onClick={props.onPrevious}>
         &lt;
       </button>
-      <span>
-        {props.moveNumber} / {props.totalMoves}
+      <span className={`move-number-stone ${moveStoneClass(props.moveNumber, props.moveColor)}`} aria-label={moveStoneLabel(props.moveNumber, props.moveColor)}>
+        {props.moveNumber}
       </span>
       <button aria-label="Next move" onClick={props.onNext}>
         &gt;
@@ -50,4 +53,14 @@ export function NavigationControls(props: NavigationControlsProps) {
       )}
     </nav>
   )
+}
+
+function moveStoneClass(moveNumber: number, moveColor?: Color) {
+  if (moveNumber === 0 || !moveColor) return 'move-number-stone-empty'
+  return moveColor === 'B' ? 'move-number-stone-black' : 'move-number-stone-white'
+}
+
+function moveStoneLabel(moveNumber: number, moveColor?: Color) {
+  if (moveNumber === 0 || !moveColor) return `Move ${moveNumber}, no stone played`
+  return `Move ${moveNumber}, ${moveColor === 'B' ? 'black' : 'white'} played`
 }

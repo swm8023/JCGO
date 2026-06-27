@@ -50,7 +50,7 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('filter: drop-shadow(0 20px 40px rgb(42 30 14 / 0.25));')
     expect(styles).toContain('.action-rail {')
     expect(styles).toContain('.navigation-controls {')
-    expect(styles).toContain('.navigation-controls > span {')
+    expect(styles).toContain('.move-number-stone {')
   })
 
   it('keeps analysis information dense, scannable, and scroll-contained', () => {

@@ -259,6 +259,7 @@ export default function App() {
         <NavigationControls
           moveNumber={snapshot?.moveNumber ?? 0}
           totalMoves={snapshot?.totalMoves ?? 0}
+          moveColor={snapshot?.moveNumber ? snapshot.lastMove?.color : undefined}
           canBackToMain={snapshot?.canBackToMain ?? false}
           tryMode={tryMode}
           onFirst={() => void goFirst()}
