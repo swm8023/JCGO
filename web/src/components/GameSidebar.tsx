@@ -100,5 +100,5 @@ function analysisButton(analysisState: AnalysisState, onStart: () => void, onSto
   if (analysisState === 'complete') {
     return { label: 'Re-analyze', text: 'Re-analyze', shortText: 'Again', onClick: onRestart }
   }
-  return { label: 'Start analysis', text: 'Start analysis', shortText: 'Run', onClick: onStart }
+  return { label: 'Start analysis', text: 'Start analysis', shortText: '析', onClick: onStart }
 }

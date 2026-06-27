@@ -77,7 +77,10 @@ describe('GameSidebar', () => {
       />,
     )
 
-    within(container).getByRole('button', { name: 'Start analysis' }).click()
+    const action = within(container).getByRole('button', { name: 'Start analysis' })
+    expect(action).toHaveTextContent('析')
+    expect(action).not.toHaveTextContent('Run')
+    action.click()
     expect(onStartAnalysis).toHaveBeenCalledTimes(1)
   })
 })

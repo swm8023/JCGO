@@ -34,9 +34,12 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('padding: var(--app-safe-top) var(--app-safe-right) 0 var(--app-safe-left);')
     expect(styles).toContain('grid-template-columns: 48px 1fr 48px minmax(340px, 420px);')
     expect(styles).toContain('.game-sidebar {\n  position: relative;\n  z-index: 4;\n  display: grid;\n  grid-template-rows: auto minmax(0, 1fr) auto;')
+    expect(styles).toContain('height: 100%;\n  box-sizing: border-box;')
     expect(styles).toContain('.game-sidebar h1 {\n  display: none;')
     expect(styles).toContain('.sidebar-actions {\n  display: flex;\n  flex-direction: column;')
     expect(styles).toContain('.sidebar-analysis {\n  grid-row: 3;\n  align-self: end;')
+    expect(styles).toContain('.analysis-action-button {\n  width: 100%;\n  max-width: 36px;\n  height: 36px;')
+    expect(styles).toContain('display: grid;\n  place-items: center;')
     expect(styles).toContain('.game-list {\n  display: none;')
     expect(styles).toContain('.game-sidebar.expanded .game-list {\n  position: fixed;')
     expect(styles).toContain('.board-stage {\n  position: relative;')
@@ -91,6 +94,7 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('grid-template-columns: 44px 1fr 44px;')
     expect(styles).toContain('.analysis-rail {\n    display: none;')
     expect(styles).toContain('.game-sidebar {\n    grid-template-rows: 40px minmax(0, 1fr) 40px;')
+    expect(styles).toContain('.analysis-action-button {\n    width: 36px;\n    height: 32px;')
   })
 
   it('centers the portrait rotate prompt as one compact message', () => {

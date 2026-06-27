@@ -186,6 +186,7 @@ textarea:focus-visible {
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 8px;
   height: 100%;
+  box-sizing: border-box;
   padding: 8px 6px max(8px, var(--app-safe-bottom)) max(6px, env(safe-area-inset-left, 6px));
   border: 0;
   background: var(--frame);
@@ -263,16 +264,21 @@ textarea:focus-visible {
 .analysis-action-button {
   width: 100%;
   max-width: 36px;
-  min-height: 36px;
+  height: 36px;
+  min-height: 0;
+  display: grid;
+  place-items: center;
   padding: 2px 4px;
+  box-sizing: border-box;
   border: 1px solid var(--table-deep);
   border-radius: 8px;
   background: var(--table);
   color: var(--surface);
   font-size: 10px;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1005,7 +1011,7 @@ textarea:focus-visible {
   .analysis-action-button {
     width: 100%;
     max-width: 36px;
-    min-height: 32px;
+    height: 32px;
     padding: 2px 4px;
     font-size: 9px;
   }
@@ -1181,9 +1187,13 @@ textarea:focus-visible {
     padding-bottom: max(8px, var(--app-safe-bottom));
   }
 
-  .icon-button,
+  .icon-button {
+    width: 36px;
+  }
+
   .analysis-action-button {
     width: 36px;
+    height: 32px;
   }
 
   .analysis-rail {
