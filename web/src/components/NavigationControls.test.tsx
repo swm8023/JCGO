@@ -25,11 +25,11 @@ describe('NavigationControls', () => {
     const controls = within(container)
 
     expect(controls.getByRole('button', { name: 'First move' })).toBeInTheDocument()
-    expect(controls.getByRole('button', { name: 'Back 5 moves' })).toBeInTheDocument()
+    expect(controls.getByRole('button', { name: 'Back 5 moves' })).toHaveTextContent('<<')
     expect(controls.getByRole('button', { name: 'Previous move' })).toBeInTheDocument()
     expect(controls.getByText('12 / 180')).toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Next move' })).toBeInTheDocument()
-    expect(controls.getByRole('button', { name: 'Forward 5 moves' })).toBeInTheDocument()
+    expect(controls.getByRole('button', { name: 'Forward 5 moves' })).toHaveTextContent('>>')
     expect(controls.getByRole('button', { name: 'Last move' })).toBeInTheDocument()
     controls.getByRole('button', { name: 'Try selected recommendation' }).click()
     expect(onEnterTryMode).toHaveBeenCalledTimes(1)
