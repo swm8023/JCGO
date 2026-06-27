@@ -19,7 +19,7 @@ export function OverlayToggles({ value, onChange }: OverlayTogglesProps) {
         势
       </button>
       <button aria-label="Toggle weak stones" className={value.deadStones ? 'toggle active' : 'toggle'} onClick={() => onChange({ ...value, deadStones: !value.deadStones })}>
-        围
+        弱
       </button>
     </div>
   )
