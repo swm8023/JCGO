@@ -94,7 +94,7 @@ func (w *Workspace) StatePayload(gameID string) (StatePayload, error) {
 		Snapshot:      snapshot,
 		Timeline:      w.timelineColumnsLocked(gameID, g.MainlineAnalysisInputs()),
 		BadMoves:      badMoveColumns(badMoves),
-		Current:       w.currentNodeStateLocked(gameID, snapshot.NodeID, snapshot.Stones),
+		Current:       w.currentNodeStateLocked(gameID, snapshot.NodeID),
 	}
 	_ = points
 	if inputs, baseMoveNumber, ok := g.CurrentVariationAnalysisInputs(); ok {
@@ -153,7 +153,7 @@ func (w *Workspace) timelineColumnsLocked(gameID string, inputs []game.AnalysisI
 	return columns
 }
 
-func (w *Workspace) currentNodeStateLocked(gameID string, nodeID string, stones []game.Stone) CurrentNodeState {
+func (w *Workspace) currentNodeStateLocked(gameID string, nodeID string) CurrentNodeState {
 	state := CurrentNodeState{
 		NodeID:     nodeID,
 		Candidates: emptyCandidateColumns(),
@@ -162,11 +162,7 @@ func (w *Workspace) currentNodeStateLocked(gameID string, nodeID string, stones 
 	if !ok {
 		return state
 	}
-	occupied := occupiedPoints(stones)
 	for _, candidate := range analysis.Candidates {
-		if candidateIsOccupied(candidate.Move, occupied) {
-			continue
-		}
 		state.Candidates.Moves = append(state.Candidates.Moves, candidate.Move)
 		state.Candidates.Orders = append(state.Candidates.Orders, candidate.Order)
 		state.Candidates.Visits = append(state.Candidates.Visits, candidate.Visits)
@@ -181,22 +177,6 @@ func (w *Workspace) currentNodeStateLocked(gameID string, nodeID string, stones 
 		}
 	}
 	return state
-}
-
-func occupiedPoints(stones []game.Stone) map[game.Point]bool {
-	occupied := make(map[game.Point]bool, len(stones))
-	for _, stone := range stones {
-		occupied[game.Point{X: stone.X, Y: stone.Y}] = true
-	}
-	return occupied
-}
-
-func candidateIsOccupied(move string, occupied map[game.Point]bool) bool {
-	x, y, err := game.ParseGTP(move)
-	if err != nil {
-		return false
-	}
-	return occupied[game.Point{X: x, Y: y}]
 }
 
 func badMoveColumns(badMoves []game.BadMove) BadMoveColumns {

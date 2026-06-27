@@ -72,7 +72,7 @@ func TestStatePayloadIncludesVariationTimelineAndExcludesVariationBadMoves(t *te
 	}
 }
 
-func TestStatePayloadExcludesOccupiedCurrentCandidates(t *testing.T) {
+func TestStatePayloadKeepsRawCurrentCandidatesFromAnalysis(t *testing.T) {
 	ws := newWorkspace()
 	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19]KM[7.5]RU[chinese];B[pd])`)
 	if err != nil {
@@ -96,8 +96,8 @@ func TestStatePayloadExcludesOccupiedCurrentCandidates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := state.Current.Candidates.Moves; len(got) != 1 || got[0] != "D4" {
-		t.Fatalf("candidate moves = %#v, want only D4", got)
+	if got := state.Current.Candidates.Moves; len(got) != 2 || got[0] != "Q16" || got[1] != "D4" {
+		t.Fatalf("candidate moves = %#v, want raw KataGo candidates", got)
 	}
 }
 

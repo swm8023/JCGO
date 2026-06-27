@@ -9,12 +9,15 @@ const rpc = vi.hoisted(() => ({
   calls: [] as { method: string; params?: unknown }[],
   state: undefined as StatePayload | undefined,
   responses: [] as StatePayload[],
+  handlers: new Map<string, (params: unknown) => void>(),
 }))
 
 vi.mock('./api/jsonrpc', () => ({
   RPCClient: class {
     connect = vi.fn(() => Promise.resolve())
-    on = vi.fn()
+    on(method: string, handler: (params: unknown) => void) {
+      rpc.handlers.set(method, handler)
+    }
     onClose = vi.fn()
     close = vi.fn()
 
@@ -28,10 +31,12 @@ vi.mock('./api/jsonrpc', () => ({
 describe('App variation navigation', () => {
   afterEach(() => {
     cleanup()
+    window.sessionStorage.clear()
     vi.unstubAllGlobals()
     rpc.calls.length = 0
     rpc.state = undefined
     rpc.responses = []
+    rpc.handlers.clear()
   })
 
   it('uses variation node ids for previous navigation inside a trial branch', async () => {
@@ -240,6 +245,51 @@ describe('App variation navigation', () => {
     await screen.findByLabelText('Move 4, black to play')
     expect(rpc.calls[0]).toEqual({ method: 'workspace.state', params: undefined })
     expect(rpc.calls[1]).toEqual({ method: 'game.select', params: { gameId: 'game-1' } })
+  })
+
+  it('restores the browser current mainline move after reconnect instead of using another client cursor', async () => {
+    const storage = new Map<string, string>([
+      ['jcgo.accessToken', 'secret'],
+      ['jcgo.view.gameId', 'game-1'],
+      ['jcgo.view.nodeId', 'main:4'],
+    ])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.responses = [mainlineState(1, 12), mainlineState(4, 12)]
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 4, black to play')
+    expect(rpc.calls[0]).toEqual({ method: 'workspace.state', params: undefined })
+    expect(rpc.calls[1]).toEqual({ method: 'game.goto', params: { gameId: 'game-1', moveNumber: 4 } })
+  })
+
+  it('ignores analysis updates for a different current node so another frontend cannot move this view', async () => {
+    const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.state = mainlineState(5, 12)
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    rpc.handlers.get('analysis.update')?.(mainlineState(2, 12))
+
+    expect(screen.getByLabelText('Move 5, white to play')).toBeInTheDocument()
   })
 })
 

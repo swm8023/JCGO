@@ -247,7 +247,7 @@ describe('Board', () => {
     expect(candidate).toHaveAttribute('opacity', '0.5')
   })
 
-  it('does not render recommended moves on occupied points', () => {
+  it('renders raw recommended moves from the server without occupied-point filtering', () => {
     render(
       <Board
         snapshot={{
@@ -287,7 +287,7 @@ describe('Board', () => {
       />,
     )
 
-    expect(screen.queryByLabelText('Recommended next move Q16')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Recommended next move Q16')).toBeInTheDocument()
   })
 
   it('renders trial branch stones like faded PV stones with move numbers', () => {

@@ -18,9 +18,15 @@ const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadS
 const jumpStep = 5
 
 type NavigationCommand = { method: 'game.goto'; moveNumber: number } | { method: 'game.gotoNode'; nodeId: string }
+type RememberedView = { gameId?: string; nodeId?: string }
+
+const accessTokenKey = 'jcgo.accessToken'
+const selectedGameKey = 'jcgo.selectedGameId'
+const viewGameKey = 'jcgo.view.gameId'
+const viewNodeKey = 'jcgo.view.nodeId'
 
 export default function App() {
-  const [token, setToken] = useState(localStorage.getItem('jcgo.accessToken'))
+  const [token, setToken] = useState(localStorage.getItem(accessTokenKey))
   const [client, setClient] = useState<RPCClient>()
   const [games, setGames] = useState<GameRecord[]>([])
   const [selectedGameId, setSelectedGameId] = useState<string>()
@@ -37,10 +43,12 @@ export default function App() {
   const [error, setError] = useState<string>()
   const [connectionAttempt, setConnectionAttempt] = useState(0)
   const wasConnected = useRef(false)
+  const currentViewRef = useRef<RememberedView>(readRememberedView())
   const wsUrl = useMemo(() => websocketURL(), [])
 
   const applyWorkspaceState = (state: StatePayload) => {
     const analysis = analysisForCurrent(state)
+    currentViewRef.current = rememberCurrentView(state)
     setWorkspace(state)
     setGames(state.games ?? [])
     setSelectedGameId(state.gameId)
@@ -48,7 +56,6 @@ export default function App() {
     setChartPoints(chartPointsForState(state))
     setBadMoves(badMovesForState(state))
     setAnalysisState(state.analysisState)
-    rememberSelectedGame(state)
   }
 
   const updateOverlays = (value: OverlayState) => {
@@ -57,8 +64,9 @@ export default function App() {
   }
 
   const returnToTokenGate = () => {
-    localStorage.removeItem('jcgo.accessToken')
-    localStorage.removeItem('jcgo.selectedGameId')
+    localStorage.removeItem(accessTokenKey)
+    clearRememberedView()
+    currentViewRef.current = {}
     wasConnected.current = false
     setToken(null)
     setClient(undefined)
@@ -89,7 +97,10 @@ export default function App() {
     }
     setError(undefined)
     setClient(nextClient)
-    nextClient.on('analysis.update', (params) => applyWorkspaceState(params as StatePayload))
+    nextClient.on('analysis.update', (params) => {
+      const state = params as StatePayload
+      if (shouldApplyAnalysisUpdate(state, currentViewRef.current)) applyWorkspaceState(state)
+    })
     nextClient.onClose(() => {
       if (wasConnected.current) reconnect()
     })
@@ -99,7 +110,7 @@ export default function App() {
         if (cancelled) return
         wasConnected.current = true
         const state = await nextClient.call<StatePayload>('workspace.state')
-        const restoredState = await restoreSelectedGame(nextClient, state)
+        const restoredState = await restoreCurrentView(nextClient, state)
         if (!cancelled) applyWorkspaceState(restoredState)
       })
       .catch(() => {
@@ -404,24 +415,87 @@ function readOverlayState(): OverlayState {
   }
 }
 
-async function restoreSelectedGame(client: RPCClient, state: StatePayload) {
-  if (state.gameId || state.snapshot) return state
-  const rememberedGameId = localStorage.getItem('jcgo.selectedGameId')
-  if (!rememberedGameId) return state
-  if (!(state.games ?? []).some((game) => game.gameId === rememberedGameId)) {
-    localStorage.removeItem('jcgo.selectedGameId')
+async function restoreCurrentView(client: RPCClient, state: StatePayload) {
+  const remembered = readRememberedView()
+  if (!remembered.gameId) return state
+  if (!(state.games ?? []).some((game) => game.gameId === remembered.gameId)) {
+    clearRememberedView()
     return state
   }
-  return client.call<StatePayload>('game.select', { gameId: rememberedGameId })
+
+  const current = viewFromState(state)
+  if (remembered.nodeId && (current.gameId !== remembered.gameId || current.nodeId !== remembered.nodeId)) {
+    return restoreRememberedNode(client, remembered.gameId, remembered.nodeId)
+  }
+  if (current.gameId !== remembered.gameId) {
+    return client.call<StatePayload>('game.select', { gameId: remembered.gameId })
+  }
+  return state
 }
 
-function rememberSelectedGame(state: StatePayload) {
-  if (state.gameId) {
-    localStorage.setItem('jcgo.selectedGameId', state.gameId)
-    return
+async function restoreRememberedNode(client: RPCClient, gameId: string, nodeId: string) {
+  try {
+    const moveNumber = mainlineMoveNumber(nodeId)
+    if (moveNumber !== undefined) return client.call<StatePayload>('game.goto', { gameId, moveNumber })
+    return client.call<StatePayload>('game.gotoNode', { gameId, nodeId })
+  } catch {
+    sessionStorage.removeItem(viewNodeKey)
+    return client.call<StatePayload>('game.select', { gameId })
   }
-  const rememberedGameId = localStorage.getItem('jcgo.selectedGameId')
-  if (rememberedGameId && !(state.games ?? []).some((game) => game.gameId === rememberedGameId)) {
-    localStorage.removeItem('jcgo.selectedGameId')
+}
+
+function shouldApplyAnalysisUpdate(state: StatePayload, current: RememberedView) {
+  if (!current.gameId) return true
+  const update = viewFromState(state)
+  if (update.gameId !== current.gameId) return false
+  if (!current.nodeId) return true
+  return update.nodeId === current.nodeId
+}
+
+function rememberCurrentView(state: StatePayload): RememberedView {
+  const current = viewFromState(state)
+  if (current.gameId) {
+    localStorage.setItem(selectedGameKey, current.gameId)
+    sessionStorage.setItem(viewGameKey, current.gameId)
+    if (current.nodeId) sessionStorage.setItem(viewNodeKey, current.nodeId)
+    else sessionStorage.removeItem(viewNodeKey)
+    return current
   }
+
+  const remembered = readRememberedView()
+  if (remembered.gameId && !(state.games ?? []).some((game) => game.gameId === remembered.gameId)) {
+    clearRememberedView()
+    return {}
+  }
+  return remembered
+}
+
+function readRememberedView(): RememberedView {
+  const sessionGameId = sessionStorage.getItem(viewGameKey) ?? undefined
+  if (sessionGameId) {
+    return {
+      gameId: sessionGameId,
+      nodeId: sessionStorage.getItem(viewNodeKey) ?? undefined,
+    }
+  }
+  return { gameId: localStorage.getItem(selectedGameKey) ?? undefined }
+}
+
+function clearRememberedView() {
+  localStorage.removeItem(selectedGameKey)
+  sessionStorage.removeItem(viewGameKey)
+  sessionStorage.removeItem(viewNodeKey)
+}
+
+function viewFromState(state: StatePayload): RememberedView {
+  return {
+    gameId: state.gameId ?? state.snapshot?.gameId,
+    nodeId: state.currentNodeId ?? state.snapshot?.nodeId ?? state.current?.nodeId,
+  }
+}
+
+function mainlineMoveNumber(nodeId: string) {
+  const match = /^main:(\d+)$/.exec(nodeId)
+  if (!match) return undefined
+  return Number(match[1])
 }
