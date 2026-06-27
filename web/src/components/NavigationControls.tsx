@@ -3,7 +3,7 @@ import type { Color } from '../api/types'
 interface NavigationControlsProps {
   moveNumber: number
   totalMoves: number
-  moveColor?: Color
+  toPlay?: Color
   canBackToMain: boolean
   tryMode: boolean
   onFirst(): void
@@ -28,7 +28,7 @@ export function NavigationControls(props: NavigationControlsProps) {
       <button aria-label="Previous move" onClick={props.onPrevious}>
         &lt;
       </button>
-      <span className={`move-number-stone ${moveStoneClass(props.moveNumber, props.moveColor)}`} aria-label={moveStoneLabel(props.moveNumber, props.moveColor)}>
+      <span className={`move-number-stone ${moveStoneClass(props.toPlay)}`} aria-label={moveStoneLabel(props.moveNumber, props.toPlay)}>
         {props.moveNumber}
       </span>
       <button aria-label="Next move" onClick={props.onNext}>
@@ -55,12 +55,12 @@ export function NavigationControls(props: NavigationControlsProps) {
   )
 }
 
-function moveStoneClass(moveNumber: number, moveColor?: Color) {
-  if (moveNumber === 0 || !moveColor) return 'move-number-stone-empty'
-  return moveColor === 'B' ? 'move-number-stone-black' : 'move-number-stone-white'
+function moveStoneClass(toPlay?: Color) {
+  if (!toPlay) return 'move-number-stone-empty'
+  return toPlay === 'B' ? 'move-number-stone-black' : 'move-number-stone-white'
 }
 
-function moveStoneLabel(moveNumber: number, moveColor?: Color) {
-  if (moveNumber === 0 || !moveColor) return `Move ${moveNumber}, no stone played`
-  return `Move ${moveNumber}, ${moveColor === 'B' ? 'black' : 'white'} played`
+function moveStoneLabel(moveNumber: number, toPlay?: Color) {
+  if (!toPlay) return `Move ${moveNumber}, next player unavailable`
+  return `Move ${moveNumber}, ${toPlay === 'B' ? 'black' : 'white'} to play`
 }

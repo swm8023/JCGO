@@ -10,7 +10,7 @@ describe('NavigationControls', () => {
       <NavigationControls
         moveNumber={12}
         totalMoves={180}
-        moveColor="B"
+        toPlay="W"
         canBackToMain={false}
         tryMode={false}
         onFirst={vi.fn()}
@@ -28,7 +28,7 @@ describe('NavigationControls', () => {
     expect(controls.getByRole('button', { name: 'First move' })).toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Back 5 moves' })).toHaveTextContent('<<')
     expect(controls.getByRole('button', { name: 'Previous move' })).toBeInTheDocument()
-    expect(controls.getByLabelText('Move 12, black played')).toHaveTextContent('12')
+    expect(controls.getByLabelText('Move 12, white to play')).toHaveTextContent('12')
     expect(controls.queryByText('12 / 180')).not.toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Next move' })).toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Forward 5 moves' })).toHaveTextContent('>>')
@@ -46,7 +46,7 @@ describe('NavigationControls', () => {
       <NavigationControls
         moveNumber={13}
         totalMoves={180}
-        moveColor="W"
+        toPlay="B"
         canBackToMain
         tryMode
         onFirst={vi.fn()}
@@ -72,7 +72,7 @@ describe('NavigationControls', () => {
       <NavigationControls
         moveNumber={0}
         totalMoves={180}
-        moveColor={undefined}
+        toPlay="B"
         canBackToMain={false}
         tryMode={false}
         onFirst={vi.fn()}
@@ -98,7 +98,7 @@ describe('NavigationControls', () => {
       <NavigationControls
         moveNumber={12}
         totalMoves={180}
-        moveColor="B"
+        toPlay="W"
         canBackToMain={false}
         tryMode={false}
         onFirst={vi.fn()}
@@ -120,12 +120,12 @@ describe('NavigationControls', () => {
     expect(onForwardFive).toHaveBeenCalledTimes(1)
   })
 
-  it('renders white and setup move number stones', () => {
+  it('renders next-player and unavailable move number stones', () => {
     const { rerender, container } = render(
       <NavigationControls
         moveNumber={24}
         totalMoves={180}
-        moveColor="W"
+        toPlay="B"
         canBackToMain={false}
         tryMode={false}
         onFirst={vi.fn()}
@@ -140,14 +140,14 @@ describe('NavigationControls', () => {
     )
     const controls = within(container)
 
-    expect(controls.getByLabelText('Move 24, white played')).toHaveTextContent('24')
-    expect(controls.getByLabelText('Move 24, white played')).toHaveClass('move-number-stone-white')
+    expect(controls.getByLabelText('Move 24, black to play')).toHaveTextContent('24')
+    expect(controls.getByLabelText('Move 24, black to play')).toHaveClass('move-number-stone-black')
 
     rerender(
       <NavigationControls
         moveNumber={0}
         totalMoves={180}
-        moveColor={undefined}
+        toPlay={undefined}
         canBackToMain={false}
         tryMode={false}
         onFirst={vi.fn()}
@@ -161,7 +161,7 @@ describe('NavigationControls', () => {
       />,
     )
 
-    expect(controls.getByLabelText('Move 0, no stone played')).toHaveTextContent('0')
-    expect(controls.getByLabelText('Move 0, no stone played')).toHaveClass('move-number-stone-empty')
+    expect(controls.getByLabelText('Move 0, next player unavailable')).toHaveTextContent('0')
+    expect(controls.getByLabelText('Move 0, next player unavailable')).toHaveClass('move-number-stone-empty')
   })
 })

@@ -42,7 +42,7 @@ describe('App variation navigation', () => {
 
     render(<App />)
 
-    await screen.findByLabelText('Move 3, black played')
+    await screen.findByLabelText('Move 3, white to play')
     await userEvent.click(screen.getByRole('button', { name: 'Previous move' }))
 
     expect(rpc.calls.at(-1)).toEqual({
@@ -67,6 +67,7 @@ describe('App variation navigation', () => {
         nodeId: 'var:1',
         moveNumber: 2,
         lastMove: { nodeId: 'var:1', moveNumber: 2, color: 'W', gtp: 'Q4', pass: false },
+        toPlay: 'B',
         children: [{ nodeId: 'var:2', moveNumber: 3, color: 'B', gtp: 'D4', pass: false }],
       },
       variation: {
@@ -93,7 +94,7 @@ describe('App variation navigation', () => {
 
     render(<App />)
 
-    await screen.findByLabelText('Move 2, white played')
+    await screen.findByLabelText('Move 2, black to play')
     await userEvent.click(screen.getByRole('button', { name: 'Next move' }))
 
     expect(rpc.calls.at(-1)).toEqual({
@@ -114,7 +115,7 @@ describe('App variation navigation', () => {
 
     render(<App />)
 
-    await screen.findByLabelText('Move 3, black played')
+    await screen.findByLabelText('Move 3, white to play')
     await userEvent.click(screen.getByRole('button', { name: 'Back 5 moves' }))
 
     expect(rpc.calls.at(-1)).toEqual({
@@ -135,7 +136,7 @@ describe('App variation navigation', () => {
 
     render(<App />)
 
-    await screen.findByLabelText('Move 10, white played')
+    await screen.findByLabelText('Move 10, black to play')
     await userEvent.click(screen.getByRole('button', { name: 'Forward 5 moves' }))
 
     expect(rpc.calls.at(-1)).toEqual({
@@ -156,7 +157,7 @@ describe('App variation navigation', () => {
 
     render(<App />)
 
-    await screen.findByLabelText('Move 3, black played')
+    await screen.findByLabelText('Move 3, white to play')
     await userEvent.click(screen.getByRole('button', { name: 'Back 5 moves' }))
 
     expect(rpc.calls.at(-1)).toEqual({
@@ -181,6 +182,7 @@ describe('App variation navigation', () => {
         nodeId: 'var:1',
         moveNumber: 2,
         lastMove: { nodeId: 'var:1', moveNumber: 2, color: 'W', gtp: 'Q4', pass: false },
+        toPlay: 'B',
         children: [],
       },
       variation: {
@@ -207,7 +209,7 @@ describe('App variation navigation', () => {
 
     render(<App />)
 
-    await screen.findByLabelText('Move 2, white played')
+    await screen.findByLabelText('Move 2, black to play')
     await userEvent.click(screen.getByRole('button', { name: 'Forward 5 moves' }))
 
     expect(rpc.calls.at(-1)).toEqual({
