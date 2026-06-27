@@ -19,4 +19,11 @@ describe('service worker', () => {
     expect(serviceWorker).toContain("caches.open(SHARED_CACHE_NAME)")
     expect(serviceWorker).toContain("Response.redirect('/?share-target=sgf', 303)")
   })
+
+  it('pre-caches manifest launcher icons used by installed PWAs', () => {
+    expect(serviceWorker).toContain("'/icons/jcgo-192.png'")
+    expect(serviceWorker).toContain("'/icons/jcgo-512.png'")
+    expect(serviceWorker).toContain("'/icons/jcgo-maskable-512.png'")
+    expect(serviceWorker).toContain("'/icons/apple-touch-icon.png'")
+  })
 })
