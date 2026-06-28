@@ -73,7 +73,7 @@ func NewHandler(repo *store.Repository, files store.FileStore, workspaces *Works
 func (h *Handler) Call(ctx context.Context, token string, method string, params json.RawMessage) (any, error) {
 	switch method {
 	case "game.list":
-		games, err := h.repo.ListGames(ctx)
+		games, err := h.listGames(ctx, token)
 		return ListResult{Games: games}, err
 	case "game.importSgf":
 		return h.importSGF(ctx, token, params)
@@ -168,10 +168,12 @@ func (h *Handler) importSGF(ctx context.Context, token string, params json.RawMe
 	record, err := h.repo.CreateGame(ctx, store.CreateGameInput{
 		DisplayName: displayName,
 		Result:      doc.Result,
+		GameDate:    doc.GameDate,
 	})
 	if err != nil {
 		return ImportResult{}, err
 	}
+	record.AnalysisStatus = string(AnalysisIdle)
 	if _, err := h.files.WriteSGF(record.SGFFilename, in.SGFText); err != nil {
 		_ = h.repo.DeleteGame(ctx, record.ID)
 		return ImportResult{}, err

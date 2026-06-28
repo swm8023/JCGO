@@ -4,8 +4,10 @@ export interface GameRecord {
   gameId: string
   displayName: string
   result: string
+  gameDate?: string
   sgfFilename: string
   createdAt: string
+  analysisStatus?: AnalysisState
 }
 
 export interface Stone {

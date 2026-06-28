@@ -23,7 +23,7 @@ type EmptyWorkspaceState struct {
 }
 
 func (h *Handler) workspaceState(ctx context.Context, token string) (any, error) {
-	games, err := h.repo.ListGames(ctx)
+	games, err := h.listGames(ctx, token)
 	if err != nil {
 		return nil, err
 	}
@@ -41,4 +41,29 @@ func (h *Handler) workspaceState(ctx context.Context, token string) (any, error)
 	}
 	payload.Games = games
 	return payload, nil
+}
+
+func (h *Handler) listGames(ctx context.Context, token string) ([]store.GameRecord, error) {
+	games, err := h.repo.ListGames(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i := range games {
+		games[i].AnalysisStatus = string(h.gameAnalysisStatus(token, games[i]))
+	}
+	return games, nil
+}
+
+func (h *Handler) gameAnalysisStatus(token string, record store.GameRecord) AnalysisState {
+	ws := h.workspaces.ForToken(token)
+	if ws.HasGame(record.ID) {
+		state := ws.AnalysisState(record.ID)
+		if state != AnalysisIdle {
+			return state
+		}
+	}
+	if _, err := h.files.ReadAnalysis(record.SGFFilename); err == nil {
+		return AnalysisComplete
+	}
+	return AnalysisIdle
 }

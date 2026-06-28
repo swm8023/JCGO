@@ -72,8 +72,11 @@ describe('responsive layout CSS', () => {
   })
 
   it('keeps imported game rows aligned with compact icon actions', () => {
+    expect(styles).toContain('width: min(520px, calc(100vw - 72px));')
     expect(styles).toContain('.game-row {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) 34px 34px;')
     expect(styles).toContain('.game-title span,\n.game-title small {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;')
+    expect(styles).toContain('.game-title-meta {\n  display: flex;\n  flex-wrap: wrap;')
+    expect(styles).toContain('.game-analysis-badge {\n  min-width: max-content;')
     expect(styles).toContain('.game-row-action {\n  width: 34px;\n  height: 34px;')
     expect(styles).toContain('.game-row-action.danger')
   })

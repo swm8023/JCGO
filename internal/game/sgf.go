@@ -24,6 +24,7 @@ type SGFDocument struct {
 	Rules         string
 	Komi          float64
 	Result        string
+	GameDate      string
 	BlackName     string
 	WhiteName     string
 	InitialStones []SetupStone
@@ -45,6 +46,7 @@ func ParseSGF(input string) (SGFDocument, error) {
 		Rules:     "chinese",
 		Komi:      7.5,
 		Result:    first(root["RE"]),
+		GameDate:  first(root["DT"]),
 		BlackName: first(root["PB"]),
 		WhiteName: first(root["PW"]),
 	}

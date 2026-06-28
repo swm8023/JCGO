@@ -64,8 +64,15 @@ export function GameSidebar({
         {games.map((game) => (
           <div className={game.gameId === selectedGameId ? 'game-row selected' : 'game-row'} key={game.gameId}>
             <button className="game-title" onClick={() => onSelect(game.gameId)}>
-              <span>{game.displayName}</span>
-              <small>{game.result || 'Unknown result'}</small>
+              <span className="game-title-name">{game.displayName}</span>
+              <span className="game-title-meta">
+                <small>{game.result || 'Unknown result'}</small>
+                {game.gameDate && <small>{`棋局 ${formatDateLabel(game.gameDate)}`}</small>}
+                <small>{`上传 ${formatDateLabel(game.createdAt)}`}</small>
+                <small className={game.analysisStatus === 'complete' ? 'game-analysis-badge complete' : 'game-analysis-badge'}>
+                  {analysisStatusLabel(game.analysisStatus)}
+                </small>
+              </span>
             </button>
             <button
               className="game-row-action"
@@ -101,4 +108,25 @@ function analysisButton(analysisState: AnalysisState, onStart: () => void, onSto
     return { label: 'Re-analyze', text: 'Re-analyze', shortText: 'Again', onClick: onRestart }
   }
   return { label: 'Start analysis', text: 'Start analysis', shortText: '析', onClick: onStart }
+}
+
+function formatDateLabel(value: string) {
+  if (!value) return '-'
+  const timeIndex = value.indexOf('T')
+  return timeIndex > 0 ? value.slice(0, timeIndex) : value
+}
+
+function analysisStatusLabel(status?: AnalysisState) {
+  switch (status) {
+    case 'running':
+      return '分析中'
+    case 'stopped':
+      return '已停止'
+    case 'complete':
+      return '已分析'
+    case 'unavailable':
+      return '不可用'
+    default:
+      return '未分析'
+  }
 }

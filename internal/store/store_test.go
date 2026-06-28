@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,6 +22,7 @@ func TestRepositoryCreatesListsRenamesAndDeletesGames(t *testing.T) {
 		DisplayName: "Old",
 		Result:      "B+R",
 		SGFFilename: "old.sgf",
+		GameDate:    "2026-06-23",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -30,6 +32,7 @@ func TestRepositoryCreatesListsRenamesAndDeletesGames(t *testing.T) {
 		DisplayName: "New",
 		Result:      "W+R",
 		SGFFilename: "new.sgf",
+		GameDate:    "2026-06-24",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -41,6 +44,9 @@ func TestRepositoryCreatesListsRenamesAndDeletesGames(t *testing.T) {
 	}
 	if len(games) != 2 || games[0].ID != newGame.ID || games[1].ID != oldGame.ID {
 		t.Fatalf("games not sorted newest first: %#v", games)
+	}
+	if games[0].GameDate != "2026-06-24" || games[1].GameDate != "2026-06-23" {
+		t.Fatalf("game dates = %#v", games)
 	}
 
 	if err := repo.RenameGame(ctx, oldGame.ID, "Renamed"); err != nil {
@@ -63,6 +69,62 @@ func TestRepositoryCreatesListsRenamesAndDeletesGames(t *testing.T) {
 	}
 	if len(games) != 1 || games[0].ID != newGame.ID {
 		t.Fatalf("games after delete = %#v", games)
+	}
+}
+
+func TestRepositoryMigratesExistingGamesTableWithGameDate(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "jcgo.sqlite")
+	db, err := sql.Open("sqlite", filepath.ToSlash(dbPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE games (
+			id TEXT PRIMARY KEY,
+			display_name TEXT NOT NULL,
+			result TEXT NOT NULL,
+			sgf_filename TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO games (id, display_name, result, sgf_filename, created_at)
+		VALUES ('old', 'Old', 'B+R', 'old.sgf', '2026-06-24T01:00:00Z')
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	repo, err := Open(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+
+	games, err := repo.ListGames(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(games) != 1 || games[0].GameDate != "" {
+		t.Fatalf("migrated games = %#v", games)
+	}
+	newGame, err := repo.CreateGame(ctx, CreateGameInput{
+		DisplayName: "New",
+		Result:      "W+R",
+		GameDate:    "2026-06-25",
+		SGFFilename: "new.sgf",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if newGame.GameDate != "2026-06-25" {
+		t.Fatalf("new game date = %q", newGame.GameDate)
 	}
 }
 

@@ -70,6 +70,12 @@ func (w *Workspace) HasGame(gameID string) bool {
 	return w.games[gameID] != nil
 }
 
+func (w *Workspace) AnalysisState(gameID string) AnalysisState {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.analysisStateLocked(gameID)
+}
+
 func (w *Workspace) RemoveGame(gameID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

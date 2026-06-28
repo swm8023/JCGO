@@ -29,7 +29,7 @@ func TestParseSGFDefaultsRulesAndKomi(t *testing.T) {
 }
 
 func TestParseSGFReadsPlayerNamesResultRulesAndKomi(t *testing.T) {
-	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]KM[6.5]RU[japanese]PB[Lee]PW[Cho]RE[W+1.5];B[pd];W[dd])`)
+	doc, err := ParseSGF(`(;GM[1]FF[4]SZ[19]KM[6.5]RU[japanese]PB[Lee]PW[Cho]RE[W+1.5]DT[2026-06-24];B[pd];W[dd])`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,6 +38,9 @@ func TestParseSGFReadsPlayerNamesResultRulesAndKomi(t *testing.T) {
 	}
 	if doc.Result != "W+1.5" || doc.Rules != "japanese" || doc.Komi != 6.5 {
 		t.Fatalf("metadata = result %q rules %q komi %.1f", doc.Result, doc.Rules, doc.Komi)
+	}
+	if doc.GameDate != "2026-06-24" {
+		t.Fatalf("game date = %q", doc.GameDate)
 	}
 }
 

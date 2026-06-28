@@ -29,13 +29,16 @@ func TestImportListRenameDeleteGame(t *testing.T) {
 	files := store.NewFileStore(filepath.Join(dir, "games"))
 	handler := NewHandler(repo, files, NewWorkspaceStore(), nil)
 
-	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","originalFilename":"demo.sgf","sgfText":"(;GM[1]FF[4]SZ[19]RE[B+R];B[pd])"}`))
+	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","originalFilename":"demo.sgf","sgfText":"(;GM[1]FF[4]SZ[19]RE[B+R]DT[2026-06-24];B[pd])"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	imported := result.(ImportResult)
 	if imported.Game.DisplayName != "Demo" || imported.Game.Result != "B+R" || imported.Snapshot.MoveNumber != 0 {
 		t.Fatalf("imported = %#v", imported)
+	}
+	if imported.Game.GameDate != "2026-06-24" {
+		t.Fatalf("game date = %q", imported.Game.GameDate)
 	}
 	if imported.Game.SGFFilename != imported.Game.ID+".sgf" {
 		t.Fatalf("sgf filename = %q, id = %q", imported.Game.SGFFilename, imported.Game.ID)
@@ -56,6 +59,9 @@ func TestImportListRenameDeleteGame(t *testing.T) {
 	}
 	if listResult.(ListResult).Games[0].DisplayName != "Renamed" {
 		t.Fatalf("list = %#v", listResult)
+	}
+	if listResult.(ListResult).Games[0].GameDate != "2026-06-24" || listResult.(ListResult).Games[0].AnalysisStatus != string(AnalysisComplete) {
+		t.Fatalf("list metadata = %#v", listResult)
 	}
 
 	if _, err := handler.Call(ctx, "secret", "game.delete", json.RawMessage(`{"gameId":"`+imported.Game.ID+`"}`)); err != nil {

@@ -111,4 +111,40 @@ describe('GameSidebar', () => {
     expect(remove).toHaveTextContent('×')
     expect(container.querySelector('.game-row')).toBeInTheDocument()
   })
+
+  it('shows game metadata without hiding dates or analysis status', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'Honinbo final',
+          result: 'B+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+          gameDate: '2026-06-24',
+          analysisStatus: 'complete',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = within(container).getByText('Honinbo final').closest('.game-row')
+    expect(row).not.toBeNull()
+    const gameRow = within(row as HTMLElement)
+    expect(gameRow.getByText('B+R')).toBeInTheDocument()
+    expect(gameRow.getByText('棋局 2026-06-24')).toBeInTheDocument()
+    expect(gameRow.getByText('上传 2026-06-25')).toBeInTheDocument()
+    expect(gameRow.getByText('已分析')).toBeInTheDocument()
+  })
 })

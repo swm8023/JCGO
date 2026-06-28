@@ -326,7 +326,7 @@ textarea:focus-visible {
   left: 56px;
   top: 8px;
   z-index: 12;
-  width: min(320px, calc(100vw - 72px));
+  width: min(520px, calc(100vw - 72px));
   max-height: calc(100vh - 16px);
   display: grid;
   padding: 8px;
@@ -342,8 +342,8 @@ textarea:focus-visible {
   grid-template-columns: minmax(0, 1fr) 34px 34px;
   gap: 6px;
   align-items: center;
-  min-height: 46px;
-  padding: 4px;
+  min-height: 58px;
+  padding: 5px;
   border: 1px solid transparent;
   border-radius: 8px;
 }
@@ -356,11 +356,11 @@ textarea:focus-visible {
 
 .game-title {
   min-width: 0;
-  min-height: 38px;
+  min-height: 48px;
   display: grid;
-  gap: 2px;
+  gap: 4px;
   align-content: center;
-  padding: 3px 6px;
+  padding: 5px 8px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -385,6 +385,40 @@ textarea:focus-visible {
 .game-title small {
   color: var(--muted);
   font-size: 12px;
+}
+
+.game-title-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  align-items: center;
+  overflow: visible;
+  white-space: normal;
+}
+
+.game-title-meta small {
+  min-width: max-content;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.game-analysis-badge {
+  min-width: max-content;
+  padding: 2px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.game-analysis-badge.complete {
+  border-color: rgb(5 150 105 / 0.24);
+  background: rgb(5 150 105 / 0.12);
+  color: var(--table);
 }
 
 .game-row-action {
@@ -1099,7 +1133,7 @@ textarea:focus-visible {
     left: 52px;
     top: 8px;
     z-index: 12;
-    width: min(280px, calc(100vw - 68px));
+    width: min(520px, calc(100vw - 68px));
     max-height: calc(var(--app-content-height) - 16px);
     display: grid;
     padding: 8px;

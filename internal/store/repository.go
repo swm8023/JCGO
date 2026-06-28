@@ -14,16 +14,19 @@ import (
 )
 
 type GameRecord struct {
-	ID          string    `json:"gameId"`
-	DisplayName string    `json:"displayName"`
-	Result      string    `json:"result"`
-	SGFFilename string    `json:"sgfFilename"`
-	CreatedAt   time.Time `json:"createdAt"`
+	ID             string    `json:"gameId"`
+	DisplayName    string    `json:"displayName"`
+	Result         string    `json:"result"`
+	GameDate       string    `json:"gameDate,omitempty"`
+	SGFFilename    string    `json:"sgfFilename"`
+	CreatedAt      time.Time `json:"createdAt"`
+	AnalysisStatus string    `json:"analysisStatus,omitempty"`
 }
 
 type CreateGameInput struct {
 	DisplayName string
 	Result      string
+	GameDate    string
 	SGFFilename string
 }
 
@@ -64,13 +67,14 @@ func (r *Repository) CreateGame(ctx context.Context, input CreateGameInput) (Gam
 		ID:          id,
 		DisplayName: input.DisplayName,
 		Result:      input.Result,
+		GameDate:    input.GameDate,
 		SGFFilename: sgfFilename,
 		CreatedAt:   time.Now().UTC(),
 	}
 	_, err = r.db.ExecContext(ctx, `
-		INSERT INTO games (id, display_name, result, sgf_filename, created_at)
-		VALUES (?, ?, ?, ?, ?)
-	`, game.ID, game.DisplayName, game.Result, game.SGFFilename, formatTime(game.CreatedAt))
+		INSERT INTO games (id, display_name, result, game_date, sgf_filename, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, game.ID, game.DisplayName, game.Result, game.GameDate, game.SGFFilename, formatTime(game.CreatedAt))
 	if err != nil {
 		return GameRecord{}, err
 	}
@@ -79,7 +83,7 @@ func (r *Repository) CreateGame(ctx context.Context, input CreateGameInput) (Gam
 
 func (r *Repository) ListGames(ctx context.Context) ([]GameRecord, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, display_name, result, sgf_filename, created_at
+		SELECT id, display_name, result, game_date, sgf_filename, created_at
 		FROM games
 		ORDER BY created_at DESC
 	`)
@@ -104,7 +108,7 @@ func (r *Repository) ListGames(ctx context.Context) ([]GameRecord, error) {
 
 func (r *Repository) GetGame(ctx context.Context, id string) (GameRecord, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, display_name, result, sgf_filename, created_at
+		SELECT id, display_name, result, game_date, sgf_filename, created_at
 		FROM games
 		WHERE id = ?
 	`, id)
@@ -140,11 +144,15 @@ func (r *Repository) migrate(ctx context.Context) error {
 			id TEXT PRIMARY KEY,
 			display_name TEXT NOT NULL,
 			result TEXT NOT NULL,
+			game_date TEXT NOT NULL DEFAULT '',
 			sgf_filename TEXT NOT NULL,
 			created_at TEXT NOT NULL
 		)
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	return r.ensureColumn(ctx, "game_date", "TEXT NOT NULL DEFAULT ''")
 }
 
 type gameScanner interface {
@@ -154,7 +162,7 @@ type gameScanner interface {
 func scanGame(scanner gameScanner) (GameRecord, error) {
 	var game GameRecord
 	var createdAt string
-	if err := scanner.Scan(&game.ID, &game.DisplayName, &game.Result, &game.SGFFilename, &createdAt); err != nil {
+	if err := scanner.Scan(&game.ID, &game.DisplayName, &game.Result, &game.GameDate, &game.SGFFilename, &createdAt); err != nil {
 		return GameRecord{}, err
 	}
 	parsed, err := time.Parse(time.RFC3339Nano, createdAt)
@@ -163,6 +171,33 @@ func scanGame(scanner gameScanner) (GameRecord, error) {
 	}
 	game.CreatedAt = parsed
 	return game, nil
+}
+
+func (r *Repository) ensureColumn(ctx context.Context, columnName string, columnDDL string) error {
+	rows, err := r.db.QueryContext(ctx, `PRAGMA table_info(games)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name string
+		var dataType string
+		var notNull int
+		var defaultValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		if name == columnName {
+			return rows.Err()
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx, `ALTER TABLE games ADD COLUMN `+columnName+` `+columnDDL)
+	return err
 }
 
 func requireAffected(result sql.Result) error {
