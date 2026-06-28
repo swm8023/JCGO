@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { inflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
@@ -68,6 +68,11 @@ describe('PWA install metadata', () => {
     expect(indexHtml).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />')
     expect(indexHtml).toContain('<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />')
     expect(pngSize('public/icons/apple-touch-icon.png')).toEqual({ width: 180, height: 180 })
+  })
+
+  it('does not keep unused legacy SVG icon assets in public output', () => {
+    expect(existsSync(join(process.cwd(), 'public', 'favicon.svg'))).toBe(false)
+    expect(existsSync(join(process.cwd(), 'public', 'icons.svg'))).toBe(false)
   })
 
   it('opts into edge-to-edge viewport layout for gesture navigation devices', () => {
