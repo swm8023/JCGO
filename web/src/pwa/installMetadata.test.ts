@@ -78,6 +78,11 @@ describe('PWA install metadata', () => {
   it('opts into edge-to-edge viewport layout for gesture navigation devices', () => {
     expect(indexHtml).toContain('viewport-fit=cover')
   })
+
+  it('disables page scaling for installed-app style mobile interaction', () => {
+    expect(indexHtml).toContain('maximum-scale=1')
+    expect(indexHtml).toContain('user-scalable=no')
+  })
 })
 
 function pngSize(path: string) {

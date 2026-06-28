@@ -17,15 +17,17 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('background:\n    radial-gradient(circle at 20% 50%')
   })
 
-  it('prevents accidental mobile long-press selection while keeping form text selectable', () => {
+  it('prevents accidental mobile long-press selection from the root while keeping form text selectable', () => {
+    expect(styles).toContain('html,\nbody,\n#root {\n  height: 100%;\n  overflow: hidden;\n  background: var(--paper);\n  overscroll-behavior: none;\n  -webkit-touch-callout: none;\n  -webkit-tap-highlight-color: transparent;\n  -webkit-user-select: none;\n  user-select: none;')
+    expect(styles).toContain('-webkit-tap-highlight-color: transparent;')
     expect(styles).toContain('-webkit-touch-callout: none;')
     expect(styles).toContain('-webkit-user-select: none;')
     expect(styles).toContain('user-select: none;')
-    expect(styles).toContain('input,\ntextarea {\n  font: inherit;\n  -webkit-user-select: text;\n  user-select: text;')
+    expect(styles).toContain('input,\ntextarea {\n  font: inherit;\n  -webkit-touch-callout: default;\n  -webkit-user-select: text;\n  user-select: text;')
   })
 
   it('fixes the cockpit to the viewport with the board as the dominant work surface', () => {
-    expect(styles).toContain('body {\n  margin: 0;\n  overscroll-behavior: none;')
+    expect(styles).toContain('body {\n  margin: 0;')
     expect(styles).toContain('--app-height: 100dvh;')
     expect(styles).toContain('--app-content-height: calc(var(--app-height) - var(--app-safe-top) - var(--app-safe-bottom));')
     expect(styles).toContain('--app-safe-bottom: env(safe-area-inset-bottom, 0px);')
