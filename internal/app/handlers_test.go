@@ -105,6 +105,44 @@ func TestGameListEncodesEmptyGamesAsArray(t *testing.T) {
 	}
 }
 
+func TestGameListBackfillsMissingGameDateFromStoredSGF(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	files := store.NewFileStore(filepath.Join(dir, "games"))
+	record, err := repo.CreateGame(ctx, store.CreateGameInput{
+		DisplayName: "Legacy",
+		Result:      "W+R",
+		SGFFilename: "legacy.sgf",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := files.WriteSGF(record.SGFFilename, "(;GM[1]FF[4]SZ[19]DT[2026-06-26]RE[W+R];B[pd])"); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHandler(repo, files, NewWorkspaceStore(), nil)
+
+	listResult, err := handler.Call(ctx, "secret", "game.list", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if listResult.(ListResult).Games[0].GameDate != "2026-06-26" {
+		t.Fatalf("list game date = %#v", listResult)
+	}
+	stored, err := repo.GetGame(ctx, record.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.GameDate != "2026-06-26" {
+		t.Fatalf("stored game date = %q", stored.GameDate)
+	}
+}
+
 func TestImportRejectsEmptyDisplayName(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()

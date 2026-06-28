@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 
+	"jcgo/internal/game"
 	"jcgo/internal/store"
 )
 
@@ -49,9 +50,25 @@ func (h *Handler) listGames(ctx context.Context, token string) ([]store.GameReco
 		return nil, err
 	}
 	for i := range games {
+		if games[i].GameDate == "" {
+			games[i].GameDate = h.backfillGameDate(ctx, games[i])
+		}
 		games[i].AnalysisStatus = string(h.gameAnalysisStatus(token, games[i]))
 	}
 	return games, nil
+}
+
+func (h *Handler) backfillGameDate(ctx context.Context, record store.GameRecord) string {
+	sgfText, err := h.files.ReadSGF(record.SGFFilename)
+	if err != nil {
+		return ""
+	}
+	doc, err := game.ParseSGF(sgfText)
+	if err != nil || doc.GameDate == "" {
+		return ""
+	}
+	_ = h.repo.UpdateGameDate(ctx, record.ID, doc.GameDate)
+	return doc.GameDate
 }
 
 func (h *Handler) gameAnalysisStatus(token string, record store.GameRecord) AnalysisState {

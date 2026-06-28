@@ -130,6 +130,18 @@ func (r *Repository) RenameGame(ctx context.Context, id, displayName string) err
 	return requireAffected(result)
 }
 
+func (r *Repository) UpdateGameDate(ctx context.Context, id, gameDate string) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE games
+		SET game_date = ?
+		WHERE id = ?
+	`, gameDate, id)
+	if err != nil {
+		return err
+	}
+	return requireAffected(result)
+}
+
 func (r *Repository) DeleteGame(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx, `DELETE FROM games WHERE id = ?`, id)
 	if err != nil {
