@@ -18,7 +18,8 @@ describe('responsive layout CSS', () => {
   })
 
   it('prevents accidental mobile long-press selection from the root while keeping form text selectable', () => {
-    expect(styles).toContain('html,\nbody,\n#root {\n  height: 100%;\n  overflow: hidden;\n  background: var(--paper);\n  overscroll-behavior: none;\n  -webkit-touch-callout: none;\n  -webkit-tap-highlight-color: transparent;\n  -webkit-user-select: none;\n  user-select: none;')
+    expect(styles).toContain('html,\nbody,\n#root {\n  height: 100%;\n  overflow: hidden;\n  background: var(--paper);\n  overscroll-behavior: none;\n  touch-action: manipulation;\n  -webkit-touch-callout: none;\n  -webkit-tap-highlight-color: transparent;\n  -webkit-user-select: none;\n  user-select: none;')
+    expect(styles).toContain('touch-action: manipulation;')
     expect(styles).toContain('-webkit-tap-highlight-color: transparent;')
     expect(styles).toContain('-webkit-touch-callout: none;')
     expect(styles).toContain('-webkit-user-select: none;')
@@ -29,7 +30,7 @@ describe('responsive layout CSS', () => {
   it('fixes the cockpit to the viewport with the board as the dominant work surface', () => {
     expect(styles).toContain('body {\n  margin: 0;')
     expect(styles).toContain('--app-height: 100dvh;')
-    expect(styles).toContain('--app-content-height: calc(var(--app-height) - var(--app-safe-top) - var(--app-safe-bottom));')
+    expect(styles).toContain('--app-content-height: calc(var(--app-height) - var(--app-safe-top));')
     expect(styles).toContain('--app-safe-bottom: env(safe-area-inset-bottom, 0px);')
     expect(styles).toContain('html,\nbody,\n#root {\n  height: 100%;\n  overflow: hidden;\n  background: var(--paper);')
     expect(styles).toContain('.app-layout {\n  height: var(--app-height);')
@@ -85,9 +86,11 @@ describe('responsive layout CSS', () => {
 
   it('keeps mobile landscape navigation beside the board and import visible', () => {
     expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
-    expect(styles).toContain('--app-height: 100svh;')
+    expect(styles).not.toContain('--app-height: 100svh;')
     expect(styles).toContain('grid-template-columns: 44px 1fr 44px minmax(240px, 320px);')
     expect(styles).toContain('height: var(--app-height);')
+    expect(styles).toContain('.board-stage {\n    padding: 2px 4px 0;\n    height: 100%;\n    max-height: var(--app-content-height);')
+    expect(styles).toContain('.go-board {\n    width: min(calc(var(--app-content-height) - 4px), 100%);\n    height: auto;\n    max-width: 100%;\n    max-height: calc(var(--app-content-height) - 4px);')
     expect(styles).toContain('.game-sidebar.expanded .game-list')
     expect(styles).toContain('.action-rail {')
     expect(styles).toContain('.analysis-rail {\n    grid-template-rows: minmax(150px, 170px) minmax(0, 1fr);\n    gap: 6px;')
@@ -101,7 +104,7 @@ describe('responsive layout CSS', () => {
   it('treats 11 inch iPad landscape as a tablet workspace with a square board box', () => {
     expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
     expect(styles).toContain('@media (min-width: 1101px) and (max-width: 1180px) and (orientation: landscape) and (pointer: fine)')
-    expect(styles).toContain('.go-board {\n    width: min(calc(var(--app-content-height) - 16px), 100%);\n    height: auto;\n    max-width: 100%;\n    max-height: calc(var(--app-content-height) - 16px);')
+    expect(styles).toContain('.go-board {\n    width: min(calc(var(--app-content-height) - 4px), 100%);\n    height: auto;\n    max-width: 100%;\n    max-height: calc(var(--app-content-height) - 4px);')
   })
 
   it('keeps narrow phone landscape focused on the board instead of squeezing three rails', () => {
@@ -110,6 +113,7 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.analysis-rail {\n    display: none;')
     expect(styles).toContain('.game-sidebar {\n    grid-template-rows: 40px minmax(0, 1fr) 40px;')
     expect(styles).toContain('.analysis-action-button {\n    width: 36px;\n    height: 32px;')
+    expect(styles).toContain('.go-board {\n    width: min(calc(var(--app-content-height) - 4px), calc(100vw - 132px));')
   })
 
   it('centers the portrait rotate prompt as one compact message', () => {
