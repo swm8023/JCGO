@@ -56,6 +56,11 @@ func (s FileStore) ReadAnalysis(sgfFilename string) ([]byte, error) {
 	return os.ReadFile(s.path(analysisName(sgfFilename)))
 }
 
+func (s FileStore) AnalysisExists(filename string) bool {
+	_, err := os.Stat(s.path(analysisName(filename)))
+	return err == nil
+}
+
 func (s FileStore) DeleteAnalysis(sgfFilename string) error {
 	err := os.Remove(s.path(analysisName(sgfFilename)))
 	if os.IsNotExist(err) {

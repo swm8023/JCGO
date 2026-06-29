@@ -1087,7 +1087,6 @@ textarea:focus-visible {
 @media (orientation: landscape) and (max-height: 520px),
   (orientation: landscape) and (max-width: 1220px) and (pointer: coarse) {
   .app-layout {
-    --app-height: 100svh;
     height: var(--app-height);
     min-height: 0;
     grid-template-columns: 44px 1fr 44px minmax(240px, 320px);
@@ -1323,7 +1322,6 @@ textarea:focus-visible {
 
 @media (min-width: 1101px) and (max-width: 1220px) and (orientation: landscape) {
   .app-layout {
-    --app-height: 100dvh;
     grid-template-columns: 48px 1fr 48px minmax(310px, 360px);
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);

@@ -24,12 +24,34 @@ class FakeEventTarget {
   }
 }
 
+class FakeStyle {
+  readonly values = new Map<string, string>()
+
+  setProperty(name: string, value: string) {
+    this.values.set(name, value)
+  }
+}
+
+class FakeDocumentTarget extends FakeEventTarget {
+  readonly documentElement = { style: new FakeStyle() }
+}
+
+class FakeWindowTarget extends FakeEventTarget {
+  innerWidth = 932
+  innerHeight = 430
+  coarsePointer = true
+
+  matchMedia() {
+    return { matches: this.coarsePointer }
+  }
+}
+
 describe('viewport interaction guards', () => {
   it('installs non-passive iOS pinch zoom guards without blocking one finger touch moves', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
-    const windowTarget = new FakeEventTarget()
-    const documentTarget = new FakeEventTarget()
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
 
     const cleanup = installViewportInteractionGuards(
       windowTarget as unknown as Window,
@@ -56,5 +78,47 @@ describe('viewport interaction guards', () => {
     cleanup()
     expect(windowTarget.listeners.get('gesturestart')).toEqual([])
     expect(documentTarget.listeners.get('touchmove')).toEqual([])
+  })
+
+  it('locks app height to the largest landscape viewport so transient Android system bars do not compress the board', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+
+    const cleanup = installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
+
+    windowTarget.innerHeight = 390
+    windowTarget.dispatch('resize', new Event('resize'))
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
+
+    windowTarget.innerHeight = 452
+    windowTarget.dispatch('resize', new Event('resize'))
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('452px')
+
+    cleanup()
+    expect(windowTarget.listeners.get('resize')).toEqual([])
+  })
+
+  it('lets desktop window resizes follow the current viewport height', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.coarsePointer = false
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.innerHeight = 390
+    windowTarget.dispatch('resize', new Event('resize'))
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('390px')
   })
 })

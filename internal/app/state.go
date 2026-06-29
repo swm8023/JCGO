@@ -53,7 +53,7 @@ func (h *Handler) listGames(ctx context.Context, token string) ([]store.GameReco
 		if games[i].GameDate == "" {
 			games[i].GameDate = h.backfillGameDate(ctx, games[i])
 		}
-		games[i].AnalysisStatus = string(h.gameAnalysisStatus(token, games[i]))
+		games[i].AnalysisStatus = string(h.gameAnalysisStatus(games[i]))
 	}
 	return games, nil
 }
@@ -71,15 +71,8 @@ func (h *Handler) backfillGameDate(ctx context.Context, record store.GameRecord)
 	return doc.GameDate
 }
 
-func (h *Handler) gameAnalysisStatus(token string, record store.GameRecord) AnalysisState {
-	ws := h.workspaces.ForToken(token)
-	if ws.HasGame(record.ID) {
-		state := ws.AnalysisState(record.ID)
-		if state != AnalysisIdle {
-			return state
-		}
-	}
-	if _, err := h.files.ReadAnalysis(record.SGFFilename); err == nil {
+func (h *Handler) gameAnalysisStatus(record store.GameRecord) AnalysisState {
+	if h.files.AnalysisExists(record.SGFFilename) {
 		return AnalysisComplete
 	}
 	return AnalysisIdle

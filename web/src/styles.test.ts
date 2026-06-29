@@ -93,7 +93,7 @@ describe('responsive layout CSS', () => {
 
   it('keeps mobile landscape navigation beside the board and import visible', () => {
     expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
-    expect(styles).toContain('--app-height: 100svh;')
+    expect(styles).not.toContain('--app-height: 100svh;')
     expect(styles).toContain('grid-template-columns: 44px 1fr 44px minmax(240px, 320px);')
     expect(styles).toContain('height: var(--app-height);')
     expect(styles).toContain('.board-stage {\n    padding: 2px 4px;\n    height: 100%;\n    max-height: var(--app-content-height);')

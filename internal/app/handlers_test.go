@@ -143,6 +143,23 @@ func TestGameListBackfillsMissingGameDateFromStoredSGF(t *testing.T) {
 	}
 }
 
+func TestGameListAnalysisStatusComesFromAnalysisFileEvenWhenWorkspaceStopped(t *testing.T) {
+	h, token := newTestHandler(t)
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd])",
+	})
+	if _, err := h.files.WriteAnalysis(imported.Game.SGFFilename, []byte(`not-json-but-present`)); err != nil {
+		t.Fatal(err)
+	}
+	h.workspaces.ForToken(token).MarkAnalysisStopped(imported.Game.ID)
+
+	listResult := callResult[ListResult](t, h, token, "game.list", nil)
+	if got := listResult.Games[0].AnalysisStatus; got != string(AnalysisComplete) {
+		t.Fatalf("analysis status = %q, want %q from analysis filename", got, AnalysisComplete)
+	}
+}
+
 func TestImportRejectsEmptyDisplayName(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
