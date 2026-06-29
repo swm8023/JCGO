@@ -28,7 +28,7 @@
   --app-safe-right: env(safe-area-inset-right, 0px);
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
   --app-safe-left: env(safe-area-inset-left, 0px);
-  --app-content-height: calc(var(--app-height) - var(--app-safe-top));
+  --app-content-height: calc(var(--app-height) - var(--app-safe-top) - var(--app-safe-bottom));
 
   font-family: "Inter", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   color: var(--ink);
@@ -167,7 +167,7 @@ textarea:focus-visible {
   display: grid;
   grid-template-columns: 48px 1fr 48px minmax(340px, 420px);
   gap: 0;
-  padding: var(--app-safe-top) var(--app-safe-right) 0 var(--app-safe-left);
+  padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -178,6 +178,7 @@ textarea:focus-visible {
 .analysis-rail {
   min-width: 0;
   min-height: 0;
+  box-sizing: border-box;
 }
 
 /* ─── Game Sidebar (Dark Frame) ─── */
@@ -190,7 +191,7 @@ textarea:focus-visible {
   gap: 8px;
   height: 100%;
   box-sizing: border-box;
-  padding: 8px 6px max(8px, var(--app-safe-bottom)) max(6px, env(safe-area-inset-left, 6px));
+  padding: 8px 6px;
   border: 0;
   background: var(--frame);
   box-shadow: var(--shadow-frame);
@@ -465,7 +466,7 @@ textarea:focus-visible {
   gap: 0;
   padding: 8px;
   min-height: 0;
-  max-height: calc(var(--app-content-height) - 16px);
+  max-height: 100%;
   overflow: hidden;
   border: 0;
   background: var(--paper);
@@ -511,13 +512,28 @@ textarea:focus-visible {
   }
 }
 
+.board-frame {
+  --board-frame-clearance: 16px;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  justify-self: stretch;
+  container-type: size;
+  container-name: board-frame;
+}
+
 .go-board {
   position: relative;
   z-index: 1;
-  width: min(calc(var(--app-content-height) - 34px), 100%);
-  height: auto;
+  width: min(calc(100cqw - var(--board-frame-clearance)), calc(100cqh - var(--board-frame-clearance)));
+  height: min(calc(100cqw - var(--board-frame-clearance)), calc(100cqh - var(--board-frame-clearance)));
   max-width: 100%;
-  max-height: calc(var(--app-content-height) - 16px);
+  max-height: 100%;
+  display: block;
   aspect-ratio: 1;
   touch-action: manipulation;
   filter: drop-shadow(0 20px 40px rgb(42 30 14 / 0.25));
@@ -538,7 +554,7 @@ textarea:focus-visible {
   display: grid;
   align-content: center;
   justify-content: center;
-  padding: 8px 4px max(8px, var(--app-safe-bottom)) 4px;
+  padding: 8px 4px;
   background: var(--surface-soft);
   border-left: 1px solid var(--line);
   border-right: 1px solid var(--line);
@@ -1071,16 +1087,17 @@ textarea:focus-visible {
 @media (orientation: landscape) and (max-height: 520px),
   (orientation: landscape) and (max-width: 1220px) and (pointer: coarse) {
   .app-layout {
+    --app-height: 100svh;
     height: var(--app-height);
     min-height: 0;
     grid-template-columns: 44px 1fr 44px minmax(240px, 320px);
     gap: 0;
-    padding: var(--app-safe-top) var(--app-safe-right) 0 var(--app-safe-left);
+    padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;
   }
 
   .game-sidebar {
-    padding: 6px 4px max(6px, var(--app-safe-bottom)) max(4px, env(safe-area-inset-left, 4px));
+    padding: 6px 4px;
   }
 
   .game-sidebar h1 {
@@ -1145,20 +1162,17 @@ textarea:focus-visible {
   }
 
   .board-stage {
-    padding: 2px 4px 0;
+    padding: 2px 4px;
     height: 100%;
     max-height: var(--app-content-height);
   }
 
-  .go-board {
-    width: min(calc(var(--app-content-height) - 4px), 100%);
-    height: auto;
-    max-width: 100%;
-    max-height: calc(var(--app-content-height) - 4px);
+  .board-frame {
+    --board-frame-clearance: 4px;
   }
 
   .action-rail {
-    padding: 6px 2px max(6px, var(--app-safe-bottom)) 2px;
+    padding: 6px 2px;
   }
 
   .navigation-controls {
@@ -1191,7 +1205,7 @@ textarea:focus-visible {
     grid-template-rows: minmax(150px, 170px) minmax(0, 1fr);
     gap: 6px;
     max-height: var(--app-content-height);
-    padding: 6px 6px 2px 2px;
+    padding: 6px 6px 6px 2px;
   }
 
   .analysis-overview {
@@ -1274,13 +1288,13 @@ textarea:focus-visible {
   .app-layout {
     grid-template-columns: 44px 1fr 44px;
     gap: 0;
-    padding: var(--app-safe-top) var(--app-safe-right) 0 var(--app-safe-left);
+    padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
   }
 
   .game-sidebar {
     grid-template-rows: 40px minmax(0, 1fr) 40px;
     align-content: stretch;
-    padding-bottom: max(8px, var(--app-safe-bottom));
+    padding-bottom: 8px;
   }
 
   .icon-button {
@@ -1300,23 +1314,24 @@ textarea:focus-visible {
     max-height: var(--app-content-height);
   }
 
-  .go-board {
-    width: min(calc(var(--app-content-height) - 4px), calc(100vw - 132px));
+  .board-frame {
+    --board-frame-clearance: 4px;
   }
 }
 
 /* ─── Medium screens ─── */
 
-@media (min-width: 1101px) and (max-width: 1180px) and (orientation: landscape) and (pointer: fine) {
+@media (min-width: 1101px) and (max-width: 1220px) and (orientation: landscape) {
   .app-layout {
+    --app-height: 100dvh;
     grid-template-columns: 48px 1fr 48px minmax(310px, 360px);
     gap: 0;
-    padding: 0;
+    padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
   }
 
   .analysis-rail,
   .board-stage {
-    max-height: calc(var(--app-content-height) - 16px);
+    max-height: var(--app-content-height);
   }
 }
 

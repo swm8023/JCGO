@@ -43,4 +43,14 @@ describe('right rail layout', () => {
     expect(importDialog).toBeGreaterThan(mainClose)
     expect(rotatePrompt).toBeGreaterThan(importDialog)
   })
+
+  it('wraps the board in a measured frame after the game metadata', () => {
+    const boardInfo = app.indexOf('<BoardInfo')
+    const boardFrame = app.indexOf('<div className="board-frame">')
+    const board = app.indexOf('<Board\n', boardFrame)
+
+    expect(boardInfo).toBeGreaterThan(0)
+    expect(boardFrame).toBeGreaterThan(boardInfo)
+    expect(board).toBeGreaterThan(boardFrame)
+  })
 })

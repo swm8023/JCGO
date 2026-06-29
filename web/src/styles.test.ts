@@ -30,12 +30,13 @@ describe('responsive layout CSS', () => {
   it('fixes the cockpit to the viewport with the board as the dominant work surface', () => {
     expect(styles).toContain('body {\n  margin: 0;')
     expect(styles).toContain('--app-height: 100dvh;')
-    expect(styles).toContain('--app-content-height: calc(var(--app-height) - var(--app-safe-top));')
+    expect(styles).toContain('--app-content-height: calc(var(--app-height) - var(--app-safe-top) - var(--app-safe-bottom));')
     expect(styles).toContain('--app-safe-bottom: env(safe-area-inset-bottom, 0px);')
     expect(styles).toContain('html,\nbody,\n#root {\n  height: 100%;\n  overflow: hidden;\n  background: var(--paper);')
     expect(styles).toContain('.app-layout {\n  height: var(--app-height);')
-    expect(styles).toContain('padding: var(--app-safe-top) var(--app-safe-right) 0 var(--app-safe-left);')
+    expect(styles).toContain('padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);')
     expect(styles).toContain('grid-template-columns: 48px 1fr 48px minmax(340px, 420px);')
+    expect(styles).toContain('.game-sidebar,\n.board-stage,\n.action-rail,\n.analysis-rail {\n  min-width: 0;\n  min-height: 0;\n  box-sizing: border-box;')
     expect(styles).toContain('.game-sidebar {\n  position: relative;\n  z-index: 4;\n  display: grid;\n  grid-template-rows: auto minmax(0, 1fr) auto;')
     expect(styles).toContain('height: 100%;\n  box-sizing: border-box;')
     expect(styles).toContain('.game-sidebar h1 {\n  display: none;')
@@ -49,9 +50,12 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('justify-items: center;')
     expect(styles).toContain('background: var(--paper);')
     expect(styles).toContain('.board-layout {\n  display: grid;\n  width: 100%;\n  height: 100%;')
+    expect(styles).toContain('.board-frame {')
+    expect(styles).toContain('--board-frame-clearance: 16px;')
+    expect(styles).toContain('container-type: size;\n  container-name: board-frame;')
     expect(styles).toContain('.go-board {\n  position: relative;')
-    expect(styles).toContain('width: min(calc(var(--app-content-height) - 34px), 100%);')
-    expect(styles).toContain('height: auto;')
+    expect(styles).toContain('width: min(calc(100cqw - var(--board-frame-clearance)), calc(100cqh - var(--board-frame-clearance)));')
+    expect(styles).toContain('height: min(calc(100cqw - var(--board-frame-clearance)), calc(100cqh - var(--board-frame-clearance)));')
     expect(styles).toContain('max-width: 100%;')
     expect(styles).toContain('filter: drop-shadow(0 20px 40px rgb(42 30 14 / 0.25));')
     expect(styles).toContain('.action-rail {')
@@ -89,11 +93,11 @@ describe('responsive layout CSS', () => {
 
   it('keeps mobile landscape navigation beside the board and import visible', () => {
     expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
-    expect(styles).not.toContain('--app-height: 100svh;')
+    expect(styles).toContain('--app-height: 100svh;')
     expect(styles).toContain('grid-template-columns: 44px 1fr 44px minmax(240px, 320px);')
     expect(styles).toContain('height: var(--app-height);')
-    expect(styles).toContain('.board-stage {\n    padding: 2px 4px 0;\n    height: 100%;\n    max-height: var(--app-content-height);')
-    expect(styles).toContain('.go-board {\n    width: min(calc(var(--app-content-height) - 4px), 100%);\n    height: auto;\n    max-width: 100%;\n    max-height: calc(var(--app-content-height) - 4px);')
+    expect(styles).toContain('.board-stage {\n    padding: 2px 4px;\n    height: 100%;\n    max-height: var(--app-content-height);')
+    expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 4px;')
     expect(styles).toContain('.game-sidebar.expanded .game-list')
     expect(styles).toContain('.action-rail {')
     expect(styles).toContain('.analysis-rail {\n    grid-template-rows: minmax(150px, 170px) minmax(0, 1fr);\n    gap: 6px;')
@@ -106,8 +110,9 @@ describe('responsive layout CSS', () => {
 
   it('treats 11 inch iPad landscape as a tablet workspace with a square board box', () => {
     expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
-    expect(styles).toContain('@media (min-width: 1101px) and (max-width: 1180px) and (orientation: landscape) and (pointer: fine)')
-    expect(styles).toContain('.go-board {\n    width: min(calc(var(--app-content-height) - 4px), 100%);\n    height: auto;\n    max-width: 100%;\n    max-height: calc(var(--app-content-height) - 4px);')
+    expect(styles).toContain('@media (min-width: 1101px) and (max-width: 1220px) and (orientation: landscape)')
+    expect(styles).toContain('.board-stage {\n    max-height: var(--app-content-height);')
+    expect(styles).toContain('.go-board {\n  position: relative;\n  z-index: 1;\n  width: min(calc(100cqw - var(--board-frame-clearance)), calc(100cqh - var(--board-frame-clearance)));')
   })
 
   it('keeps narrow phone landscape focused on the board instead of squeezing three rails', () => {
@@ -116,7 +121,7 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.analysis-rail {\n    display: none;')
     expect(styles).toContain('.game-sidebar {\n    grid-template-rows: 40px minmax(0, 1fr) 40px;')
     expect(styles).toContain('.analysis-action-button {\n    width: 36px;\n    height: 32px;')
-    expect(styles).toContain('.go-board {\n    width: min(calc(var(--app-content-height) - 4px), calc(100vw - 132px));')
+    expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 4px;')
   })
 
   it('centers the portrait rotate prompt as one compact message', () => {

@@ -325,18 +325,20 @@ export default function App() {
       <section className="board-stage">
         <div className="board-layout">
           <BoardInfo blackName={snapshot?.blackName} whiteName={snapshot?.whiteName} komi={snapshot?.komi} rules={snapshot?.rules} />
-          <Board
-            snapshot={snapshot}
-            candidates={snapshot?.analysis?.candidates ?? []}
-            ownership={workspace?.current?.ownership}
-            playedPointLoss={playedPointLossForCurrent(workspace)}
-            overlays={overlays}
-            activePV={activePV}
-            trialMoves={trialMovesForState(workspace)}
-            tryMode={tryMode}
-            onPlay={playMove}
-            onPreviewPV={previewPV}
-          />
+          <div className="board-frame">
+            <Board
+              snapshot={snapshot}
+              candidates={snapshot?.analysis?.candidates ?? []}
+              ownership={workspace?.current?.ownership}
+              playedPointLoss={playedPointLossForCurrent(workspace)}
+              overlays={overlays}
+              activePV={activePV}
+              trialMoves={trialMovesForState(workspace)}
+              tryMode={tryMode}
+              onPlay={playMove}
+              onPreviewPV={previewPV}
+            />
+          </div>
         </div>
         {error && <p className="app-error">{error}</p>}
       </section>
