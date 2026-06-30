@@ -384,6 +384,41 @@ describe('Board', () => {
     expect(onPlay).toHaveBeenCalledWith('D16')
   })
 
+  it('colors preview variation stones from the current player to play', () => {
+    const { container } = render(
+      <Board
+        snapshot={{
+          gameId: 'g',
+          nodeId: 'main:1',
+          moveNumber: 1,
+          totalMoves: 1,
+          branchMode: 'main',
+          stones: [{ x: 15, y: 3, color: 'B' }],
+          children: [],
+          toPlay: 'W',
+          rules: 'chinese',
+          komi: 7.5,
+          captures: { B: 0, W: 0 },
+          gameEnded: false,
+          canPrevious: true,
+          canNext: false,
+          canBackToMain: false,
+        }}
+        activePV={['D16', 'Q4']}
+        tryMode={false}
+        onPlay={vi.fn()}
+        onPreviewPV={vi.fn()}
+      />,
+    )
+
+    const previewStones = container.querySelectorAll('.pv-stone circle')
+    const previewLabels = container.querySelectorAll('.pv-stone text')
+    expect(previewStones[0]).toHaveAttribute('fill', '#f5f2ea')
+    expect(previewLabels[0]).toHaveAttribute('fill', '#111')
+    expect(previewStones[1]).toHaveAttribute('fill', '#111')
+    expect(previewLabels[1]).toHaveAttribute('fill', '#fff')
+  })
+
   it('allows trying any empty board point in try mode', () => {
     const onPlay = vi.fn()
     const { container } = render(

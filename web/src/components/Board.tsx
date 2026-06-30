@@ -374,10 +374,12 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
         const point = gtpToPoint(move)
         if (!point) return null
         const opacity = sequenceStoneOpacity(index)
+        const color = sequenceMoveColor(snapshot?.toPlay, index)
+        const black = color === 'B'
         return (
           <g key={`${move}-${index}`} className="pv-stone" opacity={opacity}>
-            <circle cx={pad + point.x * gap} cy={pad + point.y * gap} r={gap * 0.38} fill={index % 2 === 0 ? '#111' : '#f5f2ea'} stroke="#111" />
-            <text x={pad + point.x * gap} y={pad + point.y * gap + 5} textAnchor="middle" fontSize="14" fill={index % 2 === 0 ? '#fff' : '#111'}>
+            <circle cx={pad + point.x * gap} cy={pad + point.y * gap} r={gap * 0.38} fill={black ? '#111' : '#f5f2ea'} stroke="#111" />
+            <text x={pad + point.x * gap} y={pad + point.y * gap + 5} textAnchor="middle" fontSize="14" fill={black ? '#fff' : '#111'}>
               {index + 1}
             </text>
           </g>
@@ -399,6 +401,12 @@ function trialMovesByPoint(trialMoves?: string[]) {
 
 function sequenceStoneOpacity(index: number) {
   return Math.max(0.45, 0.82 - index * 0.08)
+}
+
+function sequenceMoveColor(toPlay: Snapshot['toPlay'] | undefined, index: number) {
+  const startsBlack = toPlay !== 'W'
+  const evenMove = index % 2 === 0
+  return evenMove === startsBlack ? 'B' : 'W'
 }
 
 function formatCandidate(candidate: CandidateMove) {
