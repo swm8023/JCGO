@@ -85,7 +85,7 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.game-row-action.danger')
   })
 
-  it('keeps portrait import available while the board workspace asks for landscape', () => {
+  it('keeps portrait import controls styled for compact dialogs', () => {
     expect(styles).toContain('.portrait-import-button {\n  min-height: 42px;')
     expect(styles).toContain('.import-dialog {\n  position: fixed;\n  inset: 0;\n  z-index: 40;')
     expect(styles).toContain('.import-dialog-body {\n  width: min(320px, 100%);')
@@ -124,9 +124,16 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 4px;')
   })
 
-  it('centers the portrait rotate prompt as one compact message', () => {
-    expect(styles).toContain('.rotate-prompt {\n    min-height: 100vh;\n    display: grid;\n    align-content: center;\n    justify-items: center;')
-    expect(styles).toContain('gap: 12px;')
-    expect(styles).toContain('.rotate-prompt p {\n    max-width: 28ch;')
+  it('keeps the board workspace visible in portrait with board information below the board', () => {
+    expect(styles).toContain('@media (orientation: portrait) and (max-width: 820px) {')
+    expect(styles).toContain('grid-template-columns: 1fr;')
+    expect(styles).toContain('grid-template-rows: minmax(0, 52vh) auto auto minmax(0, 1fr);')
+    expect(styles).toContain('.rotate-prompt {\n    display: none;')
+    expect(styles).not.toContain('@media (orientation: portrait) and (max-width: 820px) {\n  .app-layout {\n    display: none;')
+    expect(styles).toContain('.board-layout {\n    grid-template-columns: 1fr;\n    grid-template-rows: minmax(0, 1fr) auto;')
+    expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 8px;\n    order: 1;')
+    expect(styles).toContain('.board-info {\n    order: 2;')
+    expect(styles).toContain('.game-sidebar {\n    grid-row: 2;\n    height: auto;\n    min-height: 48px;\n    grid-template-columns: minmax(0, 1fr) auto;')
+    expect(styles).toContain('.sidebar-analysis {\n    grid-column: 2;')
   })
 })
