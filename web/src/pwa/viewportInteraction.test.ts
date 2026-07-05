@@ -24,6 +24,11 @@ class FakeEventTarget {
   }
 }
 
+class FakeVisualViewport extends FakeEventTarget {
+  width = 932
+  height = 430
+}
+
 class FakeStyle {
   readonly values = new Map<string, string>()
 
@@ -40,6 +45,7 @@ class FakeWindowTarget extends FakeEventTarget {
   innerWidth = 932
   innerHeight = 430
   coarsePointer = true
+  readonly visualViewport = new FakeVisualViewport()
 
   matchMedia() {
     return { matches: this.coarsePointer }
@@ -103,6 +109,28 @@ describe('viewport interaction guards', () => {
 
     cleanup()
     expect(windowTarget.listeners.get('resize')).toEqual([])
+  })
+
+  it('updates app height when mobile rotation is reported through visual viewport resize', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+
+    const cleanup = installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
+
+    windowTarget.visualViewport.width = 430
+    windowTarget.visualViewport.height = 932
+    windowTarget.visualViewport.dispatch('resize', new Event('resize'))
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('932px')
+
+    cleanup()
+    expect(windowTarget.visualViewport.listeners.get('resize')).toEqual([])
   })
 
   it('lets desktop window resizes follow the current viewport height', async () => {

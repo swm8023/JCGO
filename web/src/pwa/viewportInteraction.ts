@@ -3,7 +3,7 @@ const nonPassiveListener: AddEventListenerOptions = { passive: false }
 const appHeightVariable = '--app-height'
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
-  let viewportMode = viewportOrientation(windowTarget)
+  let viewportMode = viewportOrientation(windowViewportSize(windowTarget))
   let stableHeight = windowTarget.innerHeight
 
   const preventGestureZoom = (event: Event) => {
@@ -12,27 +12,33 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   const preventMultiTouchMove = (event: TouchEvent) => {
     if (event.touches.length > 1) event.preventDefault()
   }
-  const updateAppHeight = () => {
-    const nextMode = viewportOrientation(windowTarget)
+  const updateAppHeight = (viewport: ViewportSize) => {
+    const nextMode = viewportOrientation(viewport)
     if (nextMode !== viewportMode) {
       viewportMode = nextMode
-      stableHeight = windowTarget.innerHeight
+      stableHeight = viewport.height
     } else if (!hasCoarsePointer(windowTarget)) {
-      stableHeight = windowTarget.innerHeight
+      stableHeight = viewport.height
     } else {
-      stableHeight = Math.max(stableHeight, windowTarget.innerHeight)
+      stableHeight = Math.max(stableHeight, viewport.height)
     }
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
+  const updateAppHeightFromWindow = () => updateAppHeight(windowViewportSize(windowTarget))
+  const updateAppHeightFromVisualViewport = () => {
+    const viewport = windowTarget.visualViewport
+    if (viewport) updateAppHeight({ width: viewport.width, height: viewport.height })
+  }
 
-  updateAppHeight()
+  updateAppHeightFromWindow()
   for (const eventName of gestureEvents) {
     windowTarget.addEventListener(eventName, preventGestureZoom, nonPassiveListener)
     documentTarget.addEventListener(eventName, preventGestureZoom, nonPassiveListener)
   }
   documentTarget.addEventListener('touchmove', preventMultiTouchMove, nonPassiveListener)
-  windowTarget.addEventListener('resize', updateAppHeight)
-  windowTarget.addEventListener('orientationchange', updateAppHeight)
+  windowTarget.addEventListener('resize', updateAppHeightFromWindow)
+  windowTarget.addEventListener('orientationchange', updateAppHeightFromWindow)
+  windowTarget.visualViewport?.addEventListener('resize', updateAppHeightFromVisualViewport)
 
   return () => {
     for (const eventName of gestureEvents) {
@@ -40,13 +46,23 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
       documentTarget.removeEventListener(eventName, preventGestureZoom)
     }
     documentTarget.removeEventListener('touchmove', preventMultiTouchMove)
-    windowTarget.removeEventListener('resize', updateAppHeight)
-    windowTarget.removeEventListener('orientationchange', updateAppHeight)
+    windowTarget.removeEventListener('resize', updateAppHeightFromWindow)
+    windowTarget.removeEventListener('orientationchange', updateAppHeightFromWindow)
+    windowTarget.visualViewport?.removeEventListener('resize', updateAppHeightFromVisualViewport)
   }
 }
 
-function viewportOrientation(windowTarget: Window) {
-  return windowTarget.innerWidth >= windowTarget.innerHeight ? 'landscape' : 'portrait'
+interface ViewportSize {
+  width: number
+  height: number
+}
+
+function windowViewportSize(windowTarget: Window): ViewportSize {
+  return { width: windowTarget.innerWidth, height: windowTarget.innerHeight }
+}
+
+function viewportOrientation(viewport: ViewportSize) {
+  return viewport.width >= viewport.height ? 'landscape' : 'portrait'
 }
 
 function hasCoarsePointer(windowTarget: Window) {
