@@ -97,6 +97,7 @@ describe('viewport interaction guards', () => {
       documentTarget as unknown as Document,
     )
 
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
 
     windowTarget.innerHeight = 390
@@ -111,7 +112,7 @@ describe('viewport interaction guards', () => {
     expect(windowTarget.listeners.get('resize')).toEqual([])
   })
 
-  it('updates app height when mobile rotation is reported through visual viewport resize', async () => {
+  it('updates app dimensions when mobile rotation is reported through visual viewport resize', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
@@ -122,11 +123,13 @@ describe('viewport interaction guards', () => {
       documentTarget as unknown as Document,
     )
 
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
 
     windowTarget.visualViewport.width = 430
     windowTarget.visualViewport.height = 932
     windowTarget.visualViewport.dispatch('resize', new Event('resize'))
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('430px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('932px')
 
     cleanup()

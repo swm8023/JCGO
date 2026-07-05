@@ -1,5 +1,6 @@
 const gestureEvents = ['gesturestart', 'gesturechange', 'gestureend'] as const
 const nonPassiveListener: AddEventListenerOptions = { passive: false }
+const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
@@ -22,6 +23,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     } else {
       stableHeight = Math.max(stableHeight, viewport.height)
     }
+    documentTarget.documentElement.style.setProperty(appWidthVariable, `${viewport.width}px`)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
   const updateAppHeightFromWindow = () => updateAppHeight(windowViewportSize(windowTarget))

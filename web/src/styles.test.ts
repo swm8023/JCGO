@@ -13,6 +13,7 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('--board-wood: #d4a45e;')
     expect(styles).toContain('--signal: #c2410c;')
     expect(styles).toContain('--frame: #1e293b;')
+    expect(styles).toContain('--app-width: 100dvw;')
     expect(styles).toContain('font-family: "Inter", "Segoe UI", ui-sans-serif')
     expect(styles).toContain('background:\n    radial-gradient(circle at 20% 50%')
   })
@@ -34,6 +35,8 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('--app-safe-bottom: env(safe-area-inset-bottom, 0px);')
     expect(styles).toContain('html,\nbody,\n#root {\n  height: 100%;\n  overflow: hidden;\n  background: var(--paper);')
     expect(styles).toContain('.app-layout {\n  height: var(--app-height);')
+    expect(styles).toContain('width: var(--app-width);')
+    expect(styles).toContain('container-type: size;\n  container-name: app-layout;')
     expect(styles).toContain('padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);')
     expect(styles).toContain('grid-template-columns: 48px 1fr 48px minmax(340px, 420px);')
     expect(styles).toContain('.game-sidebar,\n.board-stage,\n.action-rail,\n.analysis-rail {\n  min-width: 0;\n  min-height: 0;\n  box-sizing: border-box;')
@@ -126,6 +129,7 @@ describe('responsive layout CSS', () => {
 
   it('keeps the board workspace visible in portrait with board information below the board', () => {
     expect(styles).toContain('@media (orientation: portrait) and (max-width: 820px) {')
+    expect(styles).toContain('@container app-layout (max-aspect-ratio: 1 / 1) and (max-width: 820px) {')
     expect(styles).toContain('grid-template-columns: 1fr;')
     expect(styles).toContain('grid-template-rows: minmax(0, 52vh) auto auto minmax(0, 1fr);')
     expect(styles).toContain('.rotate-prompt {\n    display: none;')
@@ -135,5 +139,16 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.board-info {\n    order: 2;')
     expect(styles).toContain('.game-sidebar {\n    grid-row: 2;\n    height: auto;\n    min-height: 48px;\n    grid-template-columns: minmax(0, 1fr) auto;')
     expect(styles).toContain('.sidebar-analysis {\n    grid-column: 2;')
+  })
+
+  it('keeps app layout responsive when mobile rotation leaves viewport media queries stale', () => {
+    expect(styles).toContain('@container app-layout (min-aspect-ratio: 1 / 1) and (max-width: 1220px) {')
+    expect(styles).toContain('@container app-layout (min-aspect-ratio: 1 / 1) and (max-height: 520px) {')
+    expect(styles).toContain('@container app-layout (min-aspect-ratio: 1 / 1) and (max-width: 820px) {')
+    expect(styles).toContain('@container app-layout (min-aspect-ratio: 1 / 1) and (min-width: 1101px) and (max-width: 1220px) {')
+    expect(styles).toContain('.board-stage {\n    grid-row: auto;\n    padding: 2px 4px;')
+    expect(styles).toContain('.board-layout {\n    grid-template-columns: auto minmax(0, 1fr);\n    grid-template-rows: none;')
+    expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 4px;\n    order: initial;')
+    expect(styles).toContain('.board-info {\n    order: initial;')
   })
 })
