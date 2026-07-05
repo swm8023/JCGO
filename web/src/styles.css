@@ -1066,7 +1066,7 @@ textarea:focus-visible {
     min-height: 0;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 44vh) auto minmax(198px, 1fr);
+    grid-template-rows: auto minmax(0, 46vh) auto minmax(150px, 1fr);
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;
@@ -1078,41 +1078,44 @@ textarea:focus-visible {
 
   .board-stage {
     grid-row: 2;
-    padding: 4px 8px 2px;
+    padding: 2px 6px 0;
     max-height: none;
   }
 
   .board-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 6px;
+    grid-template-rows: min-content minmax(0, 1fr);
+    gap: 2px;
   }
 
   .board-frame {
-    --board-frame-clearance: 8px;
+    --board-frame-clearance: 4px;
     order: 2;
   }
 
   .board-info {
     order: 1;
+    gap: 4px;
     max-width: 100%;
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
-    padding: 0 4px;
+    padding: 0 2px;
     text-align: center;
+    font-size: 11px;
+    line-height: 1;
   }
 
   .game-sidebar {
     grid-row: 1;
     height: auto;
-    min-height: 48px;
+    min-height: 40px;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    box-shadow: 0 2px 16px rgb(30 41 59 / 0.18);
+    gap: 4px;
+    padding: 4px 6px;
+    box-shadow: 0 1px 10px rgb(30 41 59 / 0.16);
   }
 
   .sidebar-header {
@@ -1120,16 +1123,30 @@ textarea:focus-visible {
     min-width: 0;
     flex-direction: row;
     justify-content: space-between;
-    gap: 6px;
+    gap: 4px;
   }
 
   .sidebar-actions {
     flex-direction: row;
+    gap: 4px;
   }
 
   .overlay-toggles {
     grid-auto-flow: column;
-    grid-auto-columns: 36px;
+    grid-auto-columns: 32px;
+    gap: 4px;
+  }
+
+  .overlay-toggles .toggle {
+    width: 32px;
+    height: 28px;
+    border-radius: 7px;
+    font-size: 11px;
+  }
+
+  .icon-button {
+    width: 32px;
+    height: 32px;
   }
 
   .sidebar-analysis {
@@ -1141,10 +1158,11 @@ textarea:focus-visible {
 
   .analysis-action-button {
     width: auto;
-    min-width: 48px;
+    min-width: 40px;
     max-width: none;
-    height: 34px;
-    padding: 2px 8px;
+    height: 30px;
+    padding: 2px 6px;
+    font-size: 9px;
   }
 
   .game-sidebar .narrow-label {
@@ -1158,79 +1176,136 @@ textarea:focus-visible {
   .game-sidebar.expanded .game-list {
     left: 8px;
     right: 8px;
-    top: calc(var(--app-safe-top) + 58px);
+    top: calc(var(--app-safe-top) + 48px);
     width: auto;
-    max-height: min(44vh, calc(var(--app-content-height) - 74px));
+    max-height: min(46vh, calc(var(--app-content-height) - 58px));
   }
 
   .action-rail {
     grid-row: 3;
-    padding: 6px 8px;
-    border-top: 1px solid var(--line);
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    border-left: 0;
+    position: relative;
+    z-index: 3;
+    padding: 0 8px 3px;
+    background: transparent;
+    border: 0;
   }
 
   .navigation-controls {
-    width: 100%;
+    width: max-content;
+    max-width: calc(100% - 16px);
     max-height: none;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(34px, auto);
+    grid-auto-columns: minmax(30px, auto);
     grid-template-columns: none;
     justify-content: center;
+    gap: 3px;
+    padding: 3px 5px;
+    border: 1px solid rgb(212 201 184 / 0.84);
+    border-radius: 999px;
+    background: rgb(250 248 244 / 0.92);
+    box-shadow: 0 8px 18px rgb(26 26 46 / 0.12);
     overflow-x: auto;
     overflow-y: hidden;
   }
 
   .navigation-controls button {
     width: auto;
-    min-width: 34px;
+    min-width: 30px;
     max-width: none;
-    height: 34px;
-    padding: 0 8px;
+    height: 30px;
+    padding: 0 7px;
+    border-radius: 999px;
   }
 
   .navigation-controls button[aria-label='Try selected recommendation'],
   .navigation-controls button[aria-label='Exit try mode'] {
     width: auto;
-    min-width: 42px;
+    min-width: 38px;
     max-width: none;
-    height: 34px;
+    height: 30px;
   }
 
   .move-number-stone {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
   }
 
   .analysis-rail {
     grid-row: 4;
     min-height: 0;
     max-height: none;
-    grid-template-rows: minmax(166px, 190px) minmax(0, 1fr);
-    gap: 6px;
-    padding: 6px 8px 8px;
+    grid-template-rows: minmax(118px, 140px) minmax(0, 1fr);
+    gap: 4px;
+    padding: 2px 6px 6px;
     overflow: hidden;
   }
 
   .analysis-overview {
-    grid-template-rows: auto minmax(128px, 1fr);
-    padding: 6px 8px;
+    grid-template-rows: 18px minmax(96px, 1fr);
+    gap: 2px;
+    padding: 4px 6px;
   }
 
   .analysis-summary {
+    gap: 3px;
+  }
+
+  .summary-metric {
     gap: 4px;
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .summary-metric strong {
+    font-size: 12px;
   }
 
   .winrate-chart {
-    min-height: 128px;
+    min-height: 96px;
   }
 
   .analysis-detail-tabs {
-    grid-template-rows: 28px minmax(0, 1fr);
-    gap: 6px;
-    padding: 8px;
+    grid-template-rows: 26px minmax(0, 1fr);
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .analysis-tab-list {
+    gap: 3px;
+  }
+
+  .analysis-tab {
+    height: 26px;
+    border-radius: 6px;
+    font-size: 11px;
+    padding: 0 2px;
+  }
+
+  .analysis-tab-count {
+    font-size: 10px;
+  }
+
+  .candidate-list,
+  .bad-move-list {
+    gap: 4px;
+  }
+
+  .candidate-row,
+  .bad-move {
+    min-height: 28px;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .bad-move-jump {
+    padding: 4px 6px;
+  }
+
+  .bad-move-copy {
+    min-width: 46px;
+    padding: 0 6px;
+    font-size: 11px;
   }
 
   .import-dialog-body {
@@ -1497,7 +1572,7 @@ textarea:focus-visible {
     min-height: 0;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 44vh) auto minmax(198px, 1fr);
+    grid-template-rows: auto minmax(0, 46vh) auto minmax(150px, 1fr);
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;
@@ -1509,41 +1584,44 @@ textarea:focus-visible {
 
   .board-stage {
     grid-row: 2;
-    padding: 4px 8px 2px;
+    padding: 2px 6px 0;
     max-height: none;
   }
 
   .board-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 6px;
+    grid-template-rows: min-content minmax(0, 1fr);
+    gap: 2px;
   }
 
   .board-frame {
-    --board-frame-clearance: 8px;
+    --board-frame-clearance: 4px;
     order: 2;
   }
 
   .board-info {
     order: 1;
+    gap: 4px;
     max-width: 100%;
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
-    padding: 0 4px;
+    padding: 0 2px;
     text-align: center;
+    font-size: 11px;
+    line-height: 1;
   }
 
   .game-sidebar {
     grid-row: 1;
     height: auto;
-    min-height: 48px;
+    min-height: 40px;
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: auto;
     align-items: center;
-    gap: 6px;
-    padding: 6px 8px;
-    box-shadow: 0 2px 16px rgb(30 41 59 / 0.18);
+    gap: 4px;
+    padding: 4px 6px;
+    box-shadow: 0 1px 10px rgb(30 41 59 / 0.16);
   }
 
   .sidebar-header {
@@ -1551,16 +1629,30 @@ textarea:focus-visible {
     min-width: 0;
     flex-direction: row;
     justify-content: space-between;
-    gap: 6px;
+    gap: 4px;
   }
 
   .sidebar-actions {
     flex-direction: row;
+    gap: 4px;
   }
 
   .overlay-toggles {
     grid-auto-flow: column;
-    grid-auto-columns: 36px;
+    grid-auto-columns: 32px;
+    gap: 4px;
+  }
+
+  .overlay-toggles .toggle {
+    width: 32px;
+    height: 28px;
+    border-radius: 7px;
+    font-size: 11px;
+  }
+
+  .icon-button {
+    width: 32px;
+    height: 32px;
   }
 
   .sidebar-analysis {
@@ -1572,10 +1664,11 @@ textarea:focus-visible {
 
   .analysis-action-button {
     width: auto;
-    min-width: 48px;
+    min-width: 40px;
     max-width: none;
-    height: 34px;
-    padding: 2px 8px;
+    height: 30px;
+    padding: 2px 6px;
+    font-size: 9px;
   }
 
   .game-sidebar .narrow-label {
@@ -1589,79 +1682,136 @@ textarea:focus-visible {
   .game-sidebar.expanded .game-list {
     left: 8px;
     right: 8px;
-    top: calc(var(--app-safe-top) + 58px);
+    top: calc(var(--app-safe-top) + 48px);
     width: auto;
-    max-height: min(44vh, calc(var(--app-content-height) - 74px));
+    max-height: min(46vh, calc(var(--app-content-height) - 58px));
   }
 
   .action-rail {
     grid-row: 3;
-    padding: 6px 8px;
-    border-top: 1px solid var(--line);
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    border-left: 0;
+    position: relative;
+    z-index: 3;
+    padding: 0 8px 3px;
+    background: transparent;
+    border: 0;
   }
 
   .navigation-controls {
-    width: 100%;
+    width: max-content;
+    max-width: calc(100% - 16px);
     max-height: none;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(34px, auto);
+    grid-auto-columns: minmax(30px, auto);
     grid-template-columns: none;
     justify-content: center;
+    gap: 3px;
+    padding: 3px 5px;
+    border: 1px solid rgb(212 201 184 / 0.84);
+    border-radius: 999px;
+    background: rgb(250 248 244 / 0.92);
+    box-shadow: 0 8px 18px rgb(26 26 46 / 0.12);
     overflow-x: auto;
     overflow-y: hidden;
   }
 
   .navigation-controls button {
     width: auto;
-    min-width: 34px;
+    min-width: 30px;
     max-width: none;
-    height: 34px;
-    padding: 0 8px;
+    height: 30px;
+    padding: 0 7px;
+    border-radius: 999px;
   }
 
   .navigation-controls button[aria-label='Try selected recommendation'],
   .navigation-controls button[aria-label='Exit try mode'] {
     width: auto;
-    min-width: 42px;
+    min-width: 38px;
     max-width: none;
-    height: 34px;
+    height: 30px;
   }
 
   .move-number-stone {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
   }
 
   .analysis-rail {
     grid-row: 4;
     min-height: 0;
     max-height: none;
-    grid-template-rows: minmax(166px, 190px) minmax(0, 1fr);
-    gap: 6px;
-    padding: 6px 8px 8px;
+    grid-template-rows: minmax(118px, 140px) minmax(0, 1fr);
+    gap: 4px;
+    padding: 2px 6px 6px;
     overflow: hidden;
   }
 
   .analysis-overview {
-    grid-template-rows: auto minmax(128px, 1fr);
-    padding: 6px 8px;
+    grid-template-rows: 18px minmax(96px, 1fr);
+    gap: 2px;
+    padding: 4px 6px;
   }
 
   .analysis-summary {
+    gap: 3px;
+  }
+
+  .summary-metric {
     gap: 4px;
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .summary-metric strong {
+    font-size: 12px;
   }
 
   .winrate-chart {
-    min-height: 128px;
+    min-height: 96px;
   }
 
   .analysis-detail-tabs {
-    grid-template-rows: 28px minmax(0, 1fr);
-    gap: 6px;
-    padding: 8px;
+    grid-template-rows: 26px minmax(0, 1fr);
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .analysis-tab-list {
+    gap: 3px;
+  }
+
+  .analysis-tab {
+    height: 26px;
+    border-radius: 6px;
+    font-size: 11px;
+    padding: 0 2px;
+  }
+
+  .analysis-tab-count {
+    font-size: 10px;
+  }
+
+  .candidate-list,
+  .bad-move-list {
+    gap: 4px;
+  }
+
+  .candidate-row,
+  .bad-move {
+    min-height: 28px;
+    gap: 4px;
+    font-size: 12px;
+  }
+
+  .bad-move-jump {
+    padding: 4px 6px;
+  }
+
+  .bad-move-copy {
+    min-width: 46px;
+    padding: 0 6px;
+    font-size: 11px;
   }
 
   .import-dialog-body {
