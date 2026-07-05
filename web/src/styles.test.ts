@@ -127,17 +127,22 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 4px;')
   })
 
-  it('keeps the board workspace visible in portrait with board information below the board', () => {
+  it('keeps the portrait workspace ordered as toolbar, game info, board, controls, then analysis', () => {
     expect(styles).toContain('@media (orientation: portrait) and (max-width: 820px) {')
     expect(styles).toContain('@container app-layout (max-aspect-ratio: 1 / 1) and (max-width: 820px) {')
     expect(styles).toContain('grid-template-columns: 1fr;')
-    expect(styles).toContain('grid-template-rows: minmax(0, 52vh) auto auto minmax(0, 1fr);')
+    expect(styles).toContain('grid-template-rows: auto minmax(0, 44vh) auto minmax(198px, 1fr);')
     expect(styles).toContain('.rotate-prompt {\n    display: none;')
     expect(styles).not.toContain('@media (orientation: portrait) and (max-width: 820px) {\n  .app-layout {\n    display: none;')
-    expect(styles).toContain('.board-layout {\n    grid-template-columns: 1fr;\n    grid-template-rows: minmax(0, 1fr) auto;')
-    expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 8px;\n    order: 1;')
-    expect(styles).toContain('.board-info {\n    order: 2;')
-    expect(styles).toContain('.game-sidebar {\n    grid-row: 2;\n    height: auto;\n    min-height: 48px;\n    grid-template-columns: minmax(0, 1fr) auto;')
+    expect(styles).toContain('.game-sidebar {\n    grid-row: 1;\n    height: auto;\n    min-height: 48px;\n    grid-template-columns: minmax(0, 1fr) auto;')
+    expect(styles).toContain('.board-stage {\n    grid-row: 2;')
+    expect(styles).toContain('.board-layout {\n    grid-template-columns: 1fr;\n    grid-template-rows: auto minmax(0, 1fr);')
+    expect(styles).toContain('.board-info {\n    order: 1;')
+    expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 8px;\n    order: 2;')
+    expect(styles).toContain('.action-rail {\n    grid-row: 3;')
+    expect(styles).toContain('.analysis-rail {\n    grid-row: 4;\n    min-height: 0;\n    max-height: none;\n    grid-template-rows: minmax(166px, 190px) minmax(0, 1fr);')
+    expect(styles).toContain('.analysis-overview {\n    grid-template-rows: auto minmax(128px, 1fr);')
+    expect(styles).toContain('.winrate-chart {\n    min-height: 128px;')
     expect(styles).toContain('.sidebar-analysis {\n    grid-column: 2;')
   })
 
