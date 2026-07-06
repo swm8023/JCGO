@@ -23,6 +23,9 @@ describe('AnalysisDetailTabs', () => {
       />,
     )
 
+    expect(screen.getByRole('tab', { name: '黑恶手 1' })).toHaveTextContent('黑')
+    expect(screen.getByRole('tab', { name: '白恶手 1' })).toHaveTextContent('白')
+    expect(screen.getByRole('tab', { name: '推荐点 1' })).toHaveTextContent('推荐')
     expect(screen.getByRole('tab', { name: '推荐点 1' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tabpanel', { name: '推荐点 1' })).toHaveTextContent('R17')
     expect(screen.queryByText('Q16')).not.toBeInTheDocument()

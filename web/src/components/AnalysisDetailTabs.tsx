@@ -18,9 +18,9 @@ export function AnalysisDetailTabs({ badMoves, candidates, onJump, onCandidateCl
   const blackBadMoves = useMemo(() => badMoves.filter((move) => move.color === 'B'), [badMoves])
   const whiteBadMoves = useMemo(() => badMoves.filter((move) => move.color === 'W'), [badMoves])
   const tabs = [
-    { id: 'black-bad' as const, label: '黑恶手', count: blackBadMoves.length },
-    { id: 'white-bad' as const, label: '白恶手', count: whiteBadMoves.length },
-    { id: 'candidates' as const, label: '推荐点', count: candidates.length },
+    { id: 'black-bad' as const, label: '黑恶手', shortLabel: '黑', count: blackBadMoves.length },
+    { id: 'white-bad' as const, label: '白恶手', shortLabel: '白', count: whiteBadMoves.length },
+    { id: 'candidates' as const, label: '推荐点', shortLabel: '推荐', count: candidates.length },
   ]
   const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[2]
 
@@ -39,7 +39,7 @@ export function AnalysisDetailTabs({ badMoves, candidates, onJump, onCandidateCl
             aria-controls={`analysis-panel-${tab.id}`}
             onClick={() => setActiveTab(tab.id)}
           >
-            <span>{tab.label}</span>
+            <span className="analysis-tab-label">{tab.shortLabel}</span>
             <span className="analysis-tab-count">{tab.count}</span>
           </button>
         ))}

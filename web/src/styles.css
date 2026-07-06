@@ -696,10 +696,23 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
-.navigation-controls button:hover {
-  background: var(--surface-raised);
+.navigation-controls button:active {
+  transform: translateY(1px) scale(0.98);
   border-color: var(--line-strong);
-  box-shadow: 0 4px 12px rgb(26 26 46 / 0.1);
+  background: var(--surface-raised);
+  box-shadow: inset 0 1px 2px rgb(26 26 46 / 0.12);
+}
+
+.navigation-controls button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .navigation-controls button:hover {
+    background: var(--surface-raised);
+    border-color: var(--line-strong);
+    box-shadow: 0 4px 12px rgb(26 26 46 / 0.1);
+  }
 }
 
 .try-action-button {
@@ -738,6 +751,34 @@ textarea:focus-visible {
 .navigation-controls .try-action-exit:hover {
   border-color: #991b1b;
   background: #b91c1c;
+}
+
+@media (hover: none), (pointer: coarse) {
+  button:not(:disabled):hover {
+    transform: none;
+  }
+
+  .navigation-controls button:hover {
+    border-color: var(--line);
+    background: var(--surface);
+    box-shadow: 0 2px 8px rgb(26 26 46 / 0.06);
+  }
+
+  .navigation-controls button:active {
+    transform: translateY(1px) scale(0.98);
+  }
+
+  .navigation-controls .try-action-enter:hover {
+    border-color: #047857;
+    background: #059669;
+    color: var(--surface);
+  }
+
+  .navigation-controls .try-action-exit:hover {
+    border-color: #b91c1c;
+    background: #dc2626;
+    color: var(--surface);
+  }
 }
 
 /* ─── Analysis Rail ─── */
@@ -837,7 +878,6 @@ textarea:focus-visible {
 .candidate-row:hover,
 .bad-move:hover,
 .icon-button:hover,
-.navigation-controls button:hover,
 .analysis-tab:hover {
   border-color: var(--table);
   background: var(--surface-raised);
@@ -1019,46 +1059,73 @@ textarea:focus-visible {
 }
 
 .analysis-detail-tabs {
-  grid-template-rows: 30px minmax(0, 1fr);
-  gap: 8px;
-  padding: 10px;
+  grid-template-rows: 24px minmax(0, 1fr);
+  gap: 6px;
+  padding: 8px;
 }
 
 .analysis-tab-list {
+  width: max-content;
+  max-width: 100%;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  grid-template-columns: none;
+  align-items: center;
+  justify-content: start;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgb(212 201 184 / 0.72);
+  border-radius: 999px;
+  background: rgb(212 201 184 / 0.28);
+  overflow: hidden;
 }
 
 .analysis-tab {
-  min-width: 0;
-  height: 30px;
+  min-width: 42px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface);
+  padding: 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 700;
+  box-shadow: none;
 }
 
 .analysis-tab[aria-selected='true'] {
-  border-color: var(--table);
-  background: rgb(26 71 42 / 0.08);
-  color: var(--table);
-  font-weight: 700;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgb(26 26 46 / 0.1);
+}
+
+.analysis-tab-label {
+  line-height: 1;
 }
 
 .analysis-tab-count {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
+  min-width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgb(26 71 42 / 0.08);
+  color: var(--table);
+  font-size: 10px;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+.analysis-tab[aria-selected='true'] .analysis-tab-count {
+  background: rgb(26 71 42 / 0.12);
 }
 
 .analysis-tab-panel {
@@ -1321,8 +1388,16 @@ textarea:focus-visible {
     max-height: none;
     grid-template-rows: var(--portrait-overview-height) minmax(0, 1fr);
     gap: 4px;
-    padding: 6px 6px 6px;
+    padding: 4px 6px 6px;
+    background: var(--board-zone);
     overflow: hidden;
+  }
+
+  .analysis-overview,
+  .analysis-detail-tabs {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
   }
 
   .analysis-overview {
@@ -1356,24 +1431,27 @@ textarea:focus-visible {
   }
 
   .analysis-detail-tabs {
-    grid-template-rows: 26px minmax(0, 1fr);
-    gap: 4px;
-    padding: 6px;
+    grid-template-rows: 22px minmax(0, 1fr);
+    gap: 3px;
+    padding: 4px 6px 6px;
   }
 
   .analysis-tab-list {
-    gap: 3px;
+    gap: 2px;
   }
 
   .analysis-tab {
-    height: 26px;
-    border-radius: 6px;
-    font-size: 11px;
-    padding: 0 2px;
+    min-width: 34px;
+    height: 18px;
+    font-size: 10px;
+    padding: 0 5px;
   }
 
   .analysis-tab-count {
-    font-size: 10px;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    font-size: 9px;
   }
 
   .candidate-list,
@@ -1560,24 +1638,27 @@ textarea:focus-visible {
   }
 
   .analysis-detail-tabs {
-    grid-template-rows: 26px minmax(0, 1fr);
-    gap: 4px;
-    padding: 6px 8px;
+    grid-template-rows: 22px minmax(0, 1fr);
+    gap: 3px;
+    padding: 5px 6px;
   }
 
   .analysis-tab-list {
-    gap: 3px;
+    gap: 2px;
   }
 
   .analysis-tab {
-    height: 26px;
-    border-radius: 6px;
-    font-size: 11px;
-    padding: 0 2px;
+    min-width: 34px;
+    height: 18px;
+    font-size: 10px;
+    padding: 0 5px;
   }
 
   .analysis-tab-count {
-    font-size: 10px;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    font-size: 9px;
   }
 
   .candidate-list,
@@ -1841,8 +1922,16 @@ textarea:focus-visible {
     max-height: none;
     grid-template-rows: var(--portrait-overview-height) minmax(0, 1fr);
     gap: 4px;
-    padding: 6px 6px 6px;
+    padding: 4px 6px 6px;
+    background: var(--board-zone);
     overflow: hidden;
+  }
+
+  .analysis-overview,
+  .analysis-detail-tabs {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
   }
 
   .analysis-overview {
@@ -1876,24 +1965,27 @@ textarea:focus-visible {
   }
 
   .analysis-detail-tabs {
-    grid-template-rows: 26px minmax(0, 1fr);
-    gap: 4px;
-    padding: 6px;
+    grid-template-rows: 22px minmax(0, 1fr);
+    gap: 3px;
+    padding: 4px 6px 6px;
   }
 
   .analysis-tab-list {
-    gap: 3px;
+    gap: 2px;
   }
 
   .analysis-tab {
-    height: 26px;
-    border-radius: 6px;
-    font-size: 11px;
-    padding: 0 2px;
+    min-width: 34px;
+    height: 18px;
+    font-size: 10px;
+    padding: 0 5px;
   }
 
   .analysis-tab-count {
-    font-size: 10px;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    font-size: 9px;
   }
 
   .candidate-list,
@@ -2136,24 +2228,27 @@ textarea:focus-visible {
   }
 
   .analysis-detail-tabs {
-    grid-template-rows: 26px minmax(0, 1fr);
-    gap: 4px;
-    padding: 6px 8px;
+    grid-template-rows: 22px minmax(0, 1fr);
+    gap: 3px;
+    padding: 5px 6px;
   }
 
   .analysis-tab-list {
-    gap: 3px;
+    gap: 2px;
   }
 
   .analysis-tab {
-    height: 26px;
-    border-radius: 6px;
-    font-size: 11px;
-    padding: 0 2px;
+    min-width: 34px;
+    height: 18px;
+    font-size: 10px;
+    padding: 0 5px;
   }
 
   .analysis-tab-count {
-    font-size: 10px;
+    min-width: 13px;
+    height: 13px;
+    padding: 0 3px;
+    font-size: 9px;
   }
 
   .candidate-list,
@@ -2337,9 +2432,9 @@ textarea:focus-visible {
   }
 
   .analysis-detail-tabs {
-    grid-template-rows: 26px minmax(0, 1fr);
-    gap: 4px;
-    padding: 6px 8px;
+    grid-template-rows: 22px minmax(0, 1fr);
+    gap: 3px;
+    padding: 5px 6px;
   }
 }
 
