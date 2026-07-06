@@ -879,17 +879,17 @@ textarea:focus-visible {
   overflow: hidden;
   max-height: calc(var(--app-content-height) - 16px);
   padding: 8px 8px 8px 4px;
-  background: var(--paper);
+  background: var(--board-zone);
 }
 
 .rail-section {
   display: grid;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  box-shadow: 0 4px 16px rgb(26 26 46 / 0.06);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .rail-section h2 {
@@ -974,12 +974,12 @@ textarea:focus-visible {
 
 .candidate-row,
 .bad-move {
-  min-height: 36px;
+  min-height: var(--ui-card-min-height);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--ui-card-radius);
   background: var(--surface);
   color: var(--ink);
-  box-shadow: inset 0 -1px 0 rgb(26 26 46 / 0.04);
+  box-shadow: none;
 }
 
 .candidate-row:hover,
@@ -993,7 +993,7 @@ textarea:focus-visible {
 .candidate-list,
 .bad-move-list {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   padding: 1px;
 }
 
