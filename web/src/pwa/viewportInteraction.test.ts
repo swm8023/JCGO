@@ -206,6 +206,40 @@ describe('viewport interaction guards', () => {
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
   })
 
+  it('keeps sampling after rotation until delayed mobile viewport dimensions settle', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.innerWidth = 368
+    windowTarget.innerHeight = 663
+    windowTarget.visualViewport.width = 368
+    windowTarget.visualViewport.height = 663
+    windowTarget.portrait = true
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.innerWidth = 795
+    windowTarget.innerHeight = 278
+    windowTarget.visualViewport.width = 795
+    windowTarget.visualViewport.height = 278
+    windowTarget.setPortrait(false)
+    windowTarget.dispatch('resize', new Event('resize'))
+    windowTarget.runAnimationFrames()
+
+    windowTarget.innerWidth = 932
+    windowTarget.innerHeight = 430
+    windowTarget.visualViewport.width = 932
+    windowTarget.visualViewport.height = 430
+    for (let i = 0; i < 10; i++) windowTarget.runAnimationFrames()
+
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
+  })
+
   it('lets desktop window resizes follow the current viewport height', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')

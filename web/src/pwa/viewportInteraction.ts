@@ -2,10 +2,12 @@ const gestureEvents = ['gesturestart', 'gesturechange', 'gestureend'] as const
 const nonPassiveListener: AddEventListenerOptions = { passive: false }
 const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
+const orientationSettleFrameCount = 8
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
   let stableHeight = windowTarget.innerHeight
   let orientationChangePending = false
+  let orientationSettleFramesRemaining = 0
   let rafId: number | undefined
 
   const preventGestureZoom = (event: Event) => {
@@ -18,23 +20,34 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     documentTarget.documentElement.style.setProperty(appWidthVariable, `${width}px`)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
-  const flushOrientationChange = () => {
-    if (rafId !== undefined) {
-      windowTarget.cancelAnimationFrame(rafId)
-      rafId = undefined
-    }
-    if (!orientationChangePending) return
-    orientationChangePending = false
+  const applyCurrentViewport = () => {
     const viewport = currentViewportSize(windowTarget)
     stableHeight = viewport.height
     applyViewport(viewport.width)
   }
+  const scheduleOrientationSettle = () => {
+    if (rafId !== undefined) return
+    rafId = windowTarget.requestAnimationFrame(runOrientationSettle)
+  }
+  const restartOrientationSettle = () => {
+    orientationChangePending = true
+    orientationSettleFramesRemaining = orientationSettleFrameCount
+    scheduleOrientationSettle()
+  }
+  const runOrientationSettle = () => {
+    rafId = undefined
+    if (!orientationChangePending) return
+    applyCurrentViewport()
+    orientationSettleFramesRemaining -= 1
+    if (orientationSettleFramesRemaining <= 0) {
+      orientationChangePending = false
+      return
+    }
+    scheduleOrientationSettle()
+  }
   const handleResize = () => {
     if (orientationChangePending) {
-      rafId = windowTarget.requestAnimationFrame(() => {
-        rafId = undefined
-        flushOrientationChange()
-      })
+      restartOrientationSettle()
       return
     }
     const viewport = currentViewportSize(windowTarget)
@@ -46,18 +59,11 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     applyViewport(viewport.width)
   }
   const handleOrientationChange = () => {
-    orientationChangePending = true
-    // Use double-rAF to ensure viewport dimensions have updated after rotation.
-    rafId = windowTarget.requestAnimationFrame(() => {
-      rafId = windowTarget.requestAnimationFrame(() => {
-        rafId = undefined
-        flushOrientationChange()
-      })
-    })
+    restartOrientationSettle()
   }
   const handleVisualViewportResize = () => {
     if (orientationChangePending) {
-      flushOrientationChange()
+      restartOrientationSettle()
       return
     }
     const viewport = windowTarget.visualViewport
