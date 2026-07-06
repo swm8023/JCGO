@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { RPCClient } from './api/jsonrpc'
 import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
@@ -12,6 +12,7 @@ import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
 import { RotatePrompt } from './components/RotatePrompt'
 import { TokenGate } from './components/TokenGate'
+import { computeSideActionPlacement, type SideActionPlacement } from './layout/sideActionRail'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
@@ -26,6 +27,14 @@ const viewGameKey = 'jcgo.view.gameId'
 const viewNodeKey = 'jcgo.view.nodeId'
 const sharedSGFURL = '/shared-sgf/latest'
 const shareTargetRedirectPath = '/?share-target=sgf'
+const emptySideActionPlacement = computeSideActionPlacement({
+  layoutWidth: 0,
+  layoutHeight: 0,
+  boardStageRight: 0,
+  boardRight: 0,
+  boardTop: 0,
+  boardHeight: 0,
+}, false)
 
 type SharedSGFFile = { name: string; text: string }
 type SharedSGFPayload = { files?: Array<{ name?: unknown; text?: unknown }> }
@@ -50,6 +59,12 @@ export default function App() {
   const wasConnected = useRef(false)
   const currentViewRef = useRef<RememberedView>(readRememberedView())
   const handledShareTargetRef = useRef(false)
+  const layoutRef = useRef<HTMLElement>(null)
+  const boardStageRef = useRef<HTMLElement>(null)
+  const boardFrameRef = useRef<HTMLDivElement>(null)
+  const actionRailRef = useRef<HTMLElement>(null)
+  const sideActionEnabledRef = useRef(false)
+  const [sideActionPlacement, setSideActionPlacement] = useState<SideActionPlacement>(emptySideActionPlacement)
   const wsUrl = useMemo(() => websocketURL(), [])
 
   const applyWorkspaceState = (state: StatePayload) => {
@@ -201,6 +216,54 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown)
   })
 
+  useEffect(() => {
+    const updatePlacement = () => {
+      const layout = layoutRef.current
+      const boardStage = boardStageRef.current
+      const board = boardFrameRef.current?.querySelector<Element>('.go-board')
+      if (!layout || !boardStage || !board) {
+        sideActionEnabledRef.current = false
+        setSideActionPlacement((current) => sideActionPlacementsEqual(current, emptySideActionPlacement) ? current : emptySideActionPlacement)
+        return
+      }
+
+      const layoutRect = layout.getBoundingClientRect()
+      const stageRect = boardStage.getBoundingClientRect()
+      const boardRect = board.getBoundingClientRect()
+      const next = computeSideActionPlacement({
+        layoutWidth: layoutRect.width,
+        layoutHeight: layoutRect.height,
+        boardStageRight: stageRect.right - layoutRect.left,
+        boardRight: boardRect.right - layoutRect.left,
+        boardTop: boardRect.top - layoutRect.top,
+        boardHeight: boardRect.height,
+      }, sideActionEnabledRef.current)
+
+      sideActionEnabledRef.current = next.enabled
+      setSideActionPlacement((current) => sideActionPlacementsEqual(current, next) ? current : next)
+    }
+
+    const frame = window.requestAnimationFrame(updatePlacement)
+    window.addEventListener('resize', updatePlacement)
+    let observer: ResizeObserver | undefined
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(updatePlacement)
+      const observed: Element[] = []
+      for (const element of [layoutRef.current, boardStageRef.current, boardFrameRef.current, actionRailRef.current]) {
+        if (element) observed.push(element)
+      }
+      const board = boardFrameRef.current?.querySelector<Element>('.go-board')
+      if (board) observed.push(board)
+      observed.forEach((element) => observer?.observe(element))
+    }
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', updatePlacement)
+      observer?.disconnect()
+    }
+  }, [snapshot, token])
+
   if (!token) return <TokenGate onSubmit={setToken} />
 
   const selectGame = async (gameId: string) => {
@@ -302,9 +365,11 @@ export default function App() {
     applyWorkspaceState(state)
   }
 
+  const layoutStyle = sideActionPlacement.enabled ? sideActionStyle(sideActionPlacement) : undefined
+
   return (
     <>
-      <main className="app-layout">
+      <main ref={layoutRef} className={sideActionPlacement.enabled ? 'app-layout side-action-layout' : 'app-layout'} style={layoutStyle}>
       <GameSidebar
         games={games}
         listOpen={gameListOpen}
@@ -323,10 +388,10 @@ export default function App() {
         onRestartAnalysis={restartAnalysis}
         toolbarSlot={<OverlayToggles value={overlays} onChange={updateOverlays} />}
       />
-      <section className="board-stage">
+      <section ref={boardStageRef} className="board-stage">
         <div className="board-layout">
           <BoardInfo blackName={snapshot?.blackName} whiteName={snapshot?.whiteName} result={snapshot?.result} />
-          <div className="board-frame">
+          <div ref={boardFrameRef} className="board-frame">
             <Board
               snapshot={snapshot}
               candidates={snapshot?.analysis?.candidates ?? []}
@@ -343,7 +408,7 @@ export default function App() {
         </div>
         {error && <p className="app-error">{error}</p>}
       </section>
-      <nav className="action-rail">
+      <nav ref={actionRailRef} className="action-rail">
         <NavigationControls
           moveNumber={snapshot?.moveNumber ?? 0}
           totalMoves={snapshot?.totalMoves ?? 0}
@@ -378,6 +443,30 @@ export default function App() {
       <RotatePrompt onImport={() => setShowImport(true)} />
     </>
   )
+}
+
+type SideActionStyle = CSSProperties & {
+  '--side-action-left': string
+  '--side-action-top': string
+  '--side-action-width': string
+  '--side-action-row-height': string
+}
+
+function sideActionStyle(placement: SideActionPlacement): SideActionStyle {
+  return {
+    '--side-action-left': `${placement.left}px`,
+    '--side-action-top': `${placement.top}px`,
+    '--side-action-width': `${placement.width}px`,
+    '--side-action-row-height': `${placement.rowHeight}px`,
+  }
+}
+
+function sideActionPlacementsEqual(left: SideActionPlacement, right: SideActionPlacement) {
+  return left.enabled === right.enabled
+    && left.left === right.left
+    && left.top === right.top
+    && left.width === right.width
+    && left.rowHeight === right.rowHeight
 }
 
 function websocketURL() {

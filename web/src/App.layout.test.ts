@@ -46,11 +46,20 @@ describe('right rail layout', () => {
 
   it('wraps the board in a measured frame after the game metadata', () => {
     const boardInfo = app.indexOf('<BoardInfo')
-    const boardFrame = app.indexOf('<div className="board-frame">')
+    const boardFrame = app.indexOf('<div ref={boardFrameRef} className="board-frame">')
     const board = app.indexOf('<Board\n', boardFrame)
 
     expect(boardInfo).toBeGreaterThan(0)
     expect(boardFrame).toBeGreaterThan(boardInfo)
     expect(board).toBeGreaterThan(boardFrame)
+  })
+
+  it('connects measured wide-portrait side controls to the app layout', () => {
+    expect(app).toContain("import { computeSideActionPlacement")
+    expect(app).toContain("className={sideActionPlacement.enabled ? 'app-layout side-action-layout' : 'app-layout'}")
+    expect(app).toContain('ref={layoutRef}')
+    expect(app).toContain('ref={boardStageRef}')
+    expect(app).toContain('ref={boardFrameRef}')
+    expect(app).toContain('ref={actionRailRef}')
   })
 })
