@@ -34,8 +34,26 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     while (debugSamples.length > viewportDebugSampleLimit) debugSamples.shift()
     debugOverlay.textContent = debugSamples.join('\n\n')
   }
+  const consoleLog: string[] = []
+  const logToOverlay = (msg: string) => {
+    console.log(msg)
+    consoleLog.push(msg)
+    if (consoleLog.length > 20) consoleLog.shift()
+    if (debugOverlay) {
+      let logEl = documentTarget.getElementById('__viewport-log')
+      if (!logEl) {
+        logEl = documentTarget.createElement('div')
+        logEl.id = '__viewport-log'
+        logEl.style.cssText = 'margin-top:4px;max-height:40vh;overflow:hidden'
+        debugOverlay.appendChild(logEl)
+      }
+      logEl.textContent = consoleLog.join('\n')
+    }
+  }
   const applyCurrentViewport = (source: string) => {
     const viewport = currentViewportSize(windowTarget)
+    const vv = windowTarget.visualViewport
+    logToOverlay(`[${source}] win=${windowTarget.innerWidth}x${windowTarget.innerHeight} vv=${vv?.width}x${vv?.height} sc=${round(vv?.scale ?? 1)} -> h=${round(viewport.height)} sh=${round(stableHeight)}`)
     stableHeight = viewport.height
     applyViewport()
     writeDebug(source)
@@ -68,6 +86,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
       return
     }
     const viewport = currentViewportSize(windowTarget)
+    const vv = windowTarget.visualViewport
+    logToOverlay(`[resize] win=${windowTarget.innerWidth}x${windowTarget.innerHeight} vv=${vv?.width}x${vv?.height} sc=${round(vv?.scale ?? 1)} -> h=${round(viewport.height)} sh=${round(stableHeight)}`)
     if (!hasCoarsePointer(windowTarget)) {
       stableHeight = viewport.height
     } else {
@@ -87,6 +107,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     const viewport = windowTarget.visualViewport
     if (!viewport) return
     const windowSize = currentViewportSize(windowTarget)
+    logToOverlay(`[vv] win=${windowTarget.innerWidth}x${windowTarget.innerHeight} vv=${viewport.width}x${viewport.height} sc=${round(viewport.scale)} -> h=${round(windowSize.height)} sh=${round(stableHeight)}`)
     if (!hasCoarsePointer(windowTarget)) {
       stableHeight = windowSize.height
     } else {
