@@ -324,7 +324,7 @@ export default function App() {
       />
       <section className="board-stage">
         <div className="board-layout">
-          <BoardInfo blackName={snapshot?.blackName} whiteName={snapshot?.whiteName} komi={snapshot?.komi} rules={snapshot?.rules} />
+          <BoardInfo blackName={snapshot?.blackName} whiteName={snapshot?.whiteName} result={snapshot?.result} />
           <div className="board-frame">
             <Board
               snapshot={snapshot}

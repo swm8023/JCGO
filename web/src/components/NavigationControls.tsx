@@ -41,14 +41,13 @@ export function NavigationControls(props: NavigationControlsProps) {
         &gt;|
       </button>
       {(props.tryMode || props.canBackToMain) && (
-        <button aria-label="Exit try mode" onClick={props.onExitTryMode}>
-          <span className="wide-label">退出试下</span>
-          <span className="narrow-label">退出</span>
+        <button className="try-action-button try-action-exit" aria-label="Exit try mode" onClick={props.onExitTryMode}>
+          退
         </button>
       )}
       {!props.tryMode && !props.canBackToMain && (
-        <button aria-label="Try selected recommendation" onClick={props.onEnterTryMode}>
-          试下
+        <button className="try-action-button try-action-enter" aria-label="Try selected recommendation" onClick={props.onEnterTryMode}>
+          试
         </button>
       )}
     </nav>

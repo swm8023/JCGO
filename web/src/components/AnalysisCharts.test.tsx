@@ -20,7 +20,7 @@ describe('AnalysisCharts', () => {
 
     expect(screen.queryByText('胜率曲线')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Winrate curve')).toHaveAttribute('preserveAspectRatio', 'none')
-    expect(screen.getByLabelText('Winrate curve')).toHaveAttribute('viewBox', '0 0 320 144')
+    expect(screen.getByLabelText('Winrate curve')).toHaveAttribute('viewBox', '0 0 320 112')
     expect(screen.getByLabelText('Black winrate line')).toBeInTheDocument()
     expect(screen.getByLabelText('Score lead line')).toBeInTheDocument()
     expect(screen.getByLabelText('Current move marker')).toBeInTheDocument()
@@ -29,8 +29,8 @@ describe('AnalysisCharts', () => {
     expect(screen.getByText('100')).toBeInTheDocument()
     expect(screen.getByText('200')).toBeInTheDocument()
     for (const tickLabel of screen.getByLabelText('Winrate curve').querySelectorAll('.chart-tick-label')) {
-      expect(Number(tickLabel.getAttribute('y'))).toBeGreaterThanOrEqual(136)
-      expect(Number(tickLabel.getAttribute('y'))).toBeLessThanOrEqual(138)
+      expect(Number(tickLabel.getAttribute('y'))).toBeGreaterThanOrEqual(104)
+      expect(Number(tickLabel.getAttribute('y'))).toBeLessThanOrEqual(106)
     }
     expect(screen.queryByText('42.0%')).not.toBeInTheDocument()
     expect(screen.queryByText('5.2')).not.toBeInTheDocument()

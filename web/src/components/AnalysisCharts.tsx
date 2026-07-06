@@ -8,11 +8,11 @@ interface AnalysisChartsProps {
 
 const chart = {
   width: 320,
-  height: 144,
+  height: 112,
   left: 28,
   right: 28,
   top: 4,
-  bottom: 24,
+  bottom: 18,
 }
 
 const plotWidth = chart.width - chart.left - chart.right

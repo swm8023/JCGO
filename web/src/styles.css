@@ -501,11 +501,64 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  max-width: 168px;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.1;
   white-space: nowrap;
   writing-mode: horizontal-tb;
+}
+
+.board-matchup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.board-player {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.board-player-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.board-player-stone {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border: 1px solid;
+  border-radius: 50%;
+}
+
+.board-player-stone-black {
+  border-color: #050505;
+  background: radial-gradient(circle at 32% 28%, #5f6065 0%, #1a1a1d 42%, #050505 100%);
+}
+
+.board-player-stone-white {
+  border-color: #9ca3af;
+  background: radial-gradient(circle at 32% 28%, #ffffff 0%, #f3f4f6 52%, #d1d5db 100%);
+}
+
+.board-versus {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.board-result {
+  color: var(--table);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 @container board-stage (max-aspect-ratio: 19 / 10) {
@@ -518,6 +571,7 @@ textarea:focus-visible {
     flex-direction: row;
     flex-wrap: wrap;
     justify-content: center;
+    max-width: 100%;
   }
 }
 
@@ -647,20 +701,40 @@ textarea:focus-visible {
   box-shadow: 0 4px 12px rgb(26 26 46 / 0.1);
 }
 
-.navigation-controls button[aria-label='Try selected recommendation'],
-.navigation-controls button[aria-label='Exit try mode'] {
-  width: 100%;
-  max-width: 40px;
-  height: 36px;
-  border-color: var(--table-deep);
-  background: var(--table);
-  color: var(--surface);
-  font-size: 11px;
+.try-action-button {
+  border-radius: 50%;
+  line-height: 1;
 }
 
-.navigation-controls button[aria-label='Try selected recommendation']:hover,
-.navigation-controls button[aria-label='Exit try mode']:hover {
-  background: #1a5c32;
+.navigation-controls .try-action-button {
+  width: 36px;
+  min-width: 36px;
+  max-width: 36px;
+  height: 36px;
+  padding: 0;
+  color: var(--surface);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.try-action-enter {
+  border-color: #047857;
+  background: #059669;
+}
+
+.try-action-exit {
+  border-color: #b91c1c;
+  background: #dc2626;
+}
+
+.navigation-controls .try-action-enter:hover {
+  border-color: #065f46;
+  background: #047857;
+}
+
+.navigation-controls .try-action-exit:hover {
+  border-color: #991b1b;
+  background: #b91c1c;
 }
 
 /* ─── Analysis Rail ─── */
@@ -857,7 +931,7 @@ textarea:focus-visible {
 .winrate-chart {
   width: 100%;
   height: 100%;
-  min-height: 112px;
+  min-height: 88px;
   display: block;
   background: transparent;
   overflow: visible;
@@ -1185,8 +1259,8 @@ textarea:focus-visible {
     grid-row: 3;
     position: relative;
     z-index: 3;
-    padding: 0 8px 3px;
-    background: transparent;
+    padding: 0 8px 8px;
+    background: var(--paper);
     border: 0;
   }
 
@@ -1200,10 +1274,10 @@ textarea:focus-visible {
     justify-content: center;
     gap: 3px;
     padding: 3px 5px;
-    border: 1px solid rgb(212 201 184 / 0.84);
+    border: 0;
     border-radius: 999px;
-    background: rgb(250 248 244 / 0.92);
-    box-shadow: 0 8px 18px rgb(26 26 46 / 0.12);
+    background: var(--paper);
+    box-shadow: none;
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -1217,12 +1291,13 @@ textarea:focus-visible {
     border-radius: 999px;
   }
 
-  .navigation-controls button[aria-label='Try selected recommendation'],
-  .navigation-controls button[aria-label='Exit try mode'] {
-    width: auto;
-    min-width: 38px;
-    max-width: none;
+  .navigation-controls .try-action-button {
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
     height: 30px;
+    padding: 0;
+    font-size: 14px;
   }
 
   .move-number-stone {
@@ -1235,14 +1310,14 @@ textarea:focus-visible {
     grid-row: 4;
     min-height: 0;
     max-height: none;
-    grid-template-rows: minmax(118px, 140px) minmax(0, 1fr);
+    grid-template-rows: minmax(108px, 126px) minmax(0, 1fr);
     gap: 4px;
-    padding: 2px 6px 6px;
+    padding: 6px 6px 6px;
     overflow: hidden;
   }
 
   .analysis-overview {
-    grid-template-rows: 18px minmax(96px, 1fr);
+    grid-template-rows: 18px minmax(82px, 1fr);
     gap: 2px;
     padding: 4px 6px;
   }
@@ -1262,7 +1337,7 @@ textarea:focus-visible {
   }
 
   .winrate-chart {
-    min-height: 96px;
+    min-height: 82px;
   }
 
   .analysis-detail-tabs {
@@ -1417,12 +1492,13 @@ textarea:focus-visible {
     font-size: 12px;
   }
 
-  .navigation-controls button[aria-label='Try selected recommendation'],
-  .navigation-controls button[aria-label='Exit try mode'] {
-    width: 100%;
-    max-width: 36px;
+  .navigation-controls .try-action-button {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
     height: 32px;
-    font-size: 10px;
+    padding: 0;
+    font-size: 13px;
   }
 
   .move-number-stone {
@@ -1691,8 +1767,8 @@ textarea:focus-visible {
     grid-row: 3;
     position: relative;
     z-index: 3;
-    padding: 0 8px 3px;
-    background: transparent;
+    padding: 0 8px 8px;
+    background: var(--paper);
     border: 0;
   }
 
@@ -1706,10 +1782,10 @@ textarea:focus-visible {
     justify-content: center;
     gap: 3px;
     padding: 3px 5px;
-    border: 1px solid rgb(212 201 184 / 0.84);
+    border: 0;
     border-radius: 999px;
-    background: rgb(250 248 244 / 0.92);
-    box-shadow: 0 8px 18px rgb(26 26 46 / 0.12);
+    background: var(--paper);
+    box-shadow: none;
     overflow-x: auto;
     overflow-y: hidden;
   }
@@ -1723,12 +1799,13 @@ textarea:focus-visible {
     border-radius: 999px;
   }
 
-  .navigation-controls button[aria-label='Try selected recommendation'],
-  .navigation-controls button[aria-label='Exit try mode'] {
-    width: auto;
-    min-width: 38px;
-    max-width: none;
+  .navigation-controls .try-action-button {
+    width: 30px;
+    min-width: 30px;
+    max-width: 30px;
     height: 30px;
+    padding: 0;
+    font-size: 14px;
   }
 
   .move-number-stone {
@@ -1741,14 +1818,14 @@ textarea:focus-visible {
     grid-row: 4;
     min-height: 0;
     max-height: none;
-    grid-template-rows: minmax(118px, 140px) minmax(0, 1fr);
+    grid-template-rows: minmax(108px, 126px) minmax(0, 1fr);
     gap: 4px;
-    padding: 2px 6px 6px;
+    padding: 6px 6px 6px;
     overflow: hidden;
   }
 
   .analysis-overview {
-    grid-template-rows: 18px minmax(96px, 1fr);
+    grid-template-rows: 18px minmax(82px, 1fr);
     gap: 2px;
     padding: 4px 6px;
   }
@@ -1768,7 +1845,7 @@ textarea:focus-visible {
   }
 
   .winrate-chart {
-    min-height: 96px;
+    min-height: 82px;
   }
 
   .analysis-detail-tabs {
@@ -1976,13 +2053,13 @@ textarea:focus-visible {
     font-size: 12px;
   }
 
-  .navigation-controls button[aria-label='Try selected recommendation'],
-  .navigation-controls button[aria-label='Exit try mode'] {
-    width: 100%;
-    min-width: 0;
-    max-width: 36px;
+  .navigation-controls .try-action-button {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
     height: 32px;
-    font-size: 10px;
+    padding: 0;
+    font-size: 13px;
   }
 
   .move-number-stone {
@@ -2196,13 +2273,13 @@ textarea:focus-visible {
     font-size: 12px;
   }
 
-  .navigation-controls button[aria-label='Try selected recommendation'],
-  .navigation-controls button[aria-label='Exit try mode'] {
-    width: 100%;
-    min-width: 0;
-    max-width: 36px;
+  .navigation-controls .try-action-button {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
     height: 32px;
-    font-size: 10px;
+    padding: 0;
+    font-size: 13px;
   }
 
   .move-number-stone {

@@ -33,6 +33,8 @@ describe('NavigationControls', () => {
     expect(controls.getByRole('button', { name: 'Next move' })).toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Forward 5 moves' })).toHaveTextContent('>>')
     expect(controls.getByRole('button', { name: 'Last move' })).toBeInTheDocument()
+    expect(controls.getByRole('button', { name: 'Try selected recommendation' })).toHaveTextContent('试')
+    expect(controls.getByRole('button', { name: 'Try selected recommendation' })).toHaveClass('try-action-button', 'try-action-enter')
     controls.getByRole('button', { name: 'Try selected recommendation' }).click()
     expect(onEnterTryMode).toHaveBeenCalledTimes(1)
     expect(controls.queryByText('Pass')).not.toBeInTheDocument()
@@ -61,6 +63,8 @@ describe('NavigationControls', () => {
     )
     const controls = within(container)
 
+    expect(controls.getByRole('button', { name: 'Exit try mode' })).toHaveTextContent('退')
+    expect(controls.getByRole('button', { name: 'Exit try mode' })).toHaveClass('try-action-button', 'try-action-exit')
     controls.getByRole('button', { name: 'Exit try mode' }).click()
     expect(onExitTryMode).toHaveBeenCalledTimes(1)
     expect(controls.queryByText('Clear branch')).not.toBeInTheDocument()
