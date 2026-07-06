@@ -545,12 +545,17 @@ textarea:focus-visible {
 
 .board-matchup {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   min-width: 0;
   max-width: 100%;
   color: var(--ink);
   font-weight: 700;
+}
+
+.board-versus {
+  display: none;
 }
 
 .board-player {
@@ -1373,6 +1378,16 @@ textarea:focus-visible {
     line-height: 1;
   }
 
+  .board-matchup {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .board-versus {
+    display: inline;
+  }
+
   .game-sidebar {
     grid-row: 1;
     height: auto;
@@ -2164,6 +2179,16 @@ textarea:focus-visible {
     line-height: 1;
   }
 
+  .board-matchup {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .board-versus {
+    display: inline;
+  }
+
   .board-frame {
     --board-frame-clearance: 4px;
     order: 2;
@@ -2376,6 +2401,16 @@ textarea:focus-visible {
     text-align: center;
     font-size: 11px;
     line-height: 1;
+  }
+
+  .board-matchup {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .board-versus {
+    display: inline;
   }
 
   .game-sidebar {
@@ -2770,6 +2805,16 @@ textarea:focus-visible {
     text-align: center;
     font-size: 11px;
     line-height: 1;
+  }
+
+  .board-matchup {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .board-versus {
+    display: inline;
   }
 
   .board-frame {
