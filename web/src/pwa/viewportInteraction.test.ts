@@ -37,19 +37,70 @@ class FakeMediaQueryList extends FakeEventTarget {
 
 class FakeStyle {
   readonly values = new Map<string, string>()
+  readonly assigned = new Map<string, string>()
 
   setProperty(name: string, value: string) {
     this.values.set(name, value)
   }
+
+  getPropertyValue(name: string) {
+    return this.values.get(name) ?? ''
+  }
 }
 
 class FakeDocumentTarget extends FakeEventTarget {
+  readonly elements = new Map<string, FakeElement>()
+  readonly body = new FakeElement('body', this)
   readonly documentElement = { style: new FakeStyle() }
+
+  createElement(tagName: string) {
+    return new FakeElement(tagName, this)
+  }
+
+  getElementById(id: string) {
+    return this.elements.get(id) ?? null
+  }
+
+  querySelector(selector: string) {
+    if (selector.startsWith('#')) return this.getElementById(selector.slice(1))
+    return null
+  }
+}
+
+class FakeElement {
+  private elementId = ''
+  readonly style = new FakeStyle()
+  textContent = ''
+
+  constructor(readonly tagName: string, private readonly ownerDocument: FakeDocumentTarget) {}
+
+  set id(value: string) {
+    this.elementId = value
+    if (value) this.ownerDocument.elements.set(value, this)
+  }
+
+  get id() {
+    return this.elementId
+  }
+
+  appendChild(child: FakeElement) {
+    if (child.id) this.ownerDocument.elements.set(child.id, child)
+    return child
+  }
+
+  remove() {
+    if (this.id) this.ownerDocument.elements.delete(this.id)
+  }
+
+  getBoundingClientRect() {
+    return { width: 0, height: 0, left: 0, top: 0, right: 0, bottom: 0 }
+  }
 }
 
 class FakeWindowTarget extends FakeEventTarget {
   innerWidth = 932
   innerHeight = 430
+  location = { search: '' }
   coarsePointer = true
   portrait = false
   private nextFrameId = 0
@@ -92,6 +143,51 @@ class FakeWindowTarget extends FakeEventTarget {
 }
 
 describe('viewport interaction guards', () => {
+  it('does not show viewport diagnostics unless explicitly enabled', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    expect(documentTarget.getElementById('__viewport-debug')).toBeNull()
+  })
+
+  it('shows opt-in viewport diagnostics for mobile rotation debugging', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.location.search = '?viewport-debug=1'
+
+    const cleanup = installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.innerWidth = 795
+    windowTarget.innerHeight = 278
+    windowTarget.visualViewport.width = 795
+    windowTarget.visualViewport.height = 278
+    windowTarget.setPortrait(false)
+    windowTarget.dispatch('resize', new Event('resize'))
+    windowTarget.runAnimationFrames()
+
+    const debug = documentTarget.getElementById('__viewport-debug')
+    expect(debug?.textContent).toContain('[DEBUG-viewport-rot]')
+    expect(debug?.textContent).toContain('src=')
+    expect(debug?.textContent).toContain('win=795x278')
+    expect(debug?.textContent).toContain('vv=795x278')
+    expect(debug?.textContent).toContain('vars=795pxx278px')
+
+    cleanup()
+    expect(documentTarget.getElementById('__viewport-debug')).toBeNull()
+  })
+
   it('installs non-passive iOS pinch zoom guards without blocking one finger touch moves', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
