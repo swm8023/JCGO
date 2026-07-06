@@ -26,6 +26,14 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     documentTarget.documentElement.style.setProperty(appWidthVariable, `${viewport.width}px`)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
+  const handleOrientationChange = () => {
+    const viewport = windowViewportSize(windowTarget)
+    const nextMode = viewportOrientation(viewport)
+    viewportMode = nextMode
+    stableHeight = viewport.height
+    documentTarget.documentElement.style.setProperty(appWidthVariable, `${viewport.width}px`)
+    documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
+  }
   const updateAppHeightFromWindow = () => updateAppHeight(windowViewportSize(windowTarget))
   const updateAppHeightFromVisualViewport = () => {
     const viewport = windowTarget.visualViewport
@@ -39,7 +47,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   }
   documentTarget.addEventListener('touchmove', preventMultiTouchMove, nonPassiveListener)
   windowTarget.addEventListener('resize', updateAppHeightFromWindow)
-  windowTarget.addEventListener('orientationchange', updateAppHeightFromWindow)
+  windowTarget.addEventListener('orientationchange', handleOrientationChange)
   windowTarget.visualViewport?.addEventListener('resize', updateAppHeightFromVisualViewport)
 
   return () => {
@@ -49,7 +57,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     }
     documentTarget.removeEventListener('touchmove', preventMultiTouchMove)
     windowTarget.removeEventListener('resize', updateAppHeightFromWindow)
-    windowTarget.removeEventListener('orientationchange', updateAppHeightFromWindow)
+    windowTarget.removeEventListener('orientationchange', handleOrientationChange)
     windowTarget.visualViewport?.removeEventListener('resize', updateAppHeightFromVisualViewport)
   }
 }
