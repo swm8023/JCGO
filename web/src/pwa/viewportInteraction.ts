@@ -4,16 +4,14 @@ const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
 const orientationSettleFrameCount = 8
 const viewportDebugElementId = '__viewport-debug'
-const viewportDebugStorageKey = 'jcgo.viewportDebug'
 const viewportDebugSampleLimit = 5
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
-  let stableWidth: number | undefined
   let stableHeight = windowTarget.innerHeight
   let orientationChangePending = false
   let orientationSettleFramesRemaining = 0
   let rafId: number | undefined
-  const debugOverlay = shouldShowViewportDebug(windowTarget) ? createViewportDebugOverlay(documentTarget) : undefined
+  const debugOverlay = createViewportDebugOverlay(documentTarget)
   const debugSamples: string[] = []
 
   const preventGestureZoom = (event: Event) => {
@@ -23,8 +21,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     if (event.touches.length > 1) event.preventDefault()
   }
   const applyViewport = () => {
-    if (stableWidth === undefined) documentTarget.documentElement.style.removeProperty(appWidthVariable)
-    else documentTarget.documentElement.style.setProperty(appWidthVariable, `${stableWidth}px`)
+    documentTarget.documentElement.style.removeProperty(appWidthVariable)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
   const clearViewportLock = () => {
@@ -37,28 +34,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     while (debugSamples.length > viewportDebugSampleLimit) debugSamples.shift()
     debugOverlay.textContent = debugSamples.join('\n\n')
   }
-  const consoleLog: string[] = []
-  const logToOverlay = (msg: string) => {
-    if (!debugOverlay) return
-    console.log(msg)
-    consoleLog.push(msg)
-    if (consoleLog.length > 20) consoleLog.shift()
-    if (debugOverlay) {
-      let logEl = documentTarget.getElementById('__viewport-log')
-      if (!logEl) {
-        logEl = documentTarget.createElement('div')
-        logEl.id = '__viewport-log'
-        logEl.style.cssText = 'margin-top:4px;max-height:40vh;overflow:hidden'
-        debugOverlay.appendChild(logEl)
-      }
-      logEl.textContent = consoleLog.join('\n')
-    }
-  }
   const applyCurrentViewport = (source: string) => {
-    const viewport = currentViewportSize(windowTarget, true)
-    const vv = windowTarget.visualViewport
-    logToOverlay(`[${source}] win=${windowTarget.innerWidth}x${windowTarget.innerHeight} vv=${vv?.width}x${vv?.height} sc=${round(vv?.scale ?? 1)} -> ${viewport.width === undefined ? 'css' : round(viewport.width)}x${round(viewport.height)} sh=${round(stableHeight)}`)
-    stableWidth = viewport.usesVisualViewport ? viewport.width : undefined
+    const viewport = currentViewportSize(windowTarget)
     stableHeight = viewport.height
     applyViewport()
     writeDebug(source)
@@ -91,10 +68,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
       return
     }
     const viewport = currentViewportSize(windowTarget)
-    const vv = windowTarget.visualViewport
-    logToOverlay(`[resize] win=${windowTarget.innerWidth}x${windowTarget.innerHeight} vv=${vv?.width}x${vv?.height} sc=${round(vv?.scale ?? 1)} -> ${viewport.width === undefined ? 'css' : round(viewport.width)}x${round(viewport.height)} sh=${round(stableHeight)}`)
-    stableWidth = viewport.usesVisualViewport ? viewport.width : undefined
-    if (!hasCoarsePointer(windowTarget) || viewport.usesVisualViewport) {
+    if (!hasCoarsePointer(windowTarget)) {
       stableHeight = viewport.height
     } else {
       stableHeight = Math.max(stableHeight, viewport.height)
@@ -112,10 +86,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     }
     const viewport = windowTarget.visualViewport
     if (!viewport) return
-    const windowSize = currentViewportSize(windowTarget, true)
-    logToOverlay(`[vv] win=${windowTarget.innerWidth}x${windowTarget.innerHeight} vv=${viewport.width}x${viewport.height} sc=${round(viewport.scale)} -> ${windowSize.width === undefined ? 'css' : round(windowSize.width)}x${round(windowSize.height)} sh=${round(stableHeight)}`)
-    stableWidth = windowSize.usesVisualViewport ? windowSize.width : undefined
-    if (!hasCoarsePointer(windowTarget) || windowSize.usesVisualViewport) {
+    const windowSize = currentViewportSize(windowTarget)
+    if (!hasCoarsePointer(windowTarget)) {
       stableHeight = windowSize.height
     } else {
       stableHeight = Math.max(stableHeight, windowSize.height)
@@ -151,52 +123,28 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
 }
 
 interface ViewportSize {
-  width?: number
-  height: number
-  usesVisualViewport?: boolean
-}
-
-interface LayoutViewportSize extends ViewportSize {
   width: number
+  height: number
 }
 
-function windowViewportSize(windowTarget: Window): LayoutViewportSize {
+function windowViewportSize(windowTarget: Window): ViewportSize {
   return { width: windowTarget.innerWidth, height: windowTarget.innerHeight }
 }
 
-function currentViewportSize(windowTarget: Window, allowVisibleViewportOverride = false): ViewportSize {
+function currentViewportSize(windowTarget: Window): ViewportSize {
   const viewport = windowViewportSize(windowTarget)
   if (!hasCoarsePointer(windowTarget)) return viewport
   const visualViewport = windowTarget.visualViewport
   if (!visualViewport) return viewport
-  if (allowVisibleViewportOverride && isUnscaledVisibleViewportSmaller(viewport, visualViewport)) {
-    return {
-      width: visualViewport.width,
-      height: visualViewport.height,
-      usesVisualViewport: true,
-    }
-  }
-  if (Math.abs((visualViewport.scale ?? 1) - 1) > 0.01) return { height: viewport.height }
+  if (Math.abs((visualViewport.scale ?? 1) - 1) > 0.01) return viewport
   return {
+    width: viewport.width,
     height: Math.max(viewport.height, visualViewport.height),
   }
 }
 
-function isUnscaledVisibleViewportSmaller(layoutViewport: LayoutViewportSize, visualViewport: VisualViewport) {
-  if (Math.abs((visualViewport.scale ?? 1) - 1) > 0.01) return false
-  return visualViewport.width < layoutViewport.width - 0.5 || visualViewport.height < layoutViewport.height - 0.5
-}
-
 function hasCoarsePointer(windowTarget: Window) {
   return windowTarget.matchMedia?.('(pointer: coarse)').matches ?? false
-}
-
-function shouldShowViewportDebug(windowTarget: Window) {
-  try {
-    return windowTarget.localStorage?.getItem(viewportDebugStorageKey) === '1'
-  } catch {
-    return false
-  }
 }
 
 function createViewportDebugOverlay(documentTarget: Document): HTMLElement {
@@ -218,32 +166,8 @@ function createViewportDebugOverlay(documentTarget: Document): HTMLElement {
     fontSize: '10px',
     lineHeight: '1.35',
     whiteSpace: 'pre-wrap',
+    pointerEvents: 'none',
   })
-  const btn = documentTarget.createElement('button')
-  btn.textContent = 'COPY LOG'
-  Object.assign(btn.style, {
-    display: 'block',
-    width: '100%',
-    padding: '12px',
-    marginBottom: '4px',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    background: '#2fff4f',
-    color: '#000',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    textAlign: 'center',
-  })
-  btn.addEventListener('click', () => {
-    const logEl = documentTarget.getElementById('__viewport-log')
-    const text = logEl?.textContent ?? ''
-    navigator.clipboard?.writeText(text)?.then(() => {
-      btn.textContent = 'COPIED!'
-      setTimeout(() => { btn.textContent = 'COPY LOG' }, 1500)
-    })?.catch(() => {})
-  })
-  el.appendChild(btn)
   documentTarget.body.appendChild(el)
   return el
 }

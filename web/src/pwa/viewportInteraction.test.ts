@@ -55,18 +55,6 @@ class FakeStyle {
   }
 }
 
-class FakeStorage {
-  readonly values = new Map<string, string>()
-
-  getItem(key: string) {
-    return this.values.get(key) ?? null
-  }
-
-  setItem(key: string, value: string) {
-    this.values.set(key, value)
-  }
-}
-
 class FakeDocumentTarget extends FakeEventTarget {
   readonly elements = new Map<string, FakeElement>()
   readonly body = new FakeElement('body', this)
@@ -88,15 +76,13 @@ class FakeDocumentTarget extends FakeEventTarget {
   }
 }
 
-class FakeElement extends FakeEventTarget {
+class FakeElement {
   private elementId = ''
   private readonly attributes = new Map<string, string>()
   readonly style = new FakeStyle()
   textContent = ''
 
-  constructor(readonly tagName: string, private readonly ownerDocument: FakeDocumentTarget) {
-    super()
-  }
+  constructor(readonly tagName: string, private readonly ownerDocument: FakeDocumentTarget) {}
 
   set id(value: string) {
     this.elementId = value
@@ -140,8 +126,6 @@ class FakeWindowTarget extends FakeEventTarget {
   private readonly animationFrames = new Map<number, FrameRequestCallback>()
   private readonly mediaQueries = new Map<string, FakeMediaQueryList>()
   readonly visualViewport = new FakeVisualViewport()
-  readonly navigator = { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } }
-  readonly localStorage = new FakeStorage()
 
   matchMedia(query: string) {
     const existing = this.mediaQueries.get(query)
@@ -179,7 +163,7 @@ class FakeWindowTarget extends FakeEventTarget {
 }
 
 describe('viewport interaction guards', () => {
-  it('hides viewport diagnostics by default', async () => {
+  it('shows viewport diagnostics without requiring URL parameters', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
@@ -190,15 +174,14 @@ describe('viewport interaction guards', () => {
       documentTarget as unknown as Document,
     )
 
-    expect(documentTarget.getElementById('__viewport-debug')).toBeNull()
+    expect(documentTarget.getElementById('__viewport-debug')?.textContent).toContain('[DEBUG-viewport-rot]')
   })
 
-  it('shows viewport diagnostics when the local debug flag is enabled', async () => {
+  it('shows viewport diagnostics for mobile rotation debugging', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
     const documentTarget = new FakeDocumentTarget()
-    windowTarget.localStorage.setItem('jcgo.viewportDebug', '1')
 
     const cleanup = installViewportInteractionGuards(
       windowTarget as unknown as Window,
@@ -329,34 +312,6 @@ describe('viewport interaction guards', () => {
     )
 
     expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
-  })
-
-  it('uses the unscaled visual viewport after mobile rotation shrinks the visible area', async () => {
-    const moduleName = './viewportInteraction'
-    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
-    const windowTarget = new FakeWindowTarget()
-    const documentTarget = new FakeDocumentTarget()
-    windowTarget.innerWidth = 979
-    windowTarget.innerHeight = 406
-    windowTarget.visualViewport.width = 979
-    windowTarget.visualViewport.height = 406
-    windowTarget.visualViewport.scale = 0.81
-
-    installViewportInteractionGuards(
-      windowTarget as unknown as Window,
-      documentTarget as unknown as Document,
-    )
-
-    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
-    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('406px')
-
-    windowTarget.visualViewport.width = 795
-    windowTarget.visualViewport.height = 330
-    windowTarget.visualViewport.scale = 1
-    windowTarget.visualViewport.dispatch('resize', new Event('resize'))
-
-    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('795px')
-    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('330px')
   })
 
   it('does not reload when portrait rotation keeps the desktop-width mobile viewport scaled down', async () => {
