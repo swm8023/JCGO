@@ -76,13 +76,15 @@ class FakeDocumentTarget extends FakeEventTarget {
   }
 }
 
-class FakeElement {
+class FakeElement extends FakeEventTarget {
   private elementId = ''
   private readonly attributes = new Map<string, string>()
   readonly style = new FakeStyle()
   textContent = ''
 
-  constructor(readonly tagName: string, private readonly ownerDocument: FakeDocumentTarget) {}
+  constructor(readonly tagName: string, private readonly ownerDocument: FakeDocumentTarget) {
+    super()
+  }
 
   set id(value: string) {
     this.elementId = value
@@ -126,6 +128,7 @@ class FakeWindowTarget extends FakeEventTarget {
   private readonly animationFrames = new Map<number, FrameRequestCallback>()
   private readonly mediaQueries = new Map<string, FakeMediaQueryList>()
   readonly visualViewport = new FakeVisualViewport()
+  readonly navigator = { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } }
 
   matchMedia(query: string) {
     const existing = this.mediaQueries.get(query)

@@ -187,8 +187,30 @@ function createViewportDebugOverlay(documentTarget: Document): HTMLElement {
     fontSize: '10px',
     lineHeight: '1.35',
     whiteSpace: 'pre-wrap',
-    pointerEvents: 'none',
   })
+  const btn = documentTarget.createElement('button')
+  btn.textContent = 'copy'
+  Object.assign(btn.style, {
+    position: 'absolute',
+    top: '4px',
+    right: '8px',
+    padding: '2px 8px',
+    fontSize: '10px',
+    background: '#2fff4f',
+    color: '#000',
+    border: 'none',
+    borderRadius: '3px',
+    cursor: 'pointer',
+    zIndex: '1',
+  })
+  btn.addEventListener('click', () => {
+    const text = el.textContent ?? ''
+    navigator.clipboard?.writeText(text)?.then(() => {
+      btn.textContent = 'copied'
+      setTimeout(() => { btn.textContent = 'copy' }, 1500)
+    })?.catch(() => {})
+  })
+  el.appendChild(btn)
   documentTarget.body.appendChild(el)
   return el
 }
