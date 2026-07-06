@@ -1230,6 +1230,8 @@ textarea:focus-visible {
     grid-row: 2;
     padding: 2px 6px 0;
     max-height: none;
+    overflow: visible;
+    z-index: 1;
   }
 
   .board-layout {
@@ -1336,7 +1338,7 @@ textarea:focus-visible {
     position: relative;
     z-index: 3;
     padding: 0 8px 8px;
-    background: var(--board-zone);
+    background: transparent;
     border: 0;
   }
 
@@ -1764,6 +1766,8 @@ textarea:focus-visible {
     grid-row: 2;
     padding: 2px 6px 0;
     max-height: none;
+    overflow: visible;
+    z-index: 1;
   }
 
   .board-layout {
@@ -1870,7 +1874,7 @@ textarea:focus-visible {
     position: relative;
     z-index: 3;
     padding: 0 8px 8px;
-    background: var(--board-zone);
+    background: transparent;
     border: 0;
   }
 
