@@ -1359,7 +1359,7 @@ textarea:focus-visible {
     grid-row: 1;
     height: auto;
     min-height: 40px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     grid-template-rows: auto;
     align-items: center;
     gap: 4px;
@@ -1385,10 +1385,8 @@ textarea:focus-visible {
   }
 
   .sidebar-toggle-actions {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    grid-column: 2;
+    justify-self: center;
     min-width: 0;
   }
 
@@ -1629,7 +1627,7 @@ textarea:focus-visible {
     grid-row: 1;
     height: auto;
     min-height: 40px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     grid-template-rows: auto;
     align-items: center;
     gap: 6px;
@@ -1659,10 +1657,8 @@ textarea:focus-visible {
   }
 
   .sidebar-toggle-actions {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    grid-column: 2;
+    justify-self: center;
     min-width: 0;
   }
 
@@ -2225,7 +2221,7 @@ textarea:focus-visible {
     grid-row: 1;
     height: auto;
     min-height: 40px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     grid-template-rows: auto;
     align-items: center;
     gap: 4px;
@@ -2251,10 +2247,8 @@ textarea:focus-visible {
   }
 
   .sidebar-toggle-actions {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    grid-column: 2;
+    justify-self: center;
     min-width: 0;
   }
 
@@ -2978,7 +2972,7 @@ textarea:focus-visible {
     grid-row: 1;
     height: auto;
     min-height: 40px;
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     grid-template-rows: auto;
     align-items: center;
     gap: 6px;
@@ -3008,10 +3002,8 @@ textarea:focus-visible {
   }
 
   .sidebar-toggle-actions {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+    grid-column: 2;
+    justify-self: center;
     min-width: 0;
   }
 
