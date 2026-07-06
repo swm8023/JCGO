@@ -101,10 +101,6 @@ function windowViewportSize(windowTarget: Window): ViewportSize {
   return { width: windowTarget.innerWidth, height: windowTarget.innerHeight }
 }
 
-function viewportOrientation(viewport: ViewportSize) {
-  return viewport.width >= viewport.height ? 'landscape' : 'portrait'
-}
-
 function hasCoarsePointer(windowTarget: Window) {
   return windowTarget.matchMedia?.('(pointer: coarse)').matches ?? false
 }
