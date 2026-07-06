@@ -68,7 +68,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     } else {
       stableHeight = Math.max(stableHeight, windowSize.height)
     }
-    applyViewport(viewport.width)
+    applyViewport(windowSize.width)
   }
 
   handleResize()
