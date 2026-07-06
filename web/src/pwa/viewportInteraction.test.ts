@@ -29,6 +29,12 @@ class FakeVisualViewport extends FakeEventTarget {
   height = 430
 }
 
+class FakeMediaQueryList extends FakeEventTarget {
+  constructor(public matches: boolean) {
+    super()
+  }
+}
+
 class FakeStyle {
   readonly values = new Map<string, string>()
 
@@ -45,10 +51,43 @@ class FakeWindowTarget extends FakeEventTarget {
   innerWidth = 932
   innerHeight = 430
   coarsePointer = true
+  portrait = false
+  private nextFrameId = 0
+  private readonly animationFrames = new Map<number, FrameRequestCallback>()
+  private readonly mediaQueries = new Map<string, FakeMediaQueryList>()
   readonly visualViewport = new FakeVisualViewport()
 
-  matchMedia() {
-    return { matches: this.coarsePointer }
+  matchMedia(query: string) {
+    const existing = this.mediaQueries.get(query)
+    if (existing) return existing
+
+    const list = new FakeMediaQueryList(query.includes('orientation') ? this.portrait : this.coarsePointer)
+    this.mediaQueries.set(query, list)
+    return list
+  }
+
+  setPortrait(value: boolean) {
+    this.portrait = value
+    const query = this.mediaQueries.get('(orientation: portrait)')
+    if (!query) return
+    query.matches = value
+    query.dispatch('change', new Event('change'))
+  }
+
+  requestAnimationFrame(callback: FrameRequestCallback) {
+    const id = ++this.nextFrameId
+    this.animationFrames.set(id, callback)
+    return id
+  }
+
+  cancelAnimationFrame(id: number) {
+    this.animationFrames.delete(id)
+  }
+
+  runAnimationFrames() {
+    const callbacks = [...this.animationFrames.entries()]
+    this.animationFrames.clear()
+    for (const [, callback] of callbacks) callback(performance.now())
   }
 }
 
@@ -136,6 +175,35 @@ describe('viewport interaction guards', () => {
 
     cleanup()
     expect(windowTarget.visualViewport.listeners.get('resize')).toEqual([])
+  })
+
+  it('does not lock mobile landscape rotation to a transient browser chrome height', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.innerWidth = 368
+    windowTarget.innerHeight = 663
+    windowTarget.visualViewport.width = 368
+    windowTarget.visualViewport.height = 663
+    windowTarget.portrait = true
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.innerWidth = 795
+    windowTarget.innerHeight = 278
+    windowTarget.visualViewport.width = 932
+    windowTarget.visualViewport.height = 430
+    windowTarget.setPortrait(false)
+    windowTarget.dispatch('resize', new Event('resize'))
+    windowTarget.runAnimationFrames()
+    windowTarget.runAnimationFrames()
+
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
   })
 
   it('lets desktop window resizes follow the current viewport height', async () => {

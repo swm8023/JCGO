@@ -25,7 +25,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     }
     if (!orientationChangePending) return
     orientationChangePending = false
-    const viewport = windowViewportSize(windowTarget)
+    const viewport = currentViewportSize(windowTarget)
     stableHeight = viewport.height
     applyViewport(viewport.width)
   }
@@ -37,7 +37,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
       })
       return
     }
-    const viewport = windowViewportSize(windowTarget)
+    const viewport = currentViewportSize(windowTarget)
     if (!hasCoarsePointer(windowTarget)) {
       stableHeight = viewport.height
     } else {
@@ -47,7 +47,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   }
   const handleOrientationChange = () => {
     orientationChangePending = true
-    // Use double-rAF to ensure window.innerHeight has updated after rotation
+    // Use double-rAF to ensure viewport dimensions have updated after rotation.
     rafId = windowTarget.requestAnimationFrame(() => {
       rafId = windowTarget.requestAnimationFrame(() => {
         rafId = undefined
@@ -62,7 +62,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     }
     const viewport = windowTarget.visualViewport
     if (!viewport) return
-    const windowSize = windowViewportSize(windowTarget)
+    const windowSize = currentViewportSize(windowTarget)
     if (!hasCoarsePointer(windowTarget)) {
       stableHeight = windowSize.height
     } else {
@@ -103,6 +103,17 @@ interface ViewportSize {
 
 function windowViewportSize(windowTarget: Window): ViewportSize {
   return { width: windowTarget.innerWidth, height: windowTarget.innerHeight }
+}
+
+function currentViewportSize(windowTarget: Window): ViewportSize {
+  const viewport = windowViewportSize(windowTarget)
+  if (!hasCoarsePointer(windowTarget)) return viewport
+  const visualViewport = windowTarget.visualViewport
+  if (!visualViewport) return viewport
+  return {
+    width: Math.max(viewport.width, visualViewport.width),
+    height: Math.max(viewport.height, visualViewport.height),
+  }
 }
 
 function hasCoarsePointer(windowTarget: Window) {
