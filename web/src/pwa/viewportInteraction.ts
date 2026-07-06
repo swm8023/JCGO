@@ -5,6 +5,7 @@ const appHeightVariable = '--app-height'
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
   let stableHeight = windowTarget.innerHeight
+  let lastOrientation = viewportOrientation(windowViewportSize(windowTarget))
 
   const preventGestureZoom = (event: Event) => {
     event.preventDefault()
@@ -13,7 +14,11 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     if (event.touches.length > 1) event.preventDefault()
   }
   const updateAppHeight = (viewport: ViewportSize) => {
-    if (!hasCoarsePointer(windowTarget)) {
+    const currentOrientation = viewportOrientation(viewport)
+    if (currentOrientation !== lastOrientation) {
+      lastOrientation = currentOrientation
+      stableHeight = viewport.height
+    } else if (!hasCoarsePointer(windowTarget)) {
       stableHeight = viewport.height
     } else {
       stableHeight = Math.max(stableHeight, viewport.height)
@@ -23,6 +28,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   }
   const handleOrientationChange = () => {
     stableHeight = windowTarget.innerHeight
+    lastOrientation = viewportOrientation(windowViewportSize(windowTarget))
     const viewport = windowViewportSize(windowTarget)
     documentTarget.documentElement.style.setProperty(appWidthVariable, `${viewport.width}px`)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
