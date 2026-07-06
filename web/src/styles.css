@@ -16,7 +16,7 @@
   --board-wood: #d4a45e;
   --board-wood-dark: #c4944e;
   --board-line: #3a2818;
-  --board-zone: #f5efe3;
+  --board-zone: var(--paper);
   --candidate-best: #059669;
   --candidate-next: #d97706;
   --signal: #c2410c;
@@ -1287,14 +1287,13 @@ textarea:focus-visible {
     border-radius: 999px;
     background: transparent;
     box-shadow: none;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
   }
 
   .navigation-controls button {
-    width: 30px;
-    min-width: 30px;
-    max-width: 30px;
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
     height: 30px;
     padding: 0;
     border-radius: 999px;
@@ -1808,14 +1807,13 @@ textarea:focus-visible {
     border-radius: 999px;
     background: transparent;
     box-shadow: none;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
   }
 
   .navigation-controls button {
-    width: 30px;
-    min-width: 30px;
-    max-width: 30px;
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
     height: 30px;
     padding: 0;
     border-radius: 999px;

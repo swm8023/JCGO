@@ -23,7 +23,7 @@ export function NavigationControls(props: NavigationControlsProps) {
         |&lt;
       </button>
       <button aria-label="Back 5 moves" onClick={props.onBackFive}>
-        -5
+        &lt;&lt;
       </button>
       <button aria-label="Previous move" onClick={props.onPrevious}>
         &lt;
@@ -35,7 +35,7 @@ export function NavigationControls(props: NavigationControlsProps) {
         &gt;
       </button>
       <button aria-label="Forward 5 moves" onClick={props.onForwardFive}>
-        +5
+        &gt;&gt;
       </button>
       <button aria-label="Last move" onClick={props.onLast}>
         &gt;|
