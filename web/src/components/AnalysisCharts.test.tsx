@@ -19,8 +19,14 @@ describe('AnalysisCharts', () => {
     )
 
     expect(screen.queryByText('胜率曲线')).not.toBeInTheDocument()
-    expect(screen.getByLabelText('Winrate curve')).toHaveAttribute('preserveAspectRatio', 'none')
-    expect(screen.getByLabelText('Winrate curve')).toHaveAttribute('viewBox', '0 0 320 112')
+    const chart = screen.getByLabelText('Winrate curve')
+    expect(chart).toHaveAttribute('preserveAspectRatio', 'none')
+    expect(chart).toHaveAttribute('viewBox', '0 0 320 112')
+    expect(chart.querySelectorAll('.chart-axis-label')).toHaveLength(0)
+    expect(chart.querySelectorAll('.chart-tick-label')).toHaveLength(0)
+    const labelLayer = document.querySelector('.chart-label-layer')
+    expect(labelLayer).toHaveAttribute('aria-hidden', 'true')
+    expect(labelLayer?.querySelectorAll('.chart-axis-label')).toHaveLength(6)
     expect(screen.getByLabelText('Black winrate line')).toBeInTheDocument()
     expect(screen.getByLabelText('Score lead line')).toBeInTheDocument()
     expect(screen.getByLabelText('Current move marker')).toBeInTheDocument()
@@ -28,9 +34,8 @@ describe('AnalysisCharts', () => {
     expect(screen.getByText('50')).toBeInTheDocument()
     expect(screen.getByText('100')).toBeInTheDocument()
     expect(screen.getByText('200')).toBeInTheDocument()
-    for (const tickLabel of screen.getByLabelText('Winrate curve').querySelectorAll('.chart-tick-label')) {
-      expect(Number(tickLabel.getAttribute('y'))).toBeGreaterThanOrEqual(104)
-      expect(Number(tickLabel.getAttribute('y'))).toBeLessThanOrEqual(106)
+    for (const tickLabel of document.querySelectorAll('.chart-label-layer .chart-tick-label')) {
+      expect(tickLabel).toHaveStyle({ top: '93.75%' })
     }
     expect(screen.queryByText('42.0%')).not.toBeInTheDocument()
     expect(screen.queryByText('5.2')).not.toBeInTheDocument()

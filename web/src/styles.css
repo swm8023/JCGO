@@ -821,9 +821,9 @@ textarea:focus-visible {
 }
 
 .analysis-overview {
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 4px;
-  padding: 8px 10px;
+  grid-template-rows: 22px minmax(0, 1fr);
+  gap: 3px;
+  padding: 6px 10px 8px;
 }
 
 .analysis-summary {
@@ -838,30 +838,33 @@ textarea:focus-visible {
 
 .summary-metric {
   min-width: 0;
+  height: 22px;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  box-sizing: border-box;
   overflow: hidden;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  padding: 0 6px;
+  border: 1px solid rgb(212 201 184 / 0.54);
+  border-radius: 999px;
+  background: rgb(250 248 244 / 0.72);
   color: var(--muted);
-  font-size: 11px;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-}
-
-.summary-metric strong {
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 14px;
+  font-size: 10px;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 700;
+}
+
+.summary-metric strong {
+  overflow: hidden;
+  color: var(--table);
+  font-size: 12px;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
 
@@ -967,6 +970,7 @@ textarea:focus-visible {
 }
 
 .chart-body {
+  position: relative;
   min-height: 0;
   overflow: hidden;
 }
@@ -1004,23 +1008,38 @@ textarea:focus-visible {
 
 .chart-axis-label,
 .chart-tick-label {
-  fill: var(--muted);
+  position: absolute;
+  color: var(--muted);
+  font-family: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-stretch: normal;
   font-size: 9px;
   font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
   pointer-events: none;
   opacity: 0.7;
+  font-variant-numeric: tabular-nums;
 }
 
-.chart-axis-label.left {
-  text-anchor: end;
+.chart-label-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
-.chart-axis-label.right {
-  text-anchor: start;
+.chart-axis-label-left {
+  transform: translate(-100%, -50%);
+  text-align: right;
+}
+
+.chart-axis-label-right {
+  transform: translate(0, -50%);
+  text-align: left;
 }
 
 .chart-tick-label {
-  text-anchor: middle;
+  transform: translate(-50%, -50%);
+  text-align: center;
 }
 
 .chart-line {
@@ -1067,14 +1086,16 @@ textarea:focus-visible {
 .analysis-tab-list {
   width: max-content;
   max-width: 100%;
+  height: 100%;
+  box-sizing: border-box;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: max-content;
   grid-template-columns: none;
-  align-items: center;
+  align-items: stretch;
   justify-content: start;
   gap: 2px;
-  padding: 2px;
+  padding: 1px;
   border: 1px solid rgb(212 201 184 / 0.72);
   border-radius: 999px;
   background: rgb(212 201 184 / 0.28);
@@ -1083,7 +1104,9 @@ textarea:focus-visible {
 
 .analysis-tab {
   min-width: 42px;
-  height: 20px;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1209,8 +1232,9 @@ textarea:focus-visible {
     --portrait-summary-height: 18px;
     --portrait-chart-height: 88px;
     --portrait-overview-gap: 2px;
-    --portrait-overview-padding-block: 4px;
-    --portrait-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-block) * 2);
+    --portrait-overview-padding-top: 2px;
+    --portrait-overview-padding-bottom: 4px;
+    --portrait-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-top) + var(--portrait-overview-padding-bottom));
 
     height: var(--app-height);
     min-height: 0;
@@ -1405,7 +1429,7 @@ textarea:focus-visible {
   .analysis-overview {
     grid-template-rows: var(--portrait-summary-height) var(--portrait-chart-height);
     gap: var(--portrait-overview-gap);
-    padding: var(--portrait-overview-padding-block) 6px;
+    padding: var(--portrait-overview-padding-top) 6px var(--portrait-overview-padding-bottom);
   }
 
   .chart-body {
@@ -1418,13 +1442,15 @@ textarea:focus-visible {
   }
 
   .summary-metric {
-    gap: 4px;
-    font-size: 10px;
+    height: 18px;
+    gap: 3px;
+    padding: 0 5px;
+    font-size: 9px;
     line-height: 1;
   }
 
   .summary-metric strong {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .winrate-chart {
@@ -1444,7 +1470,7 @@ textarea:focus-visible {
 
   .analysis-tab {
     min-width: 34px;
-    height: 18px;
+    height: 100%;
     font-size: 10px;
     padding: 0 5px;
   }
@@ -1651,7 +1677,7 @@ textarea:focus-visible {
 
   .analysis-tab {
     min-width: 34px;
-    height: 18px;
+    height: 100%;
     font-size: 10px;
     padding: 0 5px;
   }
@@ -1745,8 +1771,9 @@ textarea:focus-visible {
     --portrait-summary-height: 18px;
     --portrait-chart-height: 88px;
     --portrait-overview-gap: 2px;
-    --portrait-overview-padding-block: 4px;
-    --portrait-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-block) * 2);
+    --portrait-overview-padding-top: 2px;
+    --portrait-overview-padding-bottom: 4px;
+    --portrait-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-top) + var(--portrait-overview-padding-bottom));
 
     height: var(--app-height);
     min-height: 0;
@@ -1941,7 +1968,7 @@ textarea:focus-visible {
   .analysis-overview {
     grid-template-rows: var(--portrait-summary-height) var(--portrait-chart-height);
     gap: var(--portrait-overview-gap);
-    padding: var(--portrait-overview-padding-block) 6px;
+    padding: var(--portrait-overview-padding-top) 6px var(--portrait-overview-padding-bottom);
   }
 
   .chart-body {
@@ -1954,13 +1981,15 @@ textarea:focus-visible {
   }
 
   .summary-metric {
-    gap: 4px;
-    font-size: 10px;
+    height: 18px;
+    gap: 3px;
+    padding: 0 5px;
+    font-size: 9px;
     line-height: 1;
   }
 
   .summary-metric strong {
-    font-size: 12px;
+    font-size: 11px;
   }
 
   .winrate-chart {
@@ -1980,7 +2009,7 @@ textarea:focus-visible {
 
   .analysis-tab {
     min-width: 34px;
-    height: 18px;
+    height: 100%;
     font-size: 10px;
     padding: 0 5px;
   }
@@ -2243,7 +2272,7 @@ textarea:focus-visible {
 
   .analysis-tab {
     min-width: 34px;
-    height: 18px;
+    height: 100%;
     font-size: 10px;
     padding: 0 5px;
   }

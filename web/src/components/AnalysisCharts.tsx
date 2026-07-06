@@ -34,34 +34,12 @@ export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisCh
           <line className="chart-axis-line" x1={chart.left} y1={chart.top} x2={chart.left} y2={plotBottom} />
           <line className="chart-axis-line" x1={chart.width - chart.right} y1={chart.top} x2={chart.width - chart.right} y2={plotBottom} />
 
-          <text className="chart-axis-label left" x={chart.left - 6} y={chart.top + 4}>
-            100%
-          </text>
-          <text className="chart-axis-label left" x={chart.left - 6} y={scoreMidY + 4}>
-            50%
-          </text>
-          <text className="chart-axis-label left" x={chart.left - 6} y={plotBottom + 4}>
-            0%
-          </text>
-          <text className="chart-axis-label right" x={chart.width - chart.right + 6} y={chart.top + 4}>
-            +{geometry.scoreLimit}
-          </text>
-          <text className="chart-axis-label right" x={chart.width - chart.right + 6} y={scoreMidY + 4}>
-            0
-          </text>
-          <text className="chart-axis-label right" x={chart.width - chart.right + 6} y={plotBottom + 4}>
-            -{geometry.scoreLimit}
-          </text>
-
           {geometry.winratePath && <polyline aria-label="Black winrate line" className="chart-line winrate-line" points={geometry.winratePath} />}
           {geometry.scorePath && <polyline aria-label="Score lead line" className="chart-line score-line" points={geometry.scorePath} />}
           {geometry.currentX !== undefined && <line aria-label="Current move marker" className="chart-current-marker" x1={geometry.currentX} y1={chart.top} x2={geometry.currentX} y2={plotBottom} />}
           {geometry.ticks.map((tick) => (
             <g key={tick.value}>
               <line className="chart-tick-line" x1={tick.x} y1={plotBottom} x2={tick.x} y2={plotBottom + 4} />
-              <text className="chart-tick-label" x={tick.x} y={tickLabelY}>
-                {tick.value}
-              </text>
             </g>
           ))}
           {geometry.hitTargets.map((target) => (
@@ -77,9 +55,42 @@ export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisCh
             />
           ))}
         </svg>
+        <div className="chart-label-layer" aria-hidden="true">
+          <span className="chart-axis-label chart-axis-label-left" style={{ left: percentX(chart.left - 6), top: percentY(chart.top + 4) }}>
+            100%
+          </span>
+          <span className="chart-axis-label chart-axis-label-left" style={{ left: percentX(chart.left - 6), top: percentY(scoreMidY + 4) }}>
+            50%
+          </span>
+          <span className="chart-axis-label chart-axis-label-left" style={{ left: percentX(chart.left - 6), top: percentY(plotBottom + 4) }}>
+            0%
+          </span>
+          <span className="chart-axis-label chart-axis-label-right" style={{ left: percentX(chart.width - chart.right + 6), top: percentY(chart.top + 4) }}>
+            +{geometry.scoreLimit}
+          </span>
+          <span className="chart-axis-label chart-axis-label-right" style={{ left: percentX(chart.width - chart.right + 6), top: percentY(scoreMidY + 4) }}>
+            0
+          </span>
+          <span className="chart-axis-label chart-axis-label-right" style={{ left: percentX(chart.width - chart.right + 6), top: percentY(plotBottom + 4) }}>
+            -{geometry.scoreLimit}
+          </span>
+          {geometry.ticks.map((tick) => (
+            <span key={tick.value} className="chart-tick-label" style={{ left: percentX(tick.x), top: percentY(tickLabelY) }}>
+              {tick.value}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   )
+}
+
+function percentX(x: number) {
+  return `${(x / chart.width) * 100}%`
+}
+
+function percentY(y: number) {
+  return `${(y / chart.height) * 100}%`
 }
 
 function buildChartGeometry(points: ChartPoint[], currentMoveNumber?: number) {
