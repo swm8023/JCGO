@@ -118,7 +118,8 @@ class FakeElement {
 class FakeWindowTarget extends FakeEventTarget {
   innerWidth = 932
   innerHeight = 430
-  location = { search: '' }
+  location = { search: '', reload: vi.fn() }
+  screen = { width: 932, height: 430, orientation: { type: 'landscape-primary', angle: 90 } }
   coarsePointer = true
   portrait = false
   private nextFrameId = 0
@@ -137,6 +138,7 @@ class FakeWindowTarget extends FakeEventTarget {
 
   setPortrait(value: boolean) {
     this.portrait = value
+    this.screen.orientation = value ? { type: 'portrait-primary', angle: 0 } : { type: 'landscape-primary', angle: 90 }
     const query = this.mediaQueries.get('(orientation: portrait)')
     if (!query) return
     query.matches = value
@@ -312,26 +314,94 @@ describe('viewport interaction guards', () => {
     expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
   })
 
-  it('pulses the viewport meta while mobile orientation dimensions are settling', async () => {
+  it('reloads once when portrait rotation keeps the desktop-width mobile viewport scaled down', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
     const documentTarget = new FakeDocumentTarget()
-    documentTarget.viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
 
     installViewportInteractionGuards(
       windowTarget as unknown as Window,
       documentTarget as unknown as Document,
     )
 
+    windowTarget.innerWidth = 979
+    windowTarget.innerHeight = 2059
+    windowTarget.visualViewport.width = 979
+    windowTarget.visualViewport.height = 2059
+    windowTarget.visualViewport.scale = 0.38
+    windowTarget.screen.width = 368
+    windowTarget.screen.height = 831
     windowTarget.setPortrait(true)
+    for (let i = 0; i < 10; i++) windowTarget.runAnimationFrames()
 
-    expect(documentTarget.viewportMeta.getAttribute('content')).toContain('minimum-scale=1.0')
+    expect(windowTarget.location.reload).toHaveBeenCalledTimes(1)
+  })
 
-    windowTarget.runAnimationFrames()
-    windowTarget.runAnimationFrames()
+  it('reloads once when landscape rotation keeps the narrow portrait-scale viewport', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.portrait = true
+    windowTarget.innerWidth = 368
+    windowTarget.innerHeight = 831
+    windowTarget.visualViewport.width = 368
+    windowTarget.visualViewport.height = 831
+    windowTarget.visualViewport.scale = 1
+    windowTarget.screen.width = 368
+    windowTarget.screen.height = 831
+    windowTarget.screen.orientation = { type: 'portrait-primary', angle: 0 }
 
-    expect(documentTarget.viewportMeta.getAttribute('content')).toBe('width=device-width, initial-scale=1.0, viewport-fit=cover')
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.innerWidth = 795
+    windowTarget.innerHeight = 368
+    windowTarget.visualViewport.width = 795
+    windowTarget.visualViewport.height = 368
+    windowTarget.visualViewport.scale = 1
+    windowTarget.screen.width = 831
+    windowTarget.screen.height = 368
+    windowTarget.setPortrait(false)
+    for (let i = 0; i < 10; i++) windowTarget.runAnimationFrames()
+
+    expect(windowTarget.location.reload).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not reload when landscape rotation has already reached the wide viewport scale', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.portrait = true
+    windowTarget.innerWidth = 368
+    windowTarget.innerHeight = 831
+    windowTarget.visualViewport.width = 368
+    windowTarget.visualViewport.height = 831
+    windowTarget.visualViewport.scale = 1
+    windowTarget.screen.width = 368
+    windowTarget.screen.height = 831
+    windowTarget.screen.orientation = { type: 'portrait-primary', angle: 0 }
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.innerWidth = 979
+    windowTarget.innerHeight = 406
+    windowTarget.visualViewport.width = 979
+    windowTarget.visualViewport.height = 406
+    windowTarget.visualViewport.scale = 0.81
+    windowTarget.screen.width = 831
+    windowTarget.screen.height = 368
+    windowTarget.setPortrait(false)
+    for (let i = 0; i < 10; i++) windowTarget.runAnimationFrames()
+
+    expect(windowTarget.location.reload).not.toHaveBeenCalled()
   })
 
   it('does not lock mobile landscape rotation to a transient browser chrome height', async () => {

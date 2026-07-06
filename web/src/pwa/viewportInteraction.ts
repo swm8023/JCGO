@@ -11,11 +11,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   let orientationChangePending = false
   let orientationSettleFramesRemaining = 0
   let rafId: number | undefined
-  let viewportMetaRestoreFrameId: number | undefined
   const debugOverlay = createViewportDebugOverlay(documentTarget)
   const debugSamples: string[] = []
-  const viewportMeta = documentTarget.querySelector<HTMLMetaElement>('meta[name="viewport"]')
-  const originalViewportMetaContent = viewportMeta?.getAttribute('content') ?? undefined
 
   const preventGestureZoom = (event: Event) => {
     event.preventDefault()
@@ -51,20 +48,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     orientationChangePending = true
     orientationSettleFramesRemaining = orientationSettleFrameCount
     clearViewportLock()
-    pulseViewportMeta()
     scheduleOrientationSettle()
-  }
-  const pulseViewportMeta = () => {
-    if (!viewportMeta || !originalViewportMetaContent) return
-    if (!hasCoarsePointer(windowTarget)) return
-    if (viewportMetaRestoreFrameId !== undefined) return
-    viewportMeta.setAttribute('content', viewportMetaPulseContent(originalViewportMetaContent))
-    viewportMetaRestoreFrameId = windowTarget.requestAnimationFrame(() => {
-      viewportMetaRestoreFrameId = windowTarget.requestAnimationFrame(() => {
-        viewportMeta.setAttribute('content', originalViewportMetaContent)
-        viewportMetaRestoreFrameId = undefined
-      })
-    })
   }
   const runOrientationSettle = () => {
     rafId = undefined
@@ -74,6 +58,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     if (orientationSettleFramesRemaining <= 0) {
       orientationChangePending = false
       writeDebug('settle(done)')
+      reloadIfViewportModeStayedStale(windowTarget)
       return
     }
     scheduleOrientationSettle()
@@ -126,8 +111,6 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
 
   return () => {
     if (rafId !== undefined) windowTarget.cancelAnimationFrame(rafId)
-    if (viewportMetaRestoreFrameId !== undefined) windowTarget.cancelAnimationFrame(viewportMetaRestoreFrameId)
-    if (viewportMeta && originalViewportMetaContent) viewportMeta.setAttribute('content', originalViewportMetaContent)
     for (const eventName of gestureEvents) {
       windowTarget.removeEventListener(eventName, preventGestureZoom)
       documentTarget.removeEventListener(eventName, preventGestureZoom)
@@ -163,6 +146,27 @@ function currentViewportSize(windowTarget: Window): ViewportSize {
 
 function hasCoarsePointer(windowTarget: Window) {
   return windowTarget.matchMedia?.('(pointer: coarse)').matches ?? false
+}
+
+function reloadIfViewportModeStayedStale(windowTarget: Window) {
+  if (!hasCoarsePointer(windowTarget)) return
+  if (!isStaleMobileViewportMode(windowTarget)) return
+  windowTarget.location.reload()
+}
+
+function isStaleMobileViewportMode(windowTarget: Window) {
+  const visualViewport = windowTarget.visualViewport
+  if (!visualViewport) return false
+  const scale = visualViewport.scale ?? 1
+  const viewport = windowViewportSize(windowTarget)
+  const screenTarget = windowTarget.screen
+  const screenShortSide = screenTarget ? Math.min(screenTarget.width, screenTarget.height) : Math.min(viewport.width, viewport.height)
+  const screenLongSide = screenTarget ? Math.max(screenTarget.width, screenTarget.height) : Math.max(viewport.width, viewport.height)
+  const portrait = windowTarget.matchMedia?.('(orientation: portrait)').matches ?? viewport.height >= viewport.width
+  const landscape = windowTarget.matchMedia?.('(orientation: landscape)').matches ?? viewport.width > viewport.height
+  const portraitKeptDesktopViewport = portrait && scale < 0.75 && viewport.width > screenShortSide * 1.5
+  const landscapeKeptNarrowViewport = landscape && scale > 0.95 && viewport.width < 900 && screenLongSide >= 760 && screenShortSide <= 520
+  return portraitKeptDesktopViewport || landscapeKeptNarrowViewport
 }
 
 function createViewportDebugOverlay(documentTarget: Document): HTMLElement {
@@ -291,12 +295,6 @@ function mediaQuerySummary(windowTarget: Window) {
 function displayModeSummary(windowTarget: Window) {
   const modes = ['fullscreen', 'standalone', 'minimal-ui', 'browser']
   return modes.filter((mode) => windowTarget.matchMedia?.(`(display-mode: ${mode})`).matches).join('|') || 'N/A'
-}
-
-function viewportMetaPulseContent(content: string) {
-  const normalized = content.replace(/\s+/g, ' ').trim()
-  if (/\bminimum-scale\s*=/.test(normalized)) return normalized
-  return `${normalized}, minimum-scale=1.0`
 }
 
 function round(value: number) {
