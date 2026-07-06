@@ -163,10 +163,11 @@ class FakeWindowTarget extends FakeEventTarget {
 }
 
 describe('viewport interaction guards', () => {
-  it('shows viewport diagnostics without requiring URL parameters', async () => {
+  it('shows viewport diagnostics when viewport-debug URL parameter is set', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
+    windowTarget.location.search = '?viewport-debug=1'
     const documentTarget = new FakeDocumentTarget()
 
     installViewportInteractionGuards(
@@ -181,6 +182,7 @@ describe('viewport interaction guards', () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
+    windowTarget.location.search = '?viewport-debug=1'
     const documentTarget = new FakeDocumentTarget()
 
     const cleanup = installViewportInteractionGuards(

@@ -11,7 +11,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   let orientationChangePending = false
   let orientationSettleFramesRemaining = 0
   let rafId: number | undefined
-  const debugOverlay = createViewportDebugOverlay(documentTarget)
+  const debugOverlay = viewportDebugEnabled(windowTarget) ? createViewportDebugOverlay(documentTarget) : undefined
   const debugSamples: string[] = []
 
   const preventGestureZoom = (event: Event) => {
@@ -145,6 +145,15 @@ function currentViewportSize(windowTarget: Window): ViewportSize {
 
 function hasCoarsePointer(windowTarget: Window) {
   return windowTarget.matchMedia?.('(pointer: coarse)').matches ?? false
+}
+
+function viewportDebugEnabled(windowTarget: Window) {
+  try {
+    const value = new URLSearchParams(windowTarget.location.search).get('viewport-debug')
+    return value === '1' || value === 'true'
+  } catch {
+    return false
+  }
 }
 
 function createViewportDebugOverlay(documentTarget: Document): HTMLElement {
