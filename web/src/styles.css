@@ -221,13 +221,13 @@ textarea:focus-visible {
   z-index: 4;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   height: 100%;
   box-sizing: border-box;
-  padding: 8px 6px;
+  padding: 6px;
   border: 0;
   background: var(--frame);
-  box-shadow: var(--shadow-frame);
+  box-shadow: none;
 }
 
 .game-sidebar h1 {
@@ -258,14 +258,14 @@ textarea:focus-visible {
 }
 
 .overlay-toggles .toggle {
-  width: 36px;
-  height: 36px;
+  width: var(--ui-toggle-size);
+  height: var(--ui-toggle-size);
   border: 1px solid var(--frame-accent);
-  border-radius: 8px;
+  border-radius: var(--ui-toggle-radius);
   background: transparent;
   color: var(--frame-muted);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--ui-toggle-font);
   font-weight: 700;
   line-height: 1;
 }
@@ -277,16 +277,16 @@ textarea:focus-visible {
 }
 
 .icon-button {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
+  width: var(--ui-btn-size);
+  min-width: var(--ui-btn-size);
+  height: var(--ui-btn-size);
   padding: 0;
   border: 1px solid var(--frame-accent);
-  border-radius: 8px;
+  border-radius: var(--ui-btn-radius);
   background: var(--frame-accent);
   color: var(--frame-text);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--ui-btn-font);
   line-height: 1;
   display: grid;
   place-items: center;
@@ -308,20 +308,20 @@ textarea:focus-visible {
 }
 
 .analysis-action-button {
-  width: 36px;
-  min-width: 36px;
+  width: var(--ui-btn-size);
+  min-width: var(--ui-btn-size);
   max-width: none;
-  height: 36px;
+  height: var(--ui-btn-size);
   min-height: 0;
   display: grid;
   place-items: center;
   padding: 0;
   box-sizing: border-box;
   border: 1px solid var(--table-deep);
-  border-radius: 8px;
+  border-radius: var(--ui-btn-radius);
   background: var(--table);
   color: var(--surface);
-  font-size: 13px;
+  font-size: var(--ui-btn-font);
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
