@@ -12,7 +12,7 @@ import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
 import { RotatePrompt } from './components/RotatePrompt'
 import { TokenGate } from './components/TokenGate'
-import { playStoneSound } from './board/stoneSound'
+import { playCaptureSound, playStoneSound } from './board/stoneSound'
 import { computeSideActionPlacement, type SideActionPlacement } from './layout/sideActionRail'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
@@ -292,6 +292,7 @@ export default function App() {
 
   const runNavigation = async (command: NavigationCommand | undefined, keepTryMode = false) => {
     if (!client || !selectedGameId || !command) return
+    const prevSnapshot = snapshot
     const params = command.method === 'game.goto'
       ? { gameId: selectedGameId, moveNumber: command.moveNumber }
       : { gameId: selectedGameId, nodeId: command.nodeId }
@@ -299,7 +300,8 @@ export default function App() {
     applyWorkspaceState(state)
     setActivePV(undefined)
     if (!keepTryMode) setTryMode(false)
-    playStoneSound()
+    if (hasCaptures(prevSnapshot, state.snapshot)) playCaptureSound()
+    else playStoneSound()
   }
 
   const gotoMove = async (moveNumber: number) => runNavigation({ method: 'game.goto', moveNumber })
@@ -311,12 +313,19 @@ export default function App() {
   const goForwardFive = () => runNavigation(jumpNavigation(snapshot, workspace, jumpStep), keepTrialNavigation())
   const goLast = () => runNavigation(lastNavigation(snapshot, workspace), keepTrialNavigation())
 
+  const hasCaptures = (before: Snapshot | undefined, after: Snapshot | undefined): boolean => {
+    if (!before?.captures || !after?.captures) return false
+    return after.captures.B !== before.captures.B || after.captures.W !== before.captures.W
+  }
+
   const playMove = async (move: string) => {
     if (!client || !selectedGameId) return
+    const prevSnapshot = snapshot
     const state = await client.call<StatePayload>('game.play', { gameId: selectedGameId, move })
     applyWorkspaceState(state)
     setActivePV(undefined)
-    playStoneSound()
+    if (hasCaptures(prevSnapshot, state.snapshot)) playCaptureSound()
+    else playStoneSound()
   }
 
   const previewPV = (candidate: CandidateMove) => {
