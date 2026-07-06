@@ -195,15 +195,60 @@ function viewportDebugSnapshot(
     `[DEBUG-viewport-rot] src=${source} pending=${orientationChangePending} settle=${orientationSettleFramesRemaining}`,
     `win=${round(viewport.width)}x${round(viewport.height)} vv=${visualViewport ? `${round(visualViewport.width)}x${round(visualViewport.height)} scale=${round(visualViewport.scale ?? 1)}` : 'none'} sh=${round(stableHeight)} dpr=${round(windowTarget.devicePixelRatio || 1)}`,
     `screen=${screenTarget ? `${screenTarget.width}x${screenTarget.height}` : 'none'} orient=${orientation ? `${orientation.type}/${orientation.angle}` : 'none'} display=${displayModeSummary(windowTarget)} mq=${mediaQuerySummary(windowTarget)}`,
-    `vars=${rootStyle.getPropertyValue(appWidthVariable) || 'css'}x${rootStyle.getPropertyValue(appHeightVariable) || 'css'} doc=${documentMetrics(documentTarget.documentElement)} root=${rectSummary(documentTarget.getElementById('root'))}`,
+    `vars=${rootStyle.getPropertyValue(appWidthVariable) || 'css'}x${rootStyle.getPropertyValue(appHeightVariable) || 'css'} doc=${documentMetrics(documentTarget.documentElement)} vp=${viewportMetaSummary(documentTarget)} root=${rectSummary(documentTarget.getElementById('root'))}`,
+    `wide=${widestElementsSummary(documentTarget)}`,
     `layout=${rectSummary(layout)} pad=${layoutStyle ? `${layoutStyle.paddingLeft}/${layoutStyle.paddingRight}/${layoutStyle.paddingTop}/${layoutStyle.paddingBottom}` : 'N/A'} cols=${layoutStyle?.gridTemplateColumns ?? 'N/A'} rows=${layoutStyle?.gridTemplateRows ?? 'N/A'}`,
     `railL=${rectSummary(documentTarget.querySelector('.game-sidebar'))} boardStage=${rectSummary(documentTarget.querySelector('.board-stage'))} action=${rectSummary(documentTarget.querySelector('.action-rail'))}`,
     `analysis=${analysisStyle?.display ?? 'N/A'} ${rectSummary(analysis)} board=${rectSummary(board)}`,
   ].join('\n')
 }
 
+function viewportMetaSummary(documentTarget: Document) {
+  const meta = documentTarget.querySelector('meta[name="viewport"]')
+  return meta?.getAttribute('content')?.replace(/\s+/g, ' ').trim() || 'none'
+}
+
 function documentMetrics(element: Element) {
   return `${round(element.clientWidth)}x${round(element.clientHeight)} scroll=${round(element.scrollWidth)}x${round(element.scrollHeight)}`
+}
+
+function widestElementsSummary(documentTarget: Document) {
+  const body = documentTarget.body
+  if (!body || typeof body.querySelectorAll !== 'function') return 'N/A'
+
+  const elements = [documentTarget.documentElement, body, ...Array.from(body.querySelectorAll('*'))]
+  return elements
+    .map((element) => {
+      const rect = element.getBoundingClientRect()
+      const scrollWidth = element.scrollWidth || 0
+      const clientWidth = element.clientWidth || 0
+      return {
+        element,
+        width: Math.max(rect.width, scrollWidth, clientWidth),
+        rect,
+        scrollWidth,
+        clientWidth,
+      }
+    })
+    .filter(({ width }) => width > 0)
+    .sort((a, b) => b.width - a.width)
+    .slice(0, 4)
+    .map(({ element, width, rect, scrollWidth, clientWidth }) => `${elementDebugLabel(element)}:${round(width)} r${round(rect.width)} s${round(scrollWidth)} c${round(clientWidth)}@${round(rect.left)}`)
+    .join(' | ') || 'none'
+}
+
+function elementDebugLabel(element: Element) {
+  const tag = element.tagName.toLowerCase()
+  const id = element.id ? `#${element.id}` : ''
+  const className = typeof element.className === 'string' ? element.className : ''
+  const classes = className
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((name) => `.${name}`)
+    .join('')
+  return `${tag}${id}${classes}`
 }
 
 function computedStyle(windowTarget: Window, element: Element | null) {

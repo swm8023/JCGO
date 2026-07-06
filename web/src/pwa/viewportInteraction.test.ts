@@ -190,6 +190,8 @@ describe('viewport interaction guards', () => {
     expect(debug?.textContent).toContain('vv=795x278')
     expect(debug?.textContent).toContain('vars=cssx278px')
     expect(debug?.textContent).toContain('display=')
+    expect(debug?.textContent).toContain('vp=')
+    expect(debug?.textContent).toContain('wide=')
 
     cleanup()
     expect(documentTarget.getElementById('__viewport-debug')).toBeNull()
