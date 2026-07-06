@@ -314,7 +314,7 @@ describe('viewport interaction guards', () => {
     expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
   })
 
-  it('reloads once when portrait rotation keeps the desktop-width mobile viewport scaled down', async () => {
+  it('does not reload when portrait rotation keeps the desktop-width mobile viewport scaled down', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
@@ -335,10 +335,10 @@ describe('viewport interaction guards', () => {
     windowTarget.setPortrait(true)
     for (let i = 0; i < 10; i++) windowTarget.runAnimationFrames()
 
-    expect(windowTarget.location.reload).toHaveBeenCalledTimes(1)
+    expect(windowTarget.location.reload).not.toHaveBeenCalled()
   })
 
-  it('reloads once when landscape rotation keeps the narrow portrait-scale viewport', async () => {
+  it('does not reload when landscape rotation keeps the narrow portrait-scale viewport', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
@@ -363,39 +363,6 @@ describe('viewport interaction guards', () => {
     windowTarget.visualViewport.width = 795
     windowTarget.visualViewport.height = 368
     windowTarget.visualViewport.scale = 1
-    windowTarget.screen.width = 831
-    windowTarget.screen.height = 368
-    windowTarget.setPortrait(false)
-    for (let i = 0; i < 10; i++) windowTarget.runAnimationFrames()
-
-    expect(windowTarget.location.reload).toHaveBeenCalledTimes(1)
-  })
-
-  it('does not reload when landscape rotation has already reached the wide viewport scale', async () => {
-    const moduleName = './viewportInteraction'
-    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
-    const windowTarget = new FakeWindowTarget()
-    const documentTarget = new FakeDocumentTarget()
-    windowTarget.portrait = true
-    windowTarget.innerWidth = 368
-    windowTarget.innerHeight = 831
-    windowTarget.visualViewport.width = 368
-    windowTarget.visualViewport.height = 831
-    windowTarget.visualViewport.scale = 1
-    windowTarget.screen.width = 368
-    windowTarget.screen.height = 831
-    windowTarget.screen.orientation = { type: 'portrait-primary', angle: 0 }
-
-    installViewportInteractionGuards(
-      windowTarget as unknown as Window,
-      documentTarget as unknown as Document,
-    )
-
-    windowTarget.innerWidth = 979
-    windowTarget.innerHeight = 406
-    windowTarget.visualViewport.width = 979
-    windowTarget.visualViewport.height = 406
-    windowTarget.visualViewport.scale = 0.81
     windowTarget.screen.width = 831
     windowTarget.screen.height = 368
     windowTarget.setPortrait(false)

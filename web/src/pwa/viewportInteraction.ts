@@ -58,7 +58,6 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     if (orientationSettleFramesRemaining <= 0) {
       orientationChangePending = false
       writeDebug('settle(done)')
-      reloadIfViewportModeStayedStale(windowTarget)
       return
     }
     scheduleOrientationSettle()
@@ -146,27 +145,6 @@ function currentViewportSize(windowTarget: Window): ViewportSize {
 
 function hasCoarsePointer(windowTarget: Window) {
   return windowTarget.matchMedia?.('(pointer: coarse)').matches ?? false
-}
-
-function reloadIfViewportModeStayedStale(windowTarget: Window) {
-  if (!hasCoarsePointer(windowTarget)) return
-  if (!isStaleMobileViewportMode(windowTarget)) return
-  windowTarget.location.reload()
-}
-
-function isStaleMobileViewportMode(windowTarget: Window) {
-  const visualViewport = windowTarget.visualViewport
-  if (!visualViewport) return false
-  const scale = visualViewport.scale ?? 1
-  const viewport = windowViewportSize(windowTarget)
-  const screenTarget = windowTarget.screen
-  const screenShortSide = screenTarget ? Math.min(screenTarget.width, screenTarget.height) : Math.min(viewport.width, viewport.height)
-  const screenLongSide = screenTarget ? Math.max(screenTarget.width, screenTarget.height) : Math.max(viewport.width, viewport.height)
-  const portrait = windowTarget.matchMedia?.('(orientation: portrait)').matches ?? viewport.height >= viewport.width
-  const landscape = windowTarget.matchMedia?.('(orientation: landscape)').matches ?? viewport.width > viewport.height
-  const portraitKeptDesktopViewport = portrait && scale < 0.75 && viewport.width > screenShortSide * 1.5
-  const landscapeKeptNarrowViewport = landscape && scale > 0.95 && viewport.width < 900 && screenLongSide >= 760 && screenShortSide <= 520
-  return portraitKeptDesktopViewport || landscapeKeptNarrowViewport
 }
 
 function createViewportDebugOverlay(documentTarget: Document): HTMLElement {
