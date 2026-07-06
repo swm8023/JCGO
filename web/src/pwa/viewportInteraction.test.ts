@@ -27,6 +27,7 @@ class FakeEventTarget {
 class FakeVisualViewport extends FakeEventTarget {
   width = 932
   height = 430
+  scale = 1
 }
 
 class FakeMediaQueryList extends FakeEventTarget {
@@ -43,6 +44,12 @@ class FakeStyle {
     this.values.set(name, value)
   }
 
+  removeProperty(name: string) {
+    const value = this.values.get(name) ?? ''
+    this.values.delete(name)
+    return value
+  }
+
   getPropertyValue(name: string) {
     return this.values.get(name) ?? ''
   }
@@ -51,7 +58,7 @@ class FakeStyle {
 class FakeDocumentTarget extends FakeEventTarget {
   readonly elements = new Map<string, FakeElement>()
   readonly body = new FakeElement('body', this)
-  readonly documentElement = { style: new FakeStyle() }
+  readonly documentElement = { style: new FakeStyle(), clientWidth: 0, clientHeight: 0, scrollWidth: 0, scrollHeight: 0 }
 
   createElement(tagName: string) {
     return new FakeElement(tagName, this)
@@ -181,7 +188,7 @@ describe('viewport interaction guards', () => {
     expect(debug?.textContent).toContain('src=')
     expect(debug?.textContent).toContain('win=795x278')
     expect(debug?.textContent).toContain('vv=795x278')
-    expect(debug?.textContent).toContain('vars=795pxx278px')
+    expect(debug?.textContent).toContain('vars=cssx278px')
     expect(debug?.textContent).toContain('display=')
 
     cleanup()
@@ -232,8 +239,8 @@ describe('viewport interaction guards', () => {
       documentTarget as unknown as Document,
     )
 
-    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
 
     windowTarget.innerHeight = 390
     windowTarget.dispatch('resize', new Event('resize'))
@@ -258,19 +265,38 @@ describe('viewport interaction guards', () => {
       documentTarget as unknown as Document,
     )
 
-    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
 
     windowTarget.innerWidth = 430
     windowTarget.innerHeight = 932
     windowTarget.visualViewport.width = 430
     windowTarget.visualViewport.height = 932
     windowTarget.visualViewport.dispatch('resize', new Event('resize'))
-    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('430px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('932px')
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
 
     cleanup()
     expect(windowTarget.visualViewport.listeners.get('resize')).toEqual([])
+  })
+
+  it('does not persist scaled visual viewport width as the root layout width', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.innerWidth = 795
+    windowTarget.innerHeight = 368
+    windowTarget.visualViewport.width = 979
+    windowTarget.visualViewport.height = 453
+    windowTarget.visualViewport.scale = 0.81
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
   })
 
   it('does not lock mobile landscape rotation to a transient browser chrome height', async () => {
@@ -298,8 +324,8 @@ describe('viewport interaction guards', () => {
     windowTarget.runAnimationFrames()
     windowTarget.runAnimationFrames()
 
-    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
   })
 
   it('keeps sampling after rotation until delayed mobile viewport dimensions settle', async () => {
@@ -332,8 +358,8 @@ describe('viewport interaction guards', () => {
     windowTarget.visualViewport.height = 430
     for (let i = 0; i < 10; i++) windowTarget.runAnimationFrames()
 
-    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
   })
 
   it('lets desktop window resizes follow the current viewport height', async () => {

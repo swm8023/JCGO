@@ -20,9 +20,13 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   const preventMultiTouchMove = (event: TouchEvent) => {
     if (event.touches.length > 1) event.preventDefault()
   }
-  const applyViewport = (width: number) => {
-    documentTarget.documentElement.style.setProperty(appWidthVariable, `${width}px`)
+  const applyViewport = () => {
+    documentTarget.documentElement.style.removeProperty(appWidthVariable)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
+  }
+  const clearViewportLock = () => {
+    documentTarget.documentElement.style.removeProperty(appWidthVariable)
+    documentTarget.documentElement.style.removeProperty(appHeightVariable)
   }
   const writeDebug = (source: string) => {
     if (!debugOverlay) return
@@ -33,7 +37,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   const applyCurrentViewport = (source: string) => {
     const viewport = currentViewportSize(windowTarget)
     stableHeight = viewport.height
-    applyViewport(viewport.width)
+    applyViewport()
     writeDebug(source)
   }
   const scheduleOrientationSettle = () => {
@@ -43,6 +47,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   const restartOrientationSettle = () => {
     orientationChangePending = true
     orientationSettleFramesRemaining = orientationSettleFrameCount
+    clearViewportLock()
     scheduleOrientationSettle()
   }
   const runOrientationSettle = () => {
@@ -68,7 +73,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     } else {
       stableHeight = Math.max(stableHeight, viewport.height)
     }
-    applyViewport(viewport.width)
+    applyViewport()
     writeDebug('resize')
   }
   const handleOrientationChange = () => {
@@ -87,7 +92,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     } else {
       stableHeight = Math.max(stableHeight, windowSize.height)
     }
-    applyViewport(windowSize.width)
+    applyViewport()
     writeDebug('vv')
   }
 
@@ -131,8 +136,9 @@ function currentViewportSize(windowTarget: Window): ViewportSize {
   if (!hasCoarsePointer(windowTarget)) return viewport
   const visualViewport = windowTarget.visualViewport
   if (!visualViewport) return viewport
+  if (Math.abs((visualViewport.scale ?? 1) - 1) > 0.01) return viewport
   return {
-    width: Math.max(viewport.width, visualViewport.width),
+    width: viewport.width,
     height: Math.max(viewport.height, visualViewport.height),
   }
 }
@@ -189,11 +195,15 @@ function viewportDebugSnapshot(
     `[DEBUG-viewport-rot] src=${source} pending=${orientationChangePending} settle=${orientationSettleFramesRemaining}`,
     `win=${round(viewport.width)}x${round(viewport.height)} vv=${visualViewport ? `${round(visualViewport.width)}x${round(visualViewport.height)} scale=${round(visualViewport.scale ?? 1)}` : 'none'} sh=${round(stableHeight)} dpr=${round(windowTarget.devicePixelRatio || 1)}`,
     `screen=${screenTarget ? `${screenTarget.width}x${screenTarget.height}` : 'none'} orient=${orientation ? `${orientation.type}/${orientation.angle}` : 'none'} display=${displayModeSummary(windowTarget)} mq=${mediaQuerySummary(windowTarget)}`,
-    `vars=${rootStyle.getPropertyValue(appWidthVariable)}x${rootStyle.getPropertyValue(appHeightVariable)} root=${rectSummary(documentTarget.getElementById('root'))}`,
+    `vars=${rootStyle.getPropertyValue(appWidthVariable) || 'css'}x${rootStyle.getPropertyValue(appHeightVariable) || 'css'} doc=${documentMetrics(documentTarget.documentElement)} root=${rectSummary(documentTarget.getElementById('root'))}`,
     `layout=${rectSummary(layout)} pad=${layoutStyle ? `${layoutStyle.paddingLeft}/${layoutStyle.paddingRight}/${layoutStyle.paddingTop}/${layoutStyle.paddingBottom}` : 'N/A'} cols=${layoutStyle?.gridTemplateColumns ?? 'N/A'} rows=${layoutStyle?.gridTemplateRows ?? 'N/A'}`,
     `railL=${rectSummary(documentTarget.querySelector('.game-sidebar'))} boardStage=${rectSummary(documentTarget.querySelector('.board-stage'))} action=${rectSummary(documentTarget.querySelector('.action-rail'))}`,
     `analysis=${analysisStyle?.display ?? 'N/A'} ${rectSummary(analysis)} board=${rectSummary(board)}`,
   ].join('\n')
+}
+
+function documentMetrics(element: Element) {
+  return `${round(element.clientWidth)}x${round(element.clientHeight)} scroll=${round(element.scrollWidth)}x${round(element.scrollHeight)}`
 }
 
 function computedStyle(windowTarget: Window, element: Element | null) {
