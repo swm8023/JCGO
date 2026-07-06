@@ -11,8 +11,11 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   let orientationChangePending = false
   let orientationSettleFramesRemaining = 0
   let rafId: number | undefined
+  let viewportMetaRestoreFrameId: number | undefined
   const debugOverlay = createViewportDebugOverlay(documentTarget)
   const debugSamples: string[] = []
+  const viewportMeta = documentTarget.querySelector<HTMLMetaElement>('meta[name="viewport"]')
+  const originalViewportMetaContent = viewportMeta?.getAttribute('content') ?? undefined
 
   const preventGestureZoom = (event: Event) => {
     event.preventDefault()
@@ -48,7 +51,20 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     orientationChangePending = true
     orientationSettleFramesRemaining = orientationSettleFrameCount
     clearViewportLock()
+    pulseViewportMeta()
     scheduleOrientationSettle()
+  }
+  const pulseViewportMeta = () => {
+    if (!viewportMeta || !originalViewportMetaContent) return
+    if (!hasCoarsePointer(windowTarget)) return
+    if (viewportMetaRestoreFrameId !== undefined) return
+    viewportMeta.setAttribute('content', viewportMetaPulseContent(originalViewportMetaContent))
+    viewportMetaRestoreFrameId = windowTarget.requestAnimationFrame(() => {
+      viewportMetaRestoreFrameId = windowTarget.requestAnimationFrame(() => {
+        viewportMeta.setAttribute('content', originalViewportMetaContent)
+        viewportMetaRestoreFrameId = undefined
+      })
+    })
   }
   const runOrientationSettle = () => {
     rafId = undefined
@@ -110,6 +126,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
 
   return () => {
     if (rafId !== undefined) windowTarget.cancelAnimationFrame(rafId)
+    if (viewportMetaRestoreFrameId !== undefined) windowTarget.cancelAnimationFrame(viewportMetaRestoreFrameId)
+    if (viewportMeta && originalViewportMetaContent) viewportMeta.setAttribute('content', originalViewportMetaContent)
     for (const eventName of gestureEvents) {
       windowTarget.removeEventListener(eventName, preventGestureZoom)
       documentTarget.removeEventListener(eventName, preventGestureZoom)
@@ -273,6 +291,12 @@ function mediaQuerySummary(windowTarget: Window) {
 function displayModeSummary(windowTarget: Window) {
   const modes = ['fullscreen', 'standalone', 'minimal-ui', 'browser']
   return modes.filter((mode) => windowTarget.matchMedia?.(`(display-mode: ${mode})`).matches).join('|') || 'N/A'
+}
+
+function viewportMetaPulseContent(content: string) {
+  const normalized = content.replace(/\s+/g, ' ').trim()
+  if (/\bminimum-scale\s*=/.test(normalized)) return normalized
+  return `${normalized}, minimum-scale=1.0`
 }
 
 function round(value: number) {

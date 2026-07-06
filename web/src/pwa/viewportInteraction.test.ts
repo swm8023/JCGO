@@ -58,6 +58,7 @@ class FakeStyle {
 class FakeDocumentTarget extends FakeEventTarget {
   readonly elements = new Map<string, FakeElement>()
   readonly body = new FakeElement('body', this)
+  readonly viewportMeta = new FakeElement('meta', this)
   readonly documentElement = { style: new FakeStyle(), clientWidth: 0, clientHeight: 0, scrollWidth: 0, scrollHeight: 0 }
 
   createElement(tagName: string) {
@@ -70,12 +71,14 @@ class FakeDocumentTarget extends FakeEventTarget {
 
   querySelector(selector: string) {
     if (selector.startsWith('#')) return this.getElementById(selector.slice(1))
+    if (selector === 'meta[name="viewport"]') return this.viewportMeta
     return null
   }
 }
 
 class FakeElement {
   private elementId = ''
+  private readonly attributes = new Map<string, string>()
   readonly style = new FakeStyle()
   textContent = ''
 
@@ -93,6 +96,14 @@ class FakeElement {
   appendChild(child: FakeElement) {
     if (child.id) this.ownerDocument.elements.set(child.id, child)
     return child
+  }
+
+  setAttribute(name: string, value: string) {
+    this.attributes.set(name, value)
+  }
+
+  getAttribute(name: string) {
+    return this.attributes.get(name) ?? null
   }
 
   remove() {
@@ -299,6 +310,28 @@ describe('viewport interaction guards', () => {
     )
 
     expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
+  })
+
+  it('pulses the viewport meta while mobile orientation dimensions are settling', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    documentTarget.viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1.0, viewport-fit=cover')
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.setPortrait(true)
+
+    expect(documentTarget.viewportMeta.getAttribute('content')).toContain('minimum-scale=1.0')
+
+    windowTarget.runAnimationFrames()
+    windowTarget.runAnimationFrames()
+
+    expect(documentTarget.viewportMeta.getAttribute('content')).toBe('width=device-width, initial-scale=1.0, viewport-fit=cover')
   })
 
   it('does not lock mobile landscape rotation to a transient browser chrome height', async () => {
