@@ -31,7 +31,9 @@ export function computeSideActionPlacement(measurement: SideActionMeasurement, c
   if (!isWidePortrait(measurement)) return disabled
   if (measurement.boardHeight <= 0 || measurement.boardRight <= 0 || measurement.boardStageRight <= 0) return disabled
 
-  const rightGap = measurement.boardStageRight - measurement.boardRight
+  const rightGap = currentlyEnabled
+    ? measurement.layoutWidth - measurement.boardRight
+    : measurement.boardStageRight - measurement.boardRight
   const requiredGap = currentlyEnabled
     ? sideActionRailWidth - exitTolerance
     : sideActionRailWidth + enterExtraSpace

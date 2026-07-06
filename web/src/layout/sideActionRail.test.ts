@@ -46,6 +46,19 @@ describe('side action rail placement', () => {
     expect(computeSideActionPlacement(marginal, true).enabled).toBe(true)
   })
 
+  it('stays enabled after the layout reserves a column for the side controls', () => {
+    const placement = computeSideActionPlacement({
+      layoutWidth: 840,
+      layoutHeight: 1080,
+      boardStageRight: 794,
+      boardRight: 760,
+      boardTop: 92,
+      boardHeight: 640,
+    }, true)
+
+    expect(placement.enabled).toBe(true)
+  })
+
   it('does not enable side controls outside wide portrait layouts', () => {
     expect(computeSideActionPlacement({
       layoutWidth: 640,

@@ -643,11 +643,13 @@ textarea:focus-visible {
 }
 
 .side-action-layout .action-rail {
-  position: absolute;
-  left: var(--side-action-left, 0px);
-  top: var(--side-action-top, 0px);
+  grid-row: 2;
+  grid-column: 2;
+  position: relative;
   width: var(--side-action-width, 42px);
-  transform: translateY(-50%);
+  align-self: stretch;
+  align-content: center;
+  justify-content: center;
   z-index: 5;
   padding: 0;
   background: transparent;
@@ -1612,6 +1614,11 @@ textarea:focus-visible {
     overflow: hidden;
   }
 
+  .app-layout.side-action-layout {
+    grid-template-columns: minmax(0, 1fr) var(--side-action-width, 42px);
+    grid-template-rows: auto minmax(0, 1fr) minmax(132px, 168px);
+  }
+
   .rotate-prompt {
     display: none;
   }
@@ -1804,6 +1811,11 @@ textarea:focus-visible {
     padding: 3px 10px 8px;
     background: var(--board-zone);
     overflow: hidden;
+  }
+
+  .side-action-layout .analysis-rail {
+    grid-row: 3;
+    grid-column: 1 / -1;
   }
 
   .analysis-overview,
@@ -2943,6 +2955,11 @@ textarea:focus-visible {
     overflow: hidden;
   }
 
+  .app-layout.side-action-layout {
+    grid-template-columns: minmax(0, 1fr) var(--side-action-width, 42px);
+    grid-template-rows: auto minmax(0, 1fr) minmax(132px, 168px);
+  }
+
   .rotate-prompt {
     display: none;
   }
@@ -3135,6 +3152,11 @@ textarea:focus-visible {
     padding: 3px 10px 8px;
     background: var(--board-zone);
     overflow: hidden;
+  }
+
+  .side-action-layout .analysis-rail {
+    grid-row: 3;
+    grid-column: 1 / -1;
   }
 
   .analysis-overview,
