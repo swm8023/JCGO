@@ -55,6 +55,18 @@ class FakeStyle {
   }
 }
 
+class FakeStorage {
+  readonly values = new Map<string, string>()
+
+  getItem(key: string) {
+    return this.values.get(key) ?? null
+  }
+
+  setItem(key: string, value: string) {
+    this.values.set(key, value)
+  }
+}
+
 class FakeDocumentTarget extends FakeEventTarget {
   readonly elements = new Map<string, FakeElement>()
   readonly body = new FakeElement('body', this)
@@ -129,6 +141,7 @@ class FakeWindowTarget extends FakeEventTarget {
   private readonly mediaQueries = new Map<string, FakeMediaQueryList>()
   readonly visualViewport = new FakeVisualViewport()
   readonly navigator = { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } }
+  readonly localStorage = new FakeStorage()
 
   matchMedia(query: string) {
     const existing = this.mediaQueries.get(query)
@@ -166,7 +179,7 @@ class FakeWindowTarget extends FakeEventTarget {
 }
 
 describe('viewport interaction guards', () => {
-  it('shows viewport diagnostics without requiring URL parameters', async () => {
+  it('hides viewport diagnostics by default', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
@@ -177,14 +190,15 @@ describe('viewport interaction guards', () => {
       documentTarget as unknown as Document,
     )
 
-    expect(documentTarget.getElementById('__viewport-debug')?.textContent).toContain('[DEBUG-viewport-rot]')
+    expect(documentTarget.getElementById('__viewport-debug')).toBeNull()
   })
 
-  it('shows viewport diagnostics for mobile rotation debugging', async () => {
+  it('shows viewport diagnostics when the local debug flag is enabled', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
     const documentTarget = new FakeDocumentTarget()
+    windowTarget.localStorage.setItem('jcgo.viewportDebug', '1')
 
     const cleanup = installViewportInteractionGuards(
       windowTarget as unknown as Window,

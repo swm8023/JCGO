@@ -12,6 +12,7 @@ import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
 import { RotatePrompt } from './components/RotatePrompt'
 import { TokenGate } from './components/TokenGate'
+import { playStoneSound } from './board/stoneSound'
 import { computeSideActionPlacement, type SideActionPlacement } from './layout/sideActionRail'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
@@ -314,6 +315,7 @@ export default function App() {
     const state = await client.call<StatePayload>('game.play', { gameId: selectedGameId, move })
     applyWorkspaceState(state)
     setActivePV(undefined)
+    playStoneSound()
   }
 
   const previewPV = (candidate: CandidateMove) => {

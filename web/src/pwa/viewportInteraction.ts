@@ -4,6 +4,7 @@ const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
 const orientationSettleFrameCount = 8
 const viewportDebugElementId = '__viewport-debug'
+const viewportDebugStorageKey = 'jcgo.viewportDebug'
 const viewportDebugSampleLimit = 5
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
@@ -12,7 +13,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   let orientationChangePending = false
   let orientationSettleFramesRemaining = 0
   let rafId: number | undefined
-  const debugOverlay = createViewportDebugOverlay(documentTarget)
+  const debugOverlay = shouldShowViewportDebug(windowTarget) ? createViewportDebugOverlay(documentTarget) : undefined
   const debugSamples: string[] = []
 
   const preventGestureZoom = (event: Event) => {
@@ -38,6 +39,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   }
   const consoleLog: string[] = []
   const logToOverlay = (msg: string) => {
+    if (!debugOverlay) return
     console.log(msg)
     consoleLog.push(msg)
     if (consoleLog.length > 20) consoleLog.shift()
@@ -187,6 +189,14 @@ function isUnscaledVisibleViewportSmaller(layoutViewport: LayoutViewportSize, vi
 
 function hasCoarsePointer(windowTarget: Window) {
   return windowTarget.matchMedia?.('(pointer: coarse)').matches ?? false
+}
+
+function shouldShowViewportDebug(windowTarget: Window) {
+  try {
+    return windowTarget.localStorage?.getItem(viewportDebugStorageKey) === '1'
+  } catch {
+    return false
+  }
 }
 
 function createViewportDebugOverlay(documentTarget: Document): HTMLElement {
