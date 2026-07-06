@@ -1299,7 +1299,10 @@ textarea:focus-visible {
 }
 
 /* ─── Mobile: Portrait ─── */
+/* These media queries are fallbacks for browsers without container query support.
+   When container queries are supported, the @container rules below handle rotation. */
 
+@supports not (container-type: size) {
 @media (orientation: portrait) and (max-width: 820px) {
   .app-layout {
     --portrait-summary-height: 18px;
@@ -2107,9 +2110,11 @@ textarea:focus-visible {
     font-size: 11px;
   }
 }
+} /* end @supports not (container-type: size) */
 
 /* ─── Small landscape: hide analysis ─── */
 
+@supports not (container-type: size) {
 @media (orientation: landscape) and (max-width: 820px) {
   .app-layout {
     grid-template-columns: 44px 1fr 44px;
@@ -2159,6 +2164,7 @@ textarea:focus-visible {
     max-height: var(--app-content-height);
   }
 }
+} /* end @supports not (container-type: size) */
 
 /* ─── App container fallbacks for mobile viewport rotation ─── */
 
