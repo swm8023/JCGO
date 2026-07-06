@@ -647,6 +647,7 @@ textarea:focus-visible {
   grid-column: 2;
   position: relative;
   width: var(--side-action-width, 42px);
+  justify-self: start;
   align-self: stretch;
   align-content: center;
   justify-content: center;
@@ -1615,7 +1616,9 @@ textarea:focus-visible {
   }
 
   .app-layout.side-action-layout {
-    grid-template-columns: minmax(0, 1fr) var(--side-action-width, 42px);
+    --side-action-edge-gap: 12px;
+
+    grid-template-columns: minmax(0, 1fr) calc(var(--side-action-width, 42px) + var(--side-action-edge-gap));
     grid-template-rows: auto minmax(0, 1fr) minmax(132px, 168px);
   }
 
@@ -1633,6 +1636,10 @@ textarea:focus-visible {
     gap: 6px;
     padding: 4px 8px;
     box-shadow: 0 1px 10px rgb(30 41 59 / 0.16);
+  }
+
+  .side-action-layout .game-sidebar {
+    grid-column: 1 / -1;
   }
 
   .sidebar-header {
@@ -2956,7 +2963,9 @@ textarea:focus-visible {
   }
 
   .app-layout.side-action-layout {
-    grid-template-columns: minmax(0, 1fr) var(--side-action-width, 42px);
+    --side-action-edge-gap: 12px;
+
+    grid-template-columns: minmax(0, 1fr) calc(var(--side-action-width, 42px) + var(--side-action-edge-gap));
     grid-template-rows: auto minmax(0, 1fr) minmax(132px, 168px);
   }
 
@@ -2974,6 +2983,10 @@ textarea:focus-visible {
     gap: 6px;
     padding: 4px 8px;
     box-shadow: 0 1px 10px rgb(30 41 59 / 0.16);
+  }
+
+  .side-action-layout .game-sidebar {
+    grid-column: 1 / -1;
   }
 
   .sidebar-header {
