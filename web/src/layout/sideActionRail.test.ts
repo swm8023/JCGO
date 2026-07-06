@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeSideActionPlacement, sideActionRailHeight, sideActionRailWidth } from './sideActionRail'
+import { computeSideActionPlacement, sideActionEdgeGap, sideActionRailHeight, sideActionRailWidth } from './sideActionRail'
 
 describe('side action rail placement', () => {
   it('enables side controls when wide portrait has enough board-right space', () => {
@@ -13,7 +13,7 @@ describe('side action rail placement', () => {
     }, false)
 
     expect(placement.enabled).toBe(true)
-    expect(placement.left).toBe(768)
+    expect(placement.left).toBe(840 - sideActionEdgeGap - sideActionRailWidth)
     expect(placement.top).toBe(412)
     expect(placement.width).toBe(sideActionRailWidth)
     expect(placement.rowHeight).toBe(0)
@@ -37,7 +37,7 @@ describe('side action rail placement', () => {
       layoutWidth: 820,
       layoutHeight: 1080,
       boardStageRight: 820,
-      boardRight: 780,
+      boardRight: 756,
       boardTop: 100,
       boardHeight: 620,
     }
@@ -46,17 +46,17 @@ describe('side action rail placement', () => {
     expect(computeSideActionPlacement(marginal, true).enabled).toBe(true)
   })
 
-  it('stays enabled after the layout reserves a column for the side controls', () => {
+  it('turns off side controls when the floating rail would overlap the centered board', () => {
     const placement = computeSideActionPlacement({
-      layoutWidth: 840,
+      layoutWidth: 820,
       layoutHeight: 1080,
-      boardStageRight: 794,
-      boardRight: 760,
+      boardStageRight: 820,
+      boardRight: 770,
       boardTop: 92,
       boardHeight: 640,
     }, true)
 
-    expect(placement.enabled).toBe(true)
+    expect(placement.enabled).toBe(false)
   })
 
   it('does not enable side controls outside wide portrait layouts', () => {

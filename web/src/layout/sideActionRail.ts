@@ -1,6 +1,7 @@
 export const sideActionRailWidth = 42
 export const sideActionRailHeight = 267
 export const sideActionRowHeight = 0
+export const sideActionEdgeGap = 12
 
 const sideActionGap = 8
 const viewportEdgeGap = 4
@@ -31,16 +32,15 @@ export function computeSideActionPlacement(measurement: SideActionMeasurement, c
   if (!isWidePortrait(measurement)) return disabled
   if (measurement.boardHeight <= 0 || measurement.boardRight <= 0 || measurement.boardStageRight <= 0) return disabled
 
-  const rightGap = currentlyEnabled
-    ? measurement.layoutWidth - measurement.boardRight
-    : measurement.boardStageRight - measurement.boardRight
+  const rightGap = measurement.boardStageRight - measurement.boardRight
+  const visibleRailSpace = sideActionRailWidth + sideActionEdgeGap + sideActionGap
   const requiredGap = currentlyEnabled
-    ? sideActionRailWidth - exitTolerance
-    : sideActionRailWidth + enterExtraSpace
+    ? visibleRailSpace - exitTolerance
+    : visibleRailSpace + enterExtraSpace
   if (rightGap < requiredGap) return disabled
 
-  const preferredLeft = measurement.boardRight + sideActionGap
-  const maxLeft = measurement.boardStageRight - sideActionRailWidth
+  const preferredLeft = measurement.layoutWidth - sideActionEdgeGap - sideActionRailWidth
+  const maxLeft = measurement.boardStageRight - sideActionEdgeGap - sideActionRailWidth
   const preferredTop = measurement.boardTop + measurement.boardHeight / 2
   const minTop = sideActionRailHeight / 2 + viewportEdgeGap
   const maxTop = measurement.layoutHeight - sideActionRailHeight / 2 - viewportEdgeGap

@@ -643,12 +643,11 @@ textarea:focus-visible {
 }
 
 .side-action-layout .action-rail {
-  grid-row: 2;
-  grid-column: 2;
-  position: relative;
+  position: absolute;
+  left: var(--side-action-left, 0px);
+  top: var(--side-action-top, 0px);
   width: var(--side-action-width, 42px);
-  justify-self: start;
-  align-self: stretch;
+  transform: translateY(-50%);
   align-content: center;
   justify-content: center;
   z-index: 5;
@@ -1386,8 +1385,10 @@ textarea:focus-visible {
   }
 
   .sidebar-toggle-actions {
-    grid-column: 2;
-    justify-self: center;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     min-width: 0;
   }
 
@@ -1616,9 +1617,7 @@ textarea:focus-visible {
   }
 
   .app-layout.side-action-layout {
-    --side-action-edge-gap: 12px;
-
-    grid-template-columns: minmax(0, 1fr) calc(var(--side-action-width, 42px) + var(--side-action-edge-gap));
+    grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr) minmax(132px, 168px);
   }
 
@@ -1660,8 +1659,10 @@ textarea:focus-visible {
   }
 
   .sidebar-toggle-actions {
-    grid-column: 2;
-    justify-self: center;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     min-width: 0;
   }
 
@@ -2250,8 +2251,10 @@ textarea:focus-visible {
   }
 
   .sidebar-toggle-actions {
-    grid-column: 2;
-    justify-self: center;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     min-width: 0;
   }
 
@@ -2963,9 +2966,7 @@ textarea:focus-visible {
   }
 
   .app-layout.side-action-layout {
-    --side-action-edge-gap: 12px;
-
-    grid-template-columns: minmax(0, 1fr) calc(var(--side-action-width, 42px) + var(--side-action-edge-gap));
+    grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr) minmax(132px, 168px);
   }
 
@@ -3007,8 +3008,10 @@ textarea:focus-visible {
   }
 
   .sidebar-toggle-actions {
-    grid-column: 2;
-    justify-self: center;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     min-width: 0;
   }
 
