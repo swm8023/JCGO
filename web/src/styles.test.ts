@@ -13,6 +13,9 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('--board-wood: #d4a45e;')
     expect(styles).toContain('--signal: #c2410c;')
     expect(styles).toContain('--frame: #1e293b;')
+    expect(styles).toContain('--analysis-pill-shell: rgb(212 201 184 / 0.28);')
+    expect(styles).toContain('--analysis-pill-border: rgb(212 201 184 / 0.72);')
+    expect(styles).toContain('--analysis-pill-surface: rgb(250 248 244 / 0.84);')
     expect(styles).toContain('--app-width: 100dvw;')
     expect(styles).toContain('font-family: "Inter", "Segoe UI", ui-sans-serif')
     expect(styles).toContain('background:\n    radial-gradient(circle at 20% 50%')
@@ -86,7 +89,7 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));')
     expect(styles).toContain('.summary-metric {')
     expect(styles).toContain('height: 22px;\n  display: flex;\n  align-items: center;\n  justify-content: center;')
-    expect(styles).toContain('border: 1px solid rgb(212 201 184 / 0.54);\n  border-radius: 999px;\n  background: rgb(250 248 244 / 0.72);')
+    expect(styles).toContain('border: 1px solid var(--analysis-pill-border);\n  border-radius: 999px;\n  background: var(--analysis-pill-surface);')
     expect(styles).toContain('.rail-section-body {\n  min-height: 0;\n  overflow: auto;')
     expect(styles).toContain('.winrate-chart {\n  width: 100%;\n  height: 100%;\n  min-height: 88px;')
     expect(styles).toContain('.chart-label-layer {\n  position: absolute;\n  inset: 0;')
@@ -95,8 +98,9 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.analysis-detail-tabs {\n  grid-template-rows: 24px minmax(0, 1fr);')
     expect(styles).toContain('height: 100%;\n  box-sizing: border-box;')
     expect(styles).toContain('.analysis-tab-list {\n  width: max-content;\n  max-width: 100%;\n  height: 100%;\n  box-sizing: border-box;\n  display: grid;\n  grid-auto-flow: column;')
+    expect(styles).toContain('border: 1px solid var(--analysis-pill-border);\n  border-radius: 999px;\n  background: var(--analysis-pill-shell);')
     expect(styles).toContain('.analysis-tab {\n  min-width: 42px;\n  height: 100%;')
-    expect(styles).toContain('.analysis-tab[aria-selected=\'true\'] {\n  background: var(--surface);\n  color: var(--ink);')
+    expect(styles).toContain('.analysis-tab[aria-selected=\'true\'] {\n  background: var(--analysis-pill-surface);\n  color: var(--ink);')
   })
 
   it('keeps imported game rows aligned with compact icon actions', () => {
@@ -179,6 +183,17 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.chart-body {\n    height: var(--portrait-chart-height);\n    overflow: visible;')
     expect(styles).toContain('.winrate-chart {\n    height: var(--portrait-chart-height);\n    min-height: 0;')
     expect(styles).toContain('.sidebar-analysis {\n    grid-column: 2;')
+  })
+
+  it('uses a foldable portrait workspace with side-by-side analysis below the board', () => {
+    expect(styles).toContain('@media (orientation: portrait) and (min-width: 700px) and (max-width: 1220px) {')
+    expect(styles).toContain('@container app-layout (max-aspect-ratio: 1 / 1) and (min-width: 700px) and (max-width: 1220px) {')
+    expect(styles).toContain('grid-template-rows: auto minmax(0, 1fr) auto minmax(132px, 168px);')
+    expect(styles).toContain('.analysis-rail {\n    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);\n    grid-template-rows: minmax(0, 1fr);')
+    expect(styles).toContain('.analysis-overview {\n    grid-template-rows: 20px minmax(0, 1fr);')
+    expect(styles).toContain('.analysis-detail-tabs {\n    grid-template-rows: 20px minmax(0, 1fr);')
+    expect(styles).toContain('.analysis-overview .chart-body {\n    height: auto;\n    min-height: 0;')
+    expect(styles).toContain('.analysis-tab-list {\n    height: 20px;')
   })
 
   it('keeps app layout responsive when mobile rotation leaves viewport media queries stale', () => {
