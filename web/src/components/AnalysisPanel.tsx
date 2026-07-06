@@ -24,5 +24,5 @@ export function AnalysisPanel({ analysis }: AnalysisPanelProps) {
 }
 
 function formatScore(scoreLead: number) {
-  return scoreLead >= 0 ? `B+${scoreLead.toFixed(1)}` : `W+${Math.abs(scoreLead).toFixed(1)}`
+  return scoreLead >= 0 ? `B +${scoreLead.toFixed(1)}` : `W +${Math.abs(scoreLead).toFixed(1)}`
 }
