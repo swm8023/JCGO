@@ -56,9 +56,9 @@ describe('PWA install metadata', () => {
     expect(isDark(pngPixel('public/icons/jcgo-512.png', 430, 420))).toBe(true)
   })
 
-  it('prefers fullscreen display when the installed app runtime supports it', () => {
+  it('uses standalone display so installed app sizing stays consistent across launches and rotation', () => {
     expect(manifest.display).toBe('standalone')
-    expect(manifest.display_override).toEqual(['fullscreen', 'standalone'])
+    expect(manifest.display_override).toBeUndefined()
   })
 
   it('enables iOS home-screen standalone mode metadata', () => {
