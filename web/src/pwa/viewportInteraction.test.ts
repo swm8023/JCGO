@@ -143,7 +143,7 @@ class FakeWindowTarget extends FakeEventTarget {
 }
 
 describe('viewport interaction guards', () => {
-  it('does not show viewport diagnostics unless explicitly enabled', async () => {
+  it('shows viewport diagnostics without requiring URL parameters', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
@@ -154,15 +154,14 @@ describe('viewport interaction guards', () => {
       documentTarget as unknown as Document,
     )
 
-    expect(documentTarget.getElementById('__viewport-debug')).toBeNull()
+    expect(documentTarget.getElementById('__viewport-debug')?.textContent).toContain('[DEBUG-viewport-rot]')
   })
 
-  it('shows opt-in viewport diagnostics for mobile rotation debugging', async () => {
+  it('shows viewport diagnostics for mobile rotation debugging', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
     const windowTarget = new FakeWindowTarget()
     const documentTarget = new FakeDocumentTarget()
-    windowTarget.location.search = '?viewport-debug=1'
 
     const cleanup = installViewportInteractionGuards(
       windowTarget as unknown as Window,
@@ -183,6 +182,7 @@ describe('viewport interaction guards', () => {
     expect(debug?.textContent).toContain('win=795x278')
     expect(debug?.textContent).toContain('vv=795x278')
     expect(debug?.textContent).toContain('vars=795pxx278px')
+    expect(debug?.textContent).toContain('display=')
 
     cleanup()
     expect(documentTarget.getElementById('__viewport-debug')).toBeNull()

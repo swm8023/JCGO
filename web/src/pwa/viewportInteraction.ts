@@ -4,7 +4,6 @@ const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
 const orientationSettleFrameCount = 8
 const viewportDebugElementId = '__viewport-debug'
-const viewportDebugQueryParam = 'viewport-debug'
 const viewportDebugSampleLimit = 5
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
@@ -12,7 +11,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   let orientationChangePending = false
   let orientationSettleFramesRemaining = 0
   let rafId: number | undefined
-  const debugOverlay = viewportDebugEnabled(windowTarget) ? createViewportDebugOverlay(documentTarget) : undefined
+  const debugOverlay = createViewportDebugOverlay(documentTarget)
   const debugSamples: string[] = []
 
   const preventGestureZoom = (event: Event) => {
@@ -142,15 +141,6 @@ function hasCoarsePointer(windowTarget: Window) {
   return windowTarget.matchMedia?.('(pointer: coarse)').matches ?? false
 }
 
-function viewportDebugEnabled(windowTarget: Window) {
-  try {
-    const value = new URLSearchParams(windowTarget.location.search).get(viewportDebugQueryParam)
-    return value === '1' || value === 'true'
-  } catch {
-    return false
-  }
-}
-
 function createViewportDebugOverlay(documentTarget: Document): HTMLElement {
   documentTarget.getElementById(viewportDebugElementId)?.remove()
   const el = documentTarget.createElement('div')
@@ -198,9 +188,9 @@ function viewportDebugSnapshot(
   return [
     `[DEBUG-viewport-rot] src=${source} pending=${orientationChangePending} settle=${orientationSettleFramesRemaining}`,
     `win=${round(viewport.width)}x${round(viewport.height)} vv=${visualViewport ? `${round(visualViewport.width)}x${round(visualViewport.height)} scale=${round(visualViewport.scale ?? 1)}` : 'none'} sh=${round(stableHeight)} dpr=${round(windowTarget.devicePixelRatio || 1)}`,
-    `screen=${screenTarget ? `${screenTarget.width}x${screenTarget.height}` : 'none'} orient=${orientation ? `${orientation.type}/${orientation.angle}` : 'none'} mq=${mediaQuerySummary(windowTarget)}`,
+    `screen=${screenTarget ? `${screenTarget.width}x${screenTarget.height}` : 'none'} orient=${orientation ? `${orientation.type}/${orientation.angle}` : 'none'} display=${displayModeSummary(windowTarget)} mq=${mediaQuerySummary(windowTarget)}`,
     `vars=${rootStyle.getPropertyValue(appWidthVariable)}x${rootStyle.getPropertyValue(appHeightVariable)} root=${rectSummary(documentTarget.getElementById('root'))}`,
-    `layout=${rectSummary(layout)} cols=${layoutStyle?.gridTemplateColumns ?? 'N/A'} rows=${layoutStyle?.gridTemplateRows ?? 'N/A'}`,
+    `layout=${rectSummary(layout)} pad=${layoutStyle ? `${layoutStyle.paddingLeft}/${layoutStyle.paddingRight}/${layoutStyle.paddingTop}/${layoutStyle.paddingBottom}` : 'N/A'} cols=${layoutStyle?.gridTemplateColumns ?? 'N/A'} rows=${layoutStyle?.gridTemplateRows ?? 'N/A'}`,
     `railL=${rectSummary(documentTarget.querySelector('.game-sidebar'))} boardStage=${rectSummary(documentTarget.querySelector('.board-stage'))} action=${rectSummary(documentTarget.querySelector('.action-rail'))}`,
     `analysis=${analysisStyle?.display ?? 'N/A'} ${rectSummary(analysis)} board=${rectSummary(board)}`,
   ].join('\n')
@@ -223,6 +213,11 @@ function mediaQuerySummary(windowTarget: Window) {
     `l=${windowTarget.matchMedia?.('(orientation: landscape)').matches ?? 'N/A'}`,
     `coarse=${hasCoarsePointer(windowTarget)}`,
   ].join('/')
+}
+
+function displayModeSummary(windowTarget: Window) {
+  const modes = ['fullscreen', 'standalone', 'minimal-ui', 'browser']
+  return modes.filter((mode) => windowTarget.matchMedia?.(`(display-mode: ${mode})`).matches).join('|') || 'N/A'
 }
 
 function round(value: number) {
