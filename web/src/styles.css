@@ -1638,11 +1638,7 @@ textarea:focus-visible {
     align-items: stretch;
     gap: 8px;
     padding: 6px 4px;
-    box-shadow: var(--shadow-frame);
-  }
-
-  .game-sidebar h1 {
-    display: none;
+    box-shadow: none;
   }
 
   .sidebar-header {
@@ -1661,11 +1657,6 @@ textarea:focus-visible {
     grid-auto-columns: auto;
   }
 
-  .icon-button {
-    width: 36px;
-    height: 36px;
-  }
-
   .sidebar-analysis {
     grid-column: auto;
     grid-row: 3;
@@ -1675,11 +1666,6 @@ textarea:focus-visible {
 
   .analysis-action-button {
     width: 100%;
-    min-width: 0;
-    max-width: 36px;
-    height: 32px;
-    padding: 2px 4px;
-    font-size: 9px;
   }
 
   .game-sidebar .wide-label,
@@ -1748,10 +1734,6 @@ textarea:focus-visible {
   .action-rail {
     grid-row: auto;
     padding: 6px 2px;
-    border-top: 0;
-    border-right: 1px solid var(--line);
-    border-bottom: 0;
-    border-left: 1px solid var(--line);
   }
 
   .navigation-controls {
@@ -1768,26 +1750,7 @@ textarea:focus-visible {
 
   .navigation-controls button {
     width: 100%;
-    min-width: 0;
     max-width: 36px;
-    height: 32px;
-    padding: 0 2px;
-    font-size: 12px;
-  }
-
-  .navigation-controls .try-action-button {
-    width: 32px;
-    min-width: 32px;
-    max-width: 32px;
-    height: 32px;
-    padding: 0;
-    font-size: 13px;
-  }
-
-  .move-number-stone {
-    width: 32px;
-    height: 32px;
-    font-size: 11px;
   }
 
   .analysis-rail {
@@ -1853,18 +1816,6 @@ textarea:focus-visible {
     font-size: 9px;
   }
 
-  .candidate-list,
-  .bad-move-list {
-    gap: 4px;
-  }
-
-  .candidate-row,
-  .bad-move {
-    min-height: 28px;
-    gap: 4px;
-    font-size: 12px;
-  }
-
   .bad-move-jump {
     padding: 4px 6px;
   }
@@ -1896,7 +1847,7 @@ textarea:focus-visible {
     align-items: stretch;
     gap: 8px;
     padding: 6px 4px;
-    box-shadow: var(--shadow-frame);
+    box-shadow: none;
   }
 
   .sidebar-header {
@@ -1923,11 +1874,6 @@ textarea:focus-visible {
 
   .analysis-action-button {
     width: 100%;
-    min-width: 0;
-    max-width: 36px;
-    height: 32px;
-    padding: 2px 4px;
-    font-size: 9px;
   }
 
   .game-sidebar .wide-label,
@@ -1971,10 +1917,6 @@ textarea:focus-visible {
   .action-rail {
     grid-row: auto;
     padding: 6px 2px;
-    border-top: 0;
-    border-right: 1px solid var(--line);
-    border-bottom: 0;
-    border-left: 1px solid var(--line);
   }
 
   .navigation-controls {
@@ -1990,26 +1932,7 @@ textarea:focus-visible {
 
   .navigation-controls button {
     width: 100%;
-    min-width: 0;
     max-width: 36px;
-    height: 32px;
-    padding: 0 2px;
-    font-size: 12px;
-  }
-
-  .navigation-controls .try-action-button {
-    width: 32px;
-    min-width: 32px;
-    max-width: 32px;
-    height: 32px;
-    padding: 0;
-    font-size: 13px;
-  }
-
-  .move-number-stone {
-    width: 32px;
-    height: 32px;
-    font-size: 11px;
   }
 
   .analysis-rail {
@@ -2054,15 +1977,6 @@ textarea:focus-visible {
     grid-template-rows: 40px minmax(0, 1fr) 40px;
     align-content: stretch;
     padding-bottom: 8px;
-  }
-
-  .icon-button {
-    width: 36px;
-  }
-
-  .analysis-action-button {
-    width: 36px;
-    height: 32px;
   }
 
   .analysis-rail {
@@ -3044,11 +2958,6 @@ textarea:focus-visible {
     flex-direction: column;
   }
 
-  .icon-button {
-    width: 36px;
-    height: 36px;
-  }
-
   .sidebar-analysis {
     justify-items: center;
   }
@@ -3056,9 +2965,6 @@ textarea:focus-visible {
   .analysis-action-button {
     width: 100%;
     max-width: 36px;
-    height: 32px;
-    padding: 2px 4px;
-    font-size: 9px;
   }
 
   .wide-label {
@@ -3115,23 +3021,6 @@ textarea:focus-visible {
   .navigation-controls button {
     width: 100%;
     max-width: 36px;
-    height: 32px;
-    font-size: 12px;
-  }
-
-  .navigation-controls .try-action-button {
-    width: 32px;
-    min-width: 32px;
-    max-width: 32px;
-    height: 32px;
-    padding: 0;
-    font-size: 13px;
-  }
-
-  .move-number-stone {
-    width: 32px;
-    height: 32px;
-    font-size: 11px;
   }
 
   .analysis-rail {
@@ -3215,6 +3104,16 @@ textarea:focus-visible {
     padding: 0 6px;
     font-size: 11px;
   }
+
+  .bad-move-jump {
+    padding: 4px 6px;
+  }
+
+  .bad-move-copy {
+    min-width: 46px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
 }
 
 /* ─── Small landscape: hide analysis ─── */
@@ -3230,15 +3129,6 @@ textarea:focus-visible {
     grid-template-rows: 40px minmax(0, 1fr) 40px;
     align-content: stretch;
     padding-bottom: 8px;
-  }
-
-  .icon-button {
-    width: 36px;
-  }
-
-  .analysis-action-button {
-    width: 36px;
-    height: 32px;
   }
 
   .analysis-rail {
