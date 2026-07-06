@@ -299,6 +299,7 @@ export default function App() {
     applyWorkspaceState(state)
     setActivePV(undefined)
     if (!keepTryMode) setTryMode(false)
+    playStoneSound()
   }
 
   const gotoMove = async (moveNumber: number) => runNavigation({ method: 'game.goto', moveNumber })
