@@ -5,7 +5,8 @@ const appHeightVariable = '--app-height'
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
   let stableHeight = windowTarget.innerHeight
-  let isPortrait = windowTarget.matchMedia?.('(orientation: portrait)').matches ?? true
+  let orientationChangePending = false
+  let rafId: number | undefined
 
   const preventGestureZoom = (event: Event) => {
     event.preventDefault()
@@ -13,38 +14,57 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   const preventMultiTouchMove = (event: TouchEvent) => {
     if (event.touches.length > 1) event.preventDefault()
   }
-  const updateAppHeight = (viewport: ViewportSize) => {
-    documentTarget.documentElement.style.setProperty(appWidthVariable, `${viewport.width}px`)
+  const applyViewport = (width: number) => {
+    documentTarget.documentElement.style.setProperty(appWidthVariable, `${width}px`)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
+  const flushOrientationChange = () => {
+    if (rafId !== undefined) {
+      windowTarget.cancelAnimationFrame(rafId)
+      rafId = undefined
+    }
+    if (!orientationChangePending) return
+    orientationChangePending = false
+    const viewport = windowViewportSize(windowTarget)
+    stableHeight = viewport.height
+    applyViewport(viewport.width)
+  }
   const handleResize = () => {
+    if (orientationChangePending) {
+      rafId = windowTarget.requestAnimationFrame(() => {
+        rafId = undefined
+        flushOrientationChange()
+      })
+      return
+    }
     const viewport = windowViewportSize(windowTarget)
     if (!hasCoarsePointer(windowTarget)) {
       stableHeight = viewport.height
     } else {
       stableHeight = Math.max(stableHeight, viewport.height)
     }
-    updateAppHeight(viewport)
+    applyViewport(viewport.width)
   }
   const handleOrientationChange = () => {
-    const portraitQuery = windowTarget.matchMedia?.('(orientation: portrait)')
-    isPortrait = portraitQuery?.matches ?? true
-    stableHeight = windowTarget.innerHeight
-    const viewport = windowViewportSize(windowTarget)
-    updateAppHeight(viewport)
+    orientationChangePending = true
+    rafId = windowTarget.requestAnimationFrame(() => {
+      rafId = undefined
+      flushOrientationChange()
+    })
   }
-
   const handleVisualViewportResize = () => {
-    const viewport = windowTarget.visualViewport
-    if (viewport) {
-      if (!hasCoarsePointer(windowTarget)) {
-        stableHeight = viewport.height
-      } else {
-        stableHeight = Math.max(stableHeight, viewport.height)
-      }
-      documentTarget.documentElement.style.setProperty(appWidthVariable, `${viewport.width}px`)
-      documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
+    if (orientationChangePending) {
+      flushOrientationChange()
+      return
     }
+    const viewport = windowTarget.visualViewport
+    if (!viewport) return
+    if (!hasCoarsePointer(windowTarget)) {
+      stableHeight = viewport.height
+    } else {
+      stableHeight = Math.max(stableHeight, viewport.height)
+    }
+    applyViewport(viewport.width)
   }
 
   handleResize()
@@ -60,6 +80,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   portraitQuery?.addEventListener?.('change', handleOrientationChange)
 
   return () => {
+    if (rafId !== undefined) windowTarget.cancelAnimationFrame(rafId)
     for (const eventName of gestureEvents) {
       windowTarget.removeEventListener(eventName, preventGestureZoom)
       documentTarget.removeEventListener(eventName, preventGestureZoom)
