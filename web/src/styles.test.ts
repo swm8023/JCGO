@@ -73,7 +73,7 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('max-width: 100%;')
     expect(styles).toContain('filter: drop-shadow(0 20px 40px rgb(42 30 14 / 0.25));')
     expect(styles).toContain('.action-rail {')
-    expect(styles).toContain('.side-action-layout .action-rail {\n  position: absolute;\n  left: var(--side-action-left, 0px);\n  top: var(--side-action-top, 0px);\n  width: var(--side-action-width, 42px);')
+    expect(styles).toContain('.side-action-layout .action-rail {\n  grid-row: 1 / -1;\n  grid-column: 1 / -1;\n  position: absolute;\n  left: var(--side-action-left, 0px);\n  top: var(--side-action-top, 0px);\n  width: var(--side-action-width, 42px);')
     expect(styles).toContain('.side-action-layout .navigation-controls {\n  width: var(--side-action-width, 42px);\n  max-width: var(--side-action-width, 42px);\n  box-sizing: border-box;\n  grid-auto-flow: row;')
     expect(styles).toContain('.side-action-layout .navigation-controls button {\n  width: 32px;\n  min-width: 32px;\n  max-width: 32px;\n  height: 30px;')
     expect(styles).toContain('.side-action-layout .move-number-stone {\n  width: 30px;\n  height: 30px;')
