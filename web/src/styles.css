@@ -16,6 +16,7 @@
   --board-wood: #d4a45e;
   --board-wood-dark: #c4944e;
   --board-line: #3a2818;
+  --board-zone: #f5efe3;
   --candidate-best: #059669;
   --candidate-next: #d97706;
   --signal: #c2410c;
@@ -478,7 +479,7 @@ textarea:focus-visible {
   max-height: 100%;
   overflow: hidden;
   border: 0;
-  background: var(--paper);
+  background: var(--board-zone);
   color: var(--muted);
   box-shadow: none;
   container-type: size;
@@ -691,7 +692,7 @@ textarea:focus-visible {
   font-weight: 600;
   box-shadow: 0 2px 8px rgb(26 26 46 / 0.06);
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -717,14 +718,16 @@ textarea:focus-visible {
   font-weight: 800;
 }
 
-.try-action-enter {
+.navigation-controls .try-action-enter {
   border-color: #047857;
   background: #059669;
+  color: var(--surface);
 }
 
-.try-action-exit {
+.navigation-controls .try-action-exit {
   border-color: #b91c1c;
   background: #dc2626;
+  color: var(--surface);
 }
 
 .navigation-controls .try-action-enter:hover {
@@ -1136,6 +1139,12 @@ textarea:focus-visible {
 
 @media (orientation: portrait) and (max-width: 820px) {
   .app-layout {
+    --portrait-summary-height: 18px;
+    --portrait-chart-height: 88px;
+    --portrait-overview-gap: 2px;
+    --portrait-overview-padding-block: 4px;
+    --portrait-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-block) * 2);
+
     height: var(--app-height);
     min-height: 0;
     display: grid;
@@ -1260,7 +1269,7 @@ textarea:focus-visible {
     position: relative;
     z-index: 3;
     padding: 0 8px 8px;
-    background: var(--paper);
+    background: var(--board-zone);
     border: 0;
   }
 
@@ -1276,19 +1285,20 @@ textarea:focus-visible {
     padding: 3px 5px;
     border: 0;
     border-radius: 999px;
-    background: var(--paper);
+    background: transparent;
     box-shadow: none;
     overflow-x: auto;
     overflow-y: hidden;
   }
 
   .navigation-controls button {
-    width: auto;
+    width: 30px;
     min-width: 30px;
-    max-width: none;
+    max-width: 30px;
     height: 30px;
-    padding: 0 7px;
+    padding: 0;
     border-radius: 999px;
+    text-overflow: clip;
   }
 
   .navigation-controls .try-action-button {
@@ -1310,16 +1320,21 @@ textarea:focus-visible {
     grid-row: 4;
     min-height: 0;
     max-height: none;
-    grid-template-rows: minmax(108px, 126px) minmax(0, 1fr);
+    grid-template-rows: var(--portrait-overview-height) minmax(0, 1fr);
     gap: 4px;
     padding: 6px 6px 6px;
     overflow: hidden;
   }
 
   .analysis-overview {
-    grid-template-rows: 18px minmax(82px, 1fr);
-    gap: 2px;
-    padding: 4px 6px;
+    grid-template-rows: var(--portrait-summary-height) var(--portrait-chart-height);
+    gap: var(--portrait-overview-gap);
+    padding: var(--portrait-overview-padding-block) 6px;
+  }
+
+  .chart-body {
+    height: var(--portrait-chart-height);
+    overflow: visible;
   }
 
   .analysis-summary {
@@ -1337,7 +1352,8 @@ textarea:focus-visible {
   }
 
   .winrate-chart {
-    min-height: 82px;
+    height: var(--portrait-chart-height);
+    min-height: 0;
   }
 
   .analysis-detail-tabs {
@@ -1644,6 +1660,12 @@ textarea:focus-visible {
 
 @container app-layout (max-aspect-ratio: 1 / 1) and (max-width: 820px) {
   .app-layout {
+    --portrait-summary-height: 18px;
+    --portrait-chart-height: 88px;
+    --portrait-overview-gap: 2px;
+    --portrait-overview-padding-block: 4px;
+    --portrait-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-block) * 2);
+
     height: var(--app-height);
     min-height: 0;
     display: grid;
@@ -1768,7 +1790,7 @@ textarea:focus-visible {
     position: relative;
     z-index: 3;
     padding: 0 8px 8px;
-    background: var(--paper);
+    background: var(--board-zone);
     border: 0;
   }
 
@@ -1784,19 +1806,20 @@ textarea:focus-visible {
     padding: 3px 5px;
     border: 0;
     border-radius: 999px;
-    background: var(--paper);
+    background: transparent;
     box-shadow: none;
     overflow-x: auto;
     overflow-y: hidden;
   }
 
   .navigation-controls button {
-    width: auto;
+    width: 30px;
     min-width: 30px;
-    max-width: none;
+    max-width: 30px;
     height: 30px;
-    padding: 0 7px;
+    padding: 0;
     border-radius: 999px;
+    text-overflow: clip;
   }
 
   .navigation-controls .try-action-button {
@@ -1818,16 +1841,21 @@ textarea:focus-visible {
     grid-row: 4;
     min-height: 0;
     max-height: none;
-    grid-template-rows: minmax(108px, 126px) minmax(0, 1fr);
+    grid-template-rows: var(--portrait-overview-height) minmax(0, 1fr);
     gap: 4px;
     padding: 6px 6px 6px;
     overflow: hidden;
   }
 
   .analysis-overview {
-    grid-template-rows: 18px minmax(82px, 1fr);
-    gap: 2px;
-    padding: 4px 6px;
+    grid-template-rows: var(--portrait-summary-height) var(--portrait-chart-height);
+    gap: var(--portrait-overview-gap);
+    padding: var(--portrait-overview-padding-block) 6px;
+  }
+
+  .chart-body {
+    height: var(--portrait-chart-height);
+    overflow: visible;
   }
 
   .analysis-summary {
@@ -1845,7 +1873,8 @@ textarea:focus-visible {
   }
 
   .winrate-chart {
-    min-height: 82px;
+    height: var(--portrait-chart-height);
+    min-height: 0;
   }
 
   .analysis-detail-tabs {
