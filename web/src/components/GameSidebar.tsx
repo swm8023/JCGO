@@ -38,12 +38,13 @@ export function GameSidebar({
 }: GameSidebarProps) {
   const analysisAction = analysisButton(analysisState, analysisProgress, onStartAnalysis)
   const disabled = !selectedGameId || analysisAction.disabled || (!analysisAvailable && analysisState !== 'running')
+  const analysisClassName = analysisAction.wide ? 'analysis-action-button analysis-action-wide' : 'analysis-action-button'
 
   return (
     <aside className={listOpen ? 'game-sidebar expanded' : 'game-sidebar'}>
       <div className="sidebar-header">
         <h1>JCGO</h1>
-        <div className="sidebar-actions">
+        <div className="sidebar-actions sidebar-file-actions">
           <button className="icon-button" onClick={onToggleList} aria-label="Show game list">
             ☰
           </button>
@@ -51,10 +52,10 @@ export function GameSidebar({
             +
           </button>
         </div>
-        {toolbarSlot}
+        <div className="sidebar-toggle-actions">{toolbarSlot}</div>
       </div>
       <div className="sidebar-analysis">
-        <button className="analysis-action-button" aria-label={analysisAction.label} onClick={analysisAction.onClick} disabled={disabled}>
+        <button className={analysisClassName} aria-label={analysisAction.label} onClick={analysisAction.onClick} disabled={disabled}>
           <span className="wide-label">{analysisAction.text}</span>
           <span className="narrow-label">{analysisAction.shortText}</span>
         </button>
@@ -103,12 +104,12 @@ export function GameSidebar({
 function analysisButton(analysisState: AnalysisState, progress: AnalysisProgress | undefined, onStart: () => void) {
   if (analysisState === 'running') {
     const text = formatAnalysisProgress(progress)
-    return { label: `Analysis progress ${text}`, text, shortText: text, onClick: noop, disabled: true }
+    return { label: `Analysis progress ${text}`, text, shortText: text, onClick: noop, disabled: true, wide: true }
   }
   if (analysisState === 'complete') {
-    return { label: 'Analysis complete', text: '析', shortText: '析', onClick: noop, disabled: true }
+    return { label: 'Analysis complete', text: '析', shortText: '析', onClick: noop, disabled: true, wide: false }
   }
-  return { label: 'Start analysis', text: '析', shortText: '析', onClick: onStart, disabled: false }
+  return { label: 'Start analysis', text: '析', shortText: '析', onClick: onStart, disabled: false, wide: false }
 }
 
 function formatAnalysisProgress(progress?: AnalysisProgress) {

@@ -84,6 +84,41 @@ describe('GameSidebar', () => {
     expect(onStartAnalysis).toHaveBeenCalledTimes(1)
   })
 
+  it('groups file, overlay, and analysis controls for the compact toolbar', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[]}
+        listOpen={false}
+        selectedGameId="game-1"
+        analysisAvailable
+        analysisState="idle"
+        toolbarSlot={<div data-testid="overlay-slot">荐势弱</div>}
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const fileActions = container.querySelector('.sidebar-file-actions')
+    const toggleActions = container.querySelector('.sidebar-toggle-actions')
+    const analysisActions = container.querySelector('.sidebar-analysis')
+    const sidebar = within(container)
+    expect(fileActions).toContainElement(sidebar.getByLabelText('Show game list'))
+    expect(fileActions).toContainElement(sidebar.getByLabelText('Import SGF'))
+    expect(toggleActions).toContainElement(sidebar.getByTestId('overlay-slot'))
+    expect(analysisActions).toContainElement(sidebar.getByRole('button', { name: 'Start analysis' }))
+    expect(Array.from(container.querySelectorAll('.sidebar-file-actions, .sidebar-toggle-actions, .sidebar-analysis'))).toEqual([
+      fileActions,
+      toggleActions,
+      analysisActions,
+    ])
+  })
+
   it('shows running analysis progress as the same compact label in both orientations', () => {
     const onStopAnalysis = vi.fn()
     const { container } = render(
@@ -108,6 +143,7 @@ describe('GameSidebar', () => {
     const sidebar = within(container)
     const action = sidebar.getByRole('button', { name: 'Analysis progress 11/133' })
     expect(action).toBeDisabled()
+    expect(action).toHaveClass('analysis-action-wide')
     expect(action).not.toHaveTextContent('Stop analysis')
     expect(sidebar.getAllByText('11/133')).toHaveLength(2)
     action.click()
