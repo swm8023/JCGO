@@ -642,6 +642,19 @@ textarea:focus-visible {
   border-right: 1px solid var(--line);
 }
 
+.side-action-layout .action-rail {
+  position: absolute;
+  left: var(--side-action-left, 0px);
+  top: var(--side-action-top, 0px);
+  width: var(--side-action-width, 42px);
+  transform: translateY(-50%);
+  z-index: 5;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+
 .navigation-controls {
   display: grid;
   align-content: center;
@@ -655,6 +668,45 @@ textarea:focus-visible {
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.side-action-layout .navigation-controls {
+  width: var(--side-action-width, 42px);
+  max-width: var(--side-action-width, 42px);
+  box-sizing: border-box;
+  grid-auto-flow: row;
+  grid-auto-rows: minmax(30px, auto);
+  grid-auto-columns: auto;
+  grid-template-columns: 1fr;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 5px;
+  overflow: visible;
+}
+
+.side-action-layout .navigation-controls button {
+  width: 32px;
+  min-width: 32px;
+  max-width: 32px;
+  height: 30px;
+  padding: 0;
+  border-radius: 999px;
+  text-overflow: clip;
+}
+
+.side-action-layout .navigation-controls .try-action-button {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  height: 30px;
+  padding: 0;
+  font-size: 14px;
+}
+
+.side-action-layout .move-number-stone {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
 }
 
 .move-number-stone {
@@ -1560,10 +1612,6 @@ textarea:focus-visible {
     overflow: hidden;
   }
 
-  .app-layout.side-action-layout {
-    grid-template-rows: auto minmax(0, 1fr) var(--side-action-row-height, 42px) minmax(132px, 168px);
-  }
-
   .rotate-prompt {
     display: none;
   }
@@ -1704,18 +1752,6 @@ textarea:focus-visible {
     border: 0;
   }
 
-  .side-action-layout .action-rail {
-    position: absolute;
-    left: var(--side-action-left, 0px);
-    top: var(--side-action-top, 0px);
-    width: var(--side-action-width, 42px);
-    transform: translateY(-50%);
-    z-index: 5;
-    padding: 0;
-    background: transparent;
-    border: 0;
-  }
-
   .navigation-controls {
     width: max-content;
     max-width: calc(100% - 20px);
@@ -1731,17 +1767,6 @@ textarea:focus-visible {
     background: transparent;
     box-shadow: none;
     overflow: visible;
-  }
-
-  .side-action-layout .navigation-controls {
-    width: var(--side-action-width, 42px);
-    max-width: var(--side-action-width, 42px);
-    grid-auto-flow: row;
-    grid-auto-rows: minmax(30px, auto);
-    grid-auto-columns: auto;
-    grid-template-columns: 1fr;
-    justify-content: center;
-    padding: 3px 5px;
   }
 
   .navigation-controls button {
@@ -2138,10 +2163,6 @@ textarea:focus-visible {
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;
-  }
-
-  .app-layout.side-action-layout {
-    grid-template-rows: auto minmax(0, 1fr) var(--side-action-row-height, 42px) minmax(132px, 168px);
   }
 
   .rotate-prompt {
@@ -3062,18 +3083,6 @@ textarea:focus-visible {
     border: 0;
   }
 
-  .side-action-layout .action-rail {
-    position: absolute;
-    left: var(--side-action-left, 0px);
-    top: var(--side-action-top, 0px);
-    width: var(--side-action-width, 42px);
-    transform: translateY(-50%);
-    z-index: 5;
-    padding: 0;
-    background: transparent;
-    border: 0;
-  }
-
   .navigation-controls {
     width: max-content;
     max-width: calc(100% - 20px);
@@ -3089,17 +3098,6 @@ textarea:focus-visible {
     background: transparent;
     box-shadow: none;
     overflow: visible;
-  }
-
-  .side-action-layout .navigation-controls {
-    width: var(--side-action-width, 42px);
-    max-width: var(--side-action-width, 42px);
-    grid-auto-flow: row;
-    grid-auto-rows: minmax(30px, auto);
-    grid-auto-columns: auto;
-    grid-template-columns: 1fr;
-    justify-content: center;
-    padding: 3px 5px;
   }
 
   .navigation-controls button {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeSideActionPlacement, sideActionRailWidth } from './sideActionRail'
+import { computeSideActionPlacement, sideActionRailHeight, sideActionRailWidth } from './sideActionRail'
 
 describe('side action rail placement', () => {
   it('enables side controls when wide portrait has enough board-right space', () => {
@@ -16,7 +16,7 @@ describe('side action rail placement', () => {
     expect(placement.left).toBe(768)
     expect(placement.top).toBe(412)
     expect(placement.width).toBe(sideActionRailWidth)
-    expect(placement.rowHeight).toBe(42)
+    expect(placement.rowHeight).toBe(0)
   })
 
   it('keeps horizontal controls when portrait side space is too small', () => {
@@ -64,5 +64,19 @@ describe('side action rail placement', () => {
       boardTop: 40,
       boardHeight: 520,
     }, false).enabled).toBe(false)
+  })
+
+  it('keeps the vertical controls inside the app viewport', () => {
+    const placement = computeSideActionPlacement({
+      layoutWidth: 840,
+      layoutHeight: 880,
+      boardStageRight: 840,
+      boardRight: 760,
+      boardTop: 10,
+      boardHeight: 240,
+    }, false)
+
+    expect(placement.enabled).toBe(true)
+    expect(placement.top).toBeGreaterThanOrEqual(sideActionRailHeight / 2 + 4)
   })
 })

@@ -1,7 +1,9 @@
 export const sideActionRailWidth = 42
-export const sideActionRowHeight = 42
+export const sideActionRailHeight = 267
+export const sideActionRowHeight = 0
 
 const sideActionGap = 8
+const viewportEdgeGap = 4
 const widePortraitMinWidth = 700
 const widePortraitMaxWidth = 1220
 const enterExtraSpace = 12
@@ -37,10 +39,13 @@ export function computeSideActionPlacement(measurement: SideActionMeasurement, c
 
   const preferredLeft = measurement.boardRight + sideActionGap
   const maxLeft = measurement.boardStageRight - sideActionRailWidth
+  const preferredTop = measurement.boardTop + measurement.boardHeight / 2
+  const minTop = sideActionRailHeight / 2 + viewportEdgeGap
+  const maxTop = measurement.layoutHeight - sideActionRailHeight / 2 - viewportEdgeGap
   return {
     enabled: true,
     left: Math.max(0, Math.min(preferredLeft, maxLeft)),
-    top: measurement.boardTop + measurement.boardHeight / 2,
+    top: Math.max(minTop, Math.min(preferredTop, maxTop)),
     width: sideActionRailWidth,
     rowHeight: sideActionRowHeight,
   }
