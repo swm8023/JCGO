@@ -25,6 +25,9 @@
   --analysis-pill-border: rgb(212 201 184 / 0.72);
   --analysis-pill-surface: rgb(250 248 244 / 0.84);
   --analysis-pill-shadow: 0 1px 4px rgb(26 26 46 / 0.1);
+  --analysis-pill-group-width: min(100%, 252px);
+  --analysis-pill-height: 22px;
+  --analysis-pill-gap: 2px;
   --shadow-soft: 0 14px 34px rgb(26 26 46 / 0.12);
   --shadow-board: 0 24px 56px rgb(42 30 14 / 0.26);
   --shadow-frame: 4px 0 24px rgb(30 41 59 / 0.3);
@@ -830,36 +833,51 @@ textarea:focus-visible {
   padding: 6px 10px 8px;
 }
 
-.analysis-summary {
+.analysis-summary,
+.analysis-tab-list {
+  width: var(--analysis-pill-group-width);
+  max-width: 100%;
+  height: var(--analysis-pill-height);
+  justify-self: center;
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-  min-width: 0;
-  min-height: 0;
+  align-items: stretch;
+  gap: var(--analysis-pill-gap);
+  padding: 1px;
+  border: 1px solid var(--analysis-pill-border);
+  border-radius: 999px;
+  background: var(--analysis-pill-shell);
   overflow: hidden;
   line-height: 1;
 }
 
+.analysis-summary {
+  min-width: 0;
+  min-height: 0;
+}
+
 .summary-metric {
   min-width: 0;
-  height: 22px;
+  height: 100%;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
   box-sizing: border-box;
   overflow: hidden;
   padding: 0 6px;
-  border: 1px solid var(--analysis-pill-border);
+  border: 0;
   border-radius: 999px;
-  background: var(--analysis-pill-surface);
+  background: transparent;
   color: var(--muted);
   font-size: 10px;
   line-height: 1;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 700;
-  box-shadow: var(--analysis-pill-shadow);
+  box-shadow: none;
 }
 
 .summary-metric strong {
@@ -1089,26 +1107,11 @@ textarea:focus-visible {
 }
 
 .analysis-tab-list {
-  width: max-content;
-  max-width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: max-content;
-  grid-template-columns: none;
-  align-items: stretch;
-  justify-content: start;
-  gap: 2px;
-  padding: 1px;
-  border: 1px solid var(--analysis-pill-border);
-  border-radius: 999px;
-  background: var(--analysis-pill-shell);
-  overflow: hidden;
+  justify-content: stretch;
 }
 
 .analysis-tab {
-  min-width: 42px;
+  min-width: 0;
   height: 100%;
   min-height: 0;
   box-sizing: border-box;
@@ -1442,12 +1445,14 @@ textarea:focus-visible {
     overflow: visible;
   }
 
-  .analysis-summary {
-    gap: 3px;
+  .analysis-summary,
+  .analysis-tab-list {
+    height: 18px;
+    gap: 2px;
   }
 
   .summary-metric {
-    height: 18px;
+    height: 100%;
     gap: 3px;
     padding: 0 5px;
     font-size: 9px;
@@ -1469,12 +1474,8 @@ textarea:focus-visible {
     padding: 4px 6px 6px;
   }
 
-  .analysis-tab-list {
-    gap: 2px;
-  }
-
   .analysis-tab {
-    min-width: 34px;
+    min-width: 0;
     height: 100%;
     font-size: 10px;
     padding: 0 5px;
@@ -1721,12 +1722,14 @@ textarea:focus-visible {
     padding: 0 6px 3px;
   }
 
-  .analysis-summary {
-    gap: 4px;
+  .analysis-summary,
+  .analysis-tab-list {
+    height: 20px;
+    gap: 2px;
   }
 
   .summary-metric {
-    height: 20px;
+    height: 100%;
     gap: 4px;
     padding: 0 6px;
     font-size: 9px;
@@ -1747,13 +1750,8 @@ textarea:focus-visible {
     min-height: 0;
   }
 
-  .analysis-tab-list {
-    height: 20px;
-    gap: 2px;
-  }
-
   .analysis-tab {
-    min-width: 34px;
+    min-width: 0;
     height: 100%;
     font-size: 10px;
     padding: 0 5px;
@@ -1922,11 +1920,14 @@ textarea:focus-visible {
     align-content: start;
   }
 
-  .analysis-summary {
-    gap: 4px;
+  .analysis-summary,
+  .analysis-tab-list {
+    height: 22px;
+    gap: 2px;
   }
 
   .summary-metric {
+    height: 100%;
     font-size: 10px;
     min-height: 18px;
     padding: 3px 6px;
@@ -1951,12 +1952,8 @@ textarea:focus-visible {
     padding: 5px 6px;
   }
 
-  .analysis-tab-list {
-    gap: 2px;
-  }
-
   .analysis-tab {
-    min-width: 34px;
+    min-width: 0;
     height: 100%;
     font-size: 10px;
     padding: 0 5px;
@@ -2256,12 +2253,14 @@ textarea:focus-visible {
     overflow: visible;
   }
 
-  .analysis-summary {
-    gap: 3px;
+  .analysis-summary,
+  .analysis-tab-list {
+    height: 18px;
+    gap: 2px;
   }
 
   .summary-metric {
-    height: 18px;
+    height: 100%;
     gap: 3px;
     padding: 0 5px;
     font-size: 9px;
@@ -2283,12 +2282,8 @@ textarea:focus-visible {
     padding: 4px 6px 6px;
   }
 
-  .analysis-tab-list {
-    gap: 2px;
-  }
-
   .analysis-tab {
-    min-width: 34px;
+    min-width: 0;
     height: 100%;
     font-size: 10px;
     padding: 0 5px;
@@ -2517,11 +2512,14 @@ textarea:focus-visible {
     align-content: start;
   }
 
-  .analysis-summary {
-    gap: 4px;
+  .analysis-summary,
+  .analysis-tab-list {
+    height: 22px;
+    gap: 2px;
   }
 
   .summary-metric {
+    height: 100%;
     font-size: 10px;
     min-height: 18px;
     padding: 3px 6px;
@@ -2546,12 +2544,8 @@ textarea:focus-visible {
     padding: 5px 6px;
   }
 
-  .analysis-tab-list {
-    gap: 2px;
-  }
-
   .analysis-tab {
-    min-width: 34px;
+    min-width: 0;
     height: 100%;
     font-size: 10px;
     padding: 0 5px;
@@ -3019,12 +3013,14 @@ textarea:focus-visible {
     padding: 0 6px 3px;
   }
 
-  .analysis-summary {
-    gap: 4px;
+  .analysis-summary,
+  .analysis-tab-list {
+    height: 20px;
+    gap: 2px;
   }
 
   .summary-metric {
-    height: 20px;
+    height: 100%;
     gap: 4px;
     padding: 0 6px;
     font-size: 9px;
@@ -3045,13 +3041,8 @@ textarea:focus-visible {
     min-height: 0;
   }
 
-  .analysis-tab-list {
-    height: 20px;
-    gap: 2px;
-  }
-
   .analysis-tab {
-    min-width: 34px;
+    min-width: 0;
     height: 100%;
     font-size: 10px;
     padding: 0 5px;
