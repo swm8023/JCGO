@@ -317,6 +317,34 @@ describe('viewport interaction guards', () => {
     expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
   })
 
+  it('uses the unscaled visual viewport after mobile rotation shrinks the visible area', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.innerWidth = 979
+    windowTarget.innerHeight = 406
+    windowTarget.visualViewport.width = 979
+    windowTarget.visualViewport.height = 406
+    windowTarget.visualViewport.scale = 0.81
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('406px')
+
+    windowTarget.visualViewport.width = 795
+    windowTarget.visualViewport.height = 330
+    windowTarget.visualViewport.scale = 1
+    windowTarget.visualViewport.dispatch('resize', new Event('resize'))
+
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('795px')
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('330px')
+  })
+
   it('does not reload when portrait rotation keeps the desktop-width mobile viewport scaled down', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
