@@ -1,4 +1,4 @@
-import type { AnalysisState, GameRecord } from '../api/types'
+import type { AnalysisProgress, AnalysisState, GameRecord } from '../api/types'
 import type { ReactNode } from 'react'
 
 interface GameSidebarProps {
@@ -8,6 +8,7 @@ interface GameSidebarProps {
   analysisAvailable: boolean
   analysisError?: string
   analysisState: AnalysisState
+  analysisProgress?: AnalysisProgress
   onToggleList(): void
   onImport(): void
   onSelect(gameId: string): void
@@ -26,18 +27,17 @@ export function GameSidebar({
   analysisAvailable,
   analysisError,
   analysisState,
+  analysisProgress,
   onToggleList,
   onImport,
   onSelect,
   onRename,
   onDelete,
   onStartAnalysis,
-  onStopAnalysis,
-  onRestartAnalysis,
   toolbarSlot,
 }: GameSidebarProps) {
-  const analysisAction = analysisButton(analysisState, onStartAnalysis, onStopAnalysis, onRestartAnalysis)
-  const disabled = !selectedGameId || (!analysisAvailable && analysisState !== 'running')
+  const analysisAction = analysisButton(analysisState, analysisProgress, onStartAnalysis)
+  const disabled = !selectedGameId || analysisAction.disabled || (!analysisAvailable && analysisState !== 'running')
 
   return (
     <aside className={listOpen ? 'game-sidebar expanded' : 'game-sidebar'}>
@@ -100,14 +100,24 @@ export function GameSidebar({
   )
 }
 
-function analysisButton(analysisState: AnalysisState, onStart: () => void, onStop: () => void, onRestart: () => void) {
+function analysisButton(analysisState: AnalysisState, progress: AnalysisProgress | undefined, onStart: () => void) {
   if (analysisState === 'running') {
-    return { label: 'Stop analysis', text: 'Stop analysis', shortText: 'Stop', onClick: onStop }
+    const text = formatAnalysisProgress(progress)
+    return { label: `Analysis progress ${text}`, text, shortText: text, onClick: noop, disabled: true }
   }
   if (analysisState === 'complete') {
-    return { label: 'Re-analyze', text: 'Re-analyze', shortText: 'Again', onClick: onRestart }
+    return { label: 'Analysis complete', text: '析', shortText: '析', onClick: noop, disabled: true }
   }
-  return { label: 'Start analysis', text: 'Start analysis', shortText: '析', onClick: onStart }
+  return { label: 'Start analysis', text: '析', shortText: '析', onClick: onStart, disabled: false }
+}
+
+function formatAnalysisProgress(progress?: AnalysisProgress) {
+  if (!progress) return '0/0'
+  return `${progress.analyzed}/${progress.total}`
+}
+
+function noop() {
+  return undefined
 }
 
 function formatDateLabel(value: string) {

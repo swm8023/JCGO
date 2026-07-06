@@ -84,6 +84,11 @@ export interface AnalysisResult {
 
 export type AnalysisState = 'idle' | 'running' | 'stopped' | 'complete' | 'unavailable'
 
+export interface AnalysisProgress {
+  analyzed: number
+  total: number
+}
+
 export interface ImportResult {
   game: GameRecord
   snapshot: Snapshot

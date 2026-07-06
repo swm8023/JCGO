@@ -1,4 +1,4 @@
-import type { AnalysisResult, BadMove, CandidateMove, ChartPoint, StatePayload, TimelineColumns } from '../api/types'
+import type { AnalysisProgress, AnalysisResult, BadMove, CandidateMove, ChartPoint, StatePayload, TimelineColumns } from '../api/types'
 
 export function activeTimeline(state?: StatePayload): TimelineColumns | undefined {
   return state?.variation?.timeline ?? state?.timeline
@@ -65,6 +65,14 @@ export function analysisForCurrent(state?: StatePayload): AnalysisResult | undef
   const root = rootForCurrent(state)
   if (!root) return undefined
   return { ...root, candidates: currentCandidates(state) }
+}
+
+export function analysisProgressForState(state?: StatePayload): AnalysisProgress | undefined {
+  const total = state?.snapshot?.totalMoves
+  const rootVisits = state?.timeline?.rootVisits
+  if (total === undefined || !rootVisits) return undefined
+  const analyzed = rootVisits.slice(1, total + 1).filter((visits) => visits !== null && visits !== undefined).length
+  return { analyzed, total }
 }
 
 export function playedPointLossForCurrent(state?: StatePayload): number | null {

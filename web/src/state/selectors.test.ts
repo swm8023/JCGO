@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { StatePayload } from '../api/types'
-import { analysisForCurrent, badMovesForState, chartPointsForState, currentCandidates, trialMovesForState } from './selectors'
+import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, currentCandidates, trialMovesForState } from './selectors'
 
 const state: StatePayload = {
   type: 'state',
@@ -60,6 +60,20 @@ const state: StatePayload = {
 describe('state selectors', () => {
   it('builds chart points from columnar timeline and skips null roots', () => {
     expect(chartPointsForState(state)).toEqual([{ moveNumber: 0, winrate: 0.52, scoreLead: 1.4 }])
+  })
+
+  it('counts analyzed mainline moves without counting the root position', () => {
+    const progressState = {
+      ...state,
+      snapshot: { ...state.snapshot, totalMoves: 133 },
+      timeline: {
+        ...state.timeline,
+        nodeIds: Array.from({ length: 134 }, (_, index) => `main:${index}`),
+        rootVisits: Array.from({ length: 134 }, (_, index) => (index <= 11 ? 100 : null)),
+      },
+    } satisfies StatePayload
+
+    expect(analysisProgressForState(progressState)).toEqual({ analyzed: 11, total: 133 })
   })
 
   it('keeps mainline chart points before a trial branch and appends trial analysis after the fork', () => {

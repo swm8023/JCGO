@@ -84,6 +84,66 @@ describe('GameSidebar', () => {
     expect(onStartAnalysis).toHaveBeenCalledTimes(1)
   })
 
+  it('shows running analysis progress as the same compact label in both orientations', () => {
+    const onStopAnalysis = vi.fn()
+    const { container } = render(
+      <GameSidebar
+        games={[]}
+        listOpen={false}
+        selectedGameId="game-1"
+        analysisAvailable
+        analysisState="running"
+        analysisProgress={{ analyzed: 11, total: 133 }}
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={onStopAnalysis}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const sidebar = within(container)
+    const action = sidebar.getByRole('button', { name: 'Analysis progress 11/133' })
+    expect(action).toBeDisabled()
+    expect(action).not.toHaveTextContent('Stop analysis')
+    expect(sidebar.getAllByText('11/133')).toHaveLength(2)
+    action.click()
+    expect(onStopAnalysis).not.toHaveBeenCalled()
+  })
+
+  it('disables completed analysis without offering re-analysis', () => {
+    const onRestartAnalysis = vi.fn()
+    const { container } = render(
+      <GameSidebar
+        games={[]}
+        listOpen={false}
+        selectedGameId="game-1"
+        analysisAvailable
+        analysisState="complete"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={onRestartAnalysis}
+      />,
+    )
+
+    const sidebar = within(container)
+    const action = sidebar.getByRole('button', { name: 'Analysis complete' })
+    expect(action).toBeDisabled()
+    expect(action).not.toHaveTextContent('Re-analyze')
+    expect(action).not.toHaveTextContent('Again')
+    expect(sidebar.getAllByText('析')).toHaveLength(2)
+    action.click()
+    expect(onRestartAnalysis).not.toHaveBeenCalled()
+  })
+
   it('uses compact aligned icon actions in each game row', () => {
     const { container } = render(
       <GameSidebar
