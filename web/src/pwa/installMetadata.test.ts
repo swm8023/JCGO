@@ -79,9 +79,11 @@ describe('PWA install metadata', () => {
     expect(indexHtml).toContain('viewport-fit=cover')
   })
 
-  it('disables page scaling for installed-app style mobile interaction', () => {
-    expect(indexHtml).toContain('maximum-scale=1')
-    expect(indexHtml).toContain('user-scalable=no')
+  it('keeps the viewport scalable so mobile rotation can recompute the correct scale', () => {
+    expect(indexHtml).toContain('width=device-width')
+    expect(indexHtml).toContain('initial-scale=1.0')
+    expect(indexHtml).not.toContain('maximum-scale')
+    expect(indexHtml).not.toContain('user-scalable=no')
   })
 })
 
