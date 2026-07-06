@@ -3,7 +3,6 @@ const nonPassiveListener: AddEventListenerOptions = { passive: false }
 const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
 const orientationSettleFrameCount = 8
-const orientationSettleMaxExtraFrames = 120
 const viewportDebugElementId = '__viewport-debug'
 const viewportDebugSampleLimit = 5
 
@@ -11,7 +10,6 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   let stableHeight = windowTarget.innerHeight
   let orientationChangePending = false
   let orientationSettleFramesRemaining = 0
-  let orientationSettleExtraFramesUsed = 0
   let rafId: number | undefined
   const debugOverlay = createViewportDebugOverlay(documentTarget)
   const debugSamples: string[] = []
@@ -49,20 +47,12 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   const restartOrientationSettle = () => {
     orientationChangePending = true
     orientationSettleFramesRemaining = orientationSettleFrameCount
-    orientationSettleExtraFramesUsed = 0
     clearViewportLock()
     scheduleOrientationSettle()
   }
   const runOrientationSettle = () => {
     rafId = undefined
     if (!orientationChangePending) return
-    const scale = windowTarget.visualViewport?.scale ?? 1
-    if (Math.abs(scale - 1) > 0.01 && orientationSettleExtraFramesUsed < orientationSettleMaxExtraFrames) {
-      orientationSettleExtraFramesUsed += 1
-      writeDebug('settle(wait-scale)')
-      scheduleOrientationSettle()
-      return
-    }
     applyCurrentViewport('settle')
     orientationSettleFramesRemaining -= 1
     if (orientationSettleFramesRemaining <= 0) {

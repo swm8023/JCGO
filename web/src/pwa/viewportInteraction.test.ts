@@ -434,43 +434,6 @@ describe('viewport interaction guards', () => {
     expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
   })
 
-  it('waits for visual viewport scale to normalize before ending orientation settle', async () => {
-    const moduleName = './viewportInteraction'
-    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
-    const windowTarget = new FakeWindowTarget()
-    const documentTarget = new FakeDocumentTarget()
-    windowTarget.innerWidth = 932
-    windowTarget.innerHeight = 430
-    windowTarget.visualViewport.width = 932
-    windowTarget.visualViewport.height = 430
-    windowTarget.visualViewport.scale = 1
-    windowTarget.portrait = false
-
-    installViewportInteractionGuards(
-      windowTarget as unknown as Window,
-      documentTarget as unknown as Document,
-    )
-
-    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
-
-    windowTarget.innerWidth = 430
-    windowTarget.innerHeight = 932
-    windowTarget.visualViewport.width = 430
-    windowTarget.visualViewport.height = 932
-    windowTarget.visualViewport.scale = 0.36
-    windowTarget.setPortrait(true)
-
-    for (let i = 0; i < 20; i++) windowTarget.runAnimationFrames()
-
-    expect(documentTarget.documentElement.style.values.get('--app-height')).not.toBe('932px')
-
-    windowTarget.visualViewport.scale = 1
-    for (let i = 0; i < 10; i++) windowTarget.runAnimationFrames()
-
-    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('932px')
-    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
-  })
-
   it('lets desktop window resizes follow the current viewport height', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')

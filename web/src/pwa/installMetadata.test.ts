@@ -79,9 +79,9 @@ describe('PWA install metadata', () => {
     expect(indexHtml).toContain('viewport-fit=cover')
   })
 
-  it('does not pin the initial visual viewport scale during mobile rotation', () => {
+  it('pins initial scale to 1 so rotation resets the layout viewport to the new screen width', () => {
     expect(indexHtml).toContain('width=device-width')
-    expect(indexHtml).not.toContain('initial-scale')
+    expect(indexHtml).toContain('initial-scale=1')
     expect(indexHtml).not.toContain('maximum-scale')
     expect(indexHtml).not.toContain('user-scalable=no')
   })
