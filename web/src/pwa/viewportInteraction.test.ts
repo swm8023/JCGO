@@ -126,6 +126,8 @@ describe('viewport interaction guards', () => {
     expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('932px')
     expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('430px')
 
+    windowTarget.innerWidth = 430
+    windowTarget.innerHeight = 932
     windowTarget.visualViewport.width = 430
     windowTarget.visualViewport.height = 932
     windowTarget.visualViewport.dispatch('resize', new Event('resize'))

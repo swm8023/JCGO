@@ -47,9 +47,12 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   }
   const handleOrientationChange = () => {
     orientationChangePending = true
+    // Use double-rAF to ensure window.innerHeight has updated after rotation
     rafId = windowTarget.requestAnimationFrame(() => {
-      rafId = undefined
-      flushOrientationChange()
+      rafId = windowTarget.requestAnimationFrame(() => {
+        rafId = undefined
+        flushOrientationChange()
+      })
     })
   }
   const handleVisualViewportResize = () => {
@@ -59,10 +62,11 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     }
     const viewport = windowTarget.visualViewport
     if (!viewport) return
+    const windowSize = windowViewportSize(windowTarget)
     if (!hasCoarsePointer(windowTarget)) {
-      stableHeight = viewport.height
+      stableHeight = windowSize.height
     } else {
-      stableHeight = Math.max(stableHeight, viewport.height)
+      stableHeight = Math.max(stableHeight, windowSize.height)
     }
     applyViewport(viewport.width)
   }
