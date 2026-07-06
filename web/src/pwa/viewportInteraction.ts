@@ -4,7 +4,6 @@ const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
-  let viewportMode = viewportOrientation(windowViewportSize(windowTarget))
   let stableHeight = windowTarget.innerHeight
 
   const preventGestureZoom = (event: Event) => {
@@ -14,11 +13,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     if (event.touches.length > 1) event.preventDefault()
   }
   const updateAppHeight = (viewport: ViewportSize) => {
-    const nextMode = viewportOrientation(viewport)
-    if (nextMode !== viewportMode) {
-      viewportMode = nextMode
-      stableHeight = viewport.height
-    } else if (!hasCoarsePointer(windowTarget)) {
+    if (!hasCoarsePointer(windowTarget)) {
       stableHeight = viewport.height
     } else {
       stableHeight = Math.max(stableHeight, viewport.height)
@@ -27,10 +22,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
   const handleOrientationChange = () => {
+    stableHeight = windowTarget.innerHeight
     const viewport = windowViewportSize(windowTarget)
-    const nextMode = viewportOrientation(viewport)
-    viewportMode = nextMode
-    stableHeight = viewport.height
     documentTarget.documentElement.style.setProperty(appWidthVariable, `${viewport.width}px`)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
@@ -47,8 +40,10 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   }
   documentTarget.addEventListener('touchmove', preventMultiTouchMove, nonPassiveListener)
   windowTarget.addEventListener('resize', updateAppHeightFromWindow)
-  windowTarget.addEventListener('orientationchange', handleOrientationChange)
   windowTarget.visualViewport?.addEventListener('resize', updateAppHeightFromVisualViewport)
+
+  const portraitQuery = windowTarget.matchMedia?.('(orientation: portrait)')
+  portraitQuery?.addEventListener?.('change', handleOrientationChange)
 
   return () => {
     for (const eventName of gestureEvents) {
@@ -57,8 +52,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     }
     documentTarget.removeEventListener('touchmove', preventMultiTouchMove)
     windowTarget.removeEventListener('resize', updateAppHeightFromWindow)
-    windowTarget.removeEventListener('orientationchange', handleOrientationChange)
     windowTarget.visualViewport?.removeEventListener('resize', updateAppHeightFromVisualViewport)
+    portraitQuery?.removeEventListener?.('change', handleOrientationChange)
   }
 }
 
