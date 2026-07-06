@@ -292,7 +292,7 @@ export default function App() {
 
   const runNavigation = async (command: NavigationCommand | undefined, keepTryMode = false) => {
     if (!client || !selectedGameId || !command) return
-    const prevSnapshot = snapshot
+    const prevMoveNumber = snapshot?.moveNumber ?? 0
     const params = command.method === 'game.goto'
       ? { gameId: selectedGameId, moveNumber: command.moveNumber }
       : { gameId: selectedGameId, nodeId: command.nodeId }
@@ -300,7 +300,8 @@ export default function App() {
     applyWorkspaceState(state)
     setActivePV(undefined)
     if (!keepTryMode) setTryMode(false)
-    if (hasCaptures(prevSnapshot, state.snapshot)) playCaptureSound()
+    const newMoveNumber = state.snapshot?.moveNumber ?? 0
+    if (newMoveNumber < prevMoveNumber) playCaptureSound()
     else playStoneSound()
   }
 
