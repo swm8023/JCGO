@@ -2,15 +2,11 @@ const gestureEvents = ['gesturestart', 'gesturechange', 'gestureend'] as const
 const nonPassiveListener: AddEventListenerOptions = { passive: false }
 const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
-const orientationSettleFrameCount = 8
 const viewportDebugElementId = '__viewport-debug'
 const viewportDebugSampleLimit = 5
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
   let stableHeight = windowTarget.innerHeight
-  let orientationChangePending = false
-  let orientationSettleFramesRemaining = 0
-  let rafId: number | undefined
   const debugOverlay = viewportDebugEnabled(windowTarget) ? createViewportDebugOverlay(documentTarget) : undefined
   const debugSamples: string[] = []
 
@@ -24,49 +20,13 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     documentTarget.documentElement.style.removeProperty(appWidthVariable)
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
-  const clearViewportLock = () => {
-    documentTarget.documentElement.style.removeProperty(appWidthVariable)
-    documentTarget.documentElement.style.removeProperty(appHeightVariable)
-  }
   const writeDebug = (source: string) => {
     if (!debugOverlay) return
-    debugSamples.push(viewportDebugSnapshot(source, windowTarget, documentTarget, stableHeight, orientationChangePending, orientationSettleFramesRemaining))
+    debugSamples.push(viewportDebugSnapshot(source, windowTarget, documentTarget, stableHeight))
     while (debugSamples.length > viewportDebugSampleLimit) debugSamples.shift()
     debugOverlay.textContent = debugSamples.join('\n\n')
   }
-  const applyCurrentViewport = (source: string) => {
-    const viewport = currentViewportSize(windowTarget)
-    stableHeight = viewport.height
-    applyViewport()
-    writeDebug(source)
-  }
-  const scheduleOrientationSettle = () => {
-    if (rafId !== undefined) return
-    rafId = windowTarget.requestAnimationFrame(runOrientationSettle)
-  }
-  const restartOrientationSettle = () => {
-    orientationChangePending = true
-    orientationSettleFramesRemaining = orientationSettleFrameCount
-    clearViewportLock()
-    scheduleOrientationSettle()
-  }
-  const runOrientationSettle = () => {
-    rafId = undefined
-    if (!orientationChangePending) return
-    applyCurrentViewport('settle')
-    orientationSettleFramesRemaining -= 1
-    if (orientationSettleFramesRemaining <= 0) {
-      orientationChangePending = false
-      writeDebug('settle(done)')
-      return
-    }
-    scheduleOrientationSettle()
-  }
   const handleResize = () => {
-    if (orientationChangePending) {
-      restartOrientationSettle()
-      return
-    }
     const viewport = currentViewportSize(windowTarget)
     if (!hasCoarsePointer(windowTarget)) {
       stableHeight = viewport.height
@@ -76,14 +36,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     applyViewport()
     writeDebug('resize')
   }
-  const handleOrientationChange = () => {
-    restartOrientationSettle()
-  }
   const handleVisualViewportResize = () => {
-    if (orientationChangePending) {
-      restartOrientationSettle()
-      return
-    }
     const viewport = windowTarget.visualViewport
     if (!viewport) return
     const windowSize = currentViewportSize(windowTarget)
@@ -105,11 +58,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   windowTarget.addEventListener('resize', handleResize)
   windowTarget.visualViewport?.addEventListener('resize', handleVisualViewportResize)
 
-  const portraitQuery = windowTarget.matchMedia?.('(orientation: portrait)')
-  portraitQuery?.addEventListener?.('change', handleOrientationChange)
-
   return () => {
-    if (rafId !== undefined) windowTarget.cancelAnimationFrame(rafId)
     for (const eventName of gestureEvents) {
       windowTarget.removeEventListener(eventName, preventGestureZoom)
       documentTarget.removeEventListener(eventName, preventGestureZoom)
@@ -117,7 +66,6 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     documentTarget.removeEventListener('touchmove', preventMultiTouchMove)
     windowTarget.removeEventListener('resize', handleResize)
     windowTarget.visualViewport?.removeEventListener('resize', handleVisualViewportResize)
-    portraitQuery?.removeEventListener?.('change', handleOrientationChange)
     debugOverlay?.remove()
   }
 }
@@ -186,8 +134,6 @@ function viewportDebugSnapshot(
   windowTarget: Window,
   documentTarget: Document,
   stableHeight: number,
-  orientationChangePending: boolean,
-  orientationSettleFramesRemaining: number,
 ) {
   const rootStyle = documentTarget.documentElement.style
   const viewport = windowViewportSize(windowTarget)
@@ -201,7 +147,7 @@ function viewportDebugSnapshot(
   const analysisStyle = computedStyle(windowTarget, analysis)
 
   return [
-    `[DEBUG-viewport-rot] src=${source} pending=${orientationChangePending} settle=${orientationSettleFramesRemaining}`,
+    `[DEBUG-viewport-rot] src=${source}`,
     `win=${round(viewport.width)}x${round(viewport.height)} vv=${visualViewport ? `${round(visualViewport.width)}x${round(visualViewport.height)} scale=${round(visualViewport.scale ?? 1)}` : 'none'} sh=${round(stableHeight)} dpr=${round(windowTarget.devicePixelRatio || 1)}`,
     `screen=${screenTarget ? `${screenTarget.width}x${screenTarget.height}` : 'none'} orient=${orientation ? `${orientation.type}/${orientation.angle}` : 'none'} display=${displayModeSummary(windowTarget)} mq=${mediaQuerySummary(windowTarget)}`,
     `vars=${rootStyle.getPropertyValue(appWidthVariable) || 'css'}x${rootStyle.getPropertyValue(appHeightVariable) || 'css'} doc=${documentMetrics(documentTarget.documentElement)} vp=${viewportMetaSummary(documentTarget)} root=${rectSummary(documentTarget.getElementById('root'))}`,
@@ -274,7 +220,6 @@ function rectSummary(element: Element | null) {
 function mediaQuerySummary(windowTarget: Window) {
   return [
     `p=${windowTarget.matchMedia?.('(orientation: portrait)').matches ?? 'N/A'}`,
-    `l=${windowTarget.matchMedia?.('(orientation: landscape)').matches ?? 'N/A'}`,
     `coarse=${hasCoarsePointer(windowTarget)}`,
   ].join('/')
 }

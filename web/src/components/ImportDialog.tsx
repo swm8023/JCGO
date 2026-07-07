@@ -46,13 +46,11 @@ export function ImportDialog({ onImport, onImportUrl, onCancel }: ImportDialogPr
   const [error, setError] = useState<string | null>(null)
 
   const choose = () => {
-    requestImportOrientation()
     const picker = (window as FilePickerWindow).showOpenFilePicker
     if (picker) {
       void chooseWithPicker(picker)
       return
     }
-    window.addEventListener('focus', releaseImportOrientation, { once: true })
     inputRef.current?.click()
   }
 
@@ -62,7 +60,6 @@ export function ImportDialog({ onImport, onImportUrl, onCancel }: ImportDialogPr
       if (file) await importFile(file, onImport)
     } finally {
       event.target.value = ''
-      releaseImportOrientation()
     }
   }
 
@@ -73,7 +70,6 @@ export function ImportDialog({ onImport, onImportUrl, onCancel }: ImportDialogPr
       setError(null)
       return
     }
-    releaseImportOrientation()
     onCancel()
   }
 
@@ -130,9 +126,7 @@ export function ImportDialog({ onImport, onImportUrl, onCancel }: ImportDialogPr
       if (!handle) return
       await importFile(await handle.getFile(), onImport)
     } catch {
-      // Users can cancel the native picker; unsupported orientation locks also fail silently.
-    } finally {
-      releaseImportOrientation()
+      // Users can cancel the native picker.
     }
   }
 }
@@ -143,14 +137,4 @@ async function importFile(file: File, onImport: ImportDialogProps['onImport']) {
   if (!displayName) return
   const sgfText = await file.text()
   onImport(displayName, file.name, sgfText)
-}
-
-function requestImportOrientation() {
-  const orientation = screen.orientation as ScreenOrientation | undefined
-  orientation?.lock?.('portrait')?.catch(() => undefined)
-}
-
-function releaseImportOrientation() {
-  const orientation = screen.orientation as ScreenOrientation | undefined
-  orientation?.unlock?.()
 }

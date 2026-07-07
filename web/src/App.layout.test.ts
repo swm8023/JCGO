@@ -34,14 +34,12 @@ describe('right rail layout', () => {
     expect(app).toContain("'game.importSgf'")
   })
 
-  it('renders the import dialog outside the hidden landscape layout for portrait use', () => {
+  it('renders the import dialog outside the main layout', () => {
     const mainClose = app.indexOf('</main>')
     const importDialog = app.indexOf('{showImport && <ImportDialog')
-    const rotatePrompt = app.indexOf('<RotatePrompt')
 
     expect(mainClose).toBeGreaterThan(0)
     expect(importDialog).toBeGreaterThan(mainClose)
-    expect(rotatePrompt).toBeGreaterThan(importDialog)
   })
 
   it('wraps the board in a measured frame after the game metadata', () => {

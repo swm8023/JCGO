@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jcgo-static-v4'
+const CACHE_NAME = 'jcgo-static-v5'
 const SHARED_CACHE_NAME = 'jcgo-shared-v1'
 const SHARED_SGF_URL = '/shared-sgf/latest'
 const STATIC_ASSETS = ['/manifest.webmanifest', '/icons/jcgo-192.png', '/icons/jcgo-512.png', '/icons/jcgo-maskable-512.png', '/icons/apple-touch-icon.png']

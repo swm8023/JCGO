@@ -198,7 +198,8 @@ textarea:focus-visible {
   width: var(--app-width);
   min-height: 0;
   display: grid;
-  grid-template-columns: 48px 1fr 48px minmax(340px, 420px);
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr) auto minmax(132px, 168px);
   gap: 0;
   padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
   box-sizing: border-box;
@@ -1302,10 +1303,6 @@ textarea:focus-visible {
   background: var(--surface-soft);
 }
 
-.rotate-prompt {
-  display: none;
-}
-
 .portrait-import-button {
   min-height: 42px;
   padding: 0 18px;
@@ -1342,10 +1339,6 @@ textarea:focus-visible {
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;
-  }
-
-  .rotate-prompt {
-    display: none;
   }
 
   .board-stage {
@@ -1635,405 +1628,6 @@ textarea:focus-visible {
   }
 }
 
-@container app-layout (min-aspect-ratio: 1 / 1) and (max-width: 1220px) {
-  .app-layout {
-    height: var(--app-height);
-    min-height: 0;
-    grid-template-columns: 44px 1fr 44px minmax(240px, 320px);
-    grid-template-rows: none;
-    gap: 0;
-    padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
-    overflow: hidden;
-  }
-
-  .game-sidebar {
-    grid-row: auto;
-    height: 100%;
-    min-height: 0;
-    grid-template-columns: none;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    align-items: stretch;
-    gap: 8px;
-    padding: 6px 4px;
-    box-shadow: none;
-  }
-
-  .sidebar-header {
-    grid-column: auto;
-    min-width: 0;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .sidebar-actions {
-    flex-direction: column;
-  }
-
-  .overlay-toggles {
-    grid-auto-flow: row;
-    grid-auto-columns: auto;
-  }
-
-  .sidebar-analysis {
-    grid-column: auto;
-    grid-row: 3;
-    align-self: end;
-    justify-items: center;
-  }
-
-  .analysis-action-button {
-    width: 100%;
-  }
-
-  .game-sidebar .wide-label,
-  .wide-label {
-    display: none;
-  }
-
-  .game-sidebar .narrow-label,
-  .narrow-label {
-    display: inline;
-  }
-
-  .sidebar-analysis .engine-error {
-    display: none;
-  }
-
-  .game-list {
-    display: none;
-  }
-
-  .game-sidebar.expanded .game-list {
-    position: fixed;
-    left: 52px;
-    right: auto;
-    top: 8px;
-    z-index: 12;
-    width: min(520px, calc(100vw - 68px));
-    max-height: calc(var(--app-content-height) - 16px);
-    display: grid;
-    padding: 8px;
-    box-sizing: border-box;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    background: var(--surface);
-    box-shadow: 0 16px 42px rgb(26 26 46 / 0.24);
-  }
-
-  .board-stage {
-    grid-row: auto;
-    padding: 2px 4px;
-    height: 100%;
-    max-height: var(--app-content-height);
-  }
-
-  .board-layout {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: none;
-    gap: 8px;
-  }
-
-  .board-frame {
-    --board-frame-clearance: 4px;
-    order: initial;
-  }
-
-  .board-info {
-    order: initial;
-    max-width: none;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    justify-content: initial;
-    padding: 0;
-    text-align: left;
-  }
-
-  .action-rail {
-    grid-row: auto;
-    padding: 6px 2px;
-  }
-
-  .navigation-controls {
-    gap: 3px;
-    width: 40px;
-    max-height: calc(var(--app-content-height) - 16px);
-    grid-auto-flow: row;
-    grid-auto-columns: auto;
-    grid-template-columns: none;
-    justify-content: center;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  .navigation-controls button {
-    width: 100%;
-    max-width: 36px;
-  }
-
-  .analysis-rail {
-    grid-row: auto;
-    display: grid;
-    grid-template-rows: minmax(150px, 170px) minmax(0, 1fr);
-    gap: 6px;
-    min-height: 0;
-    max-height: var(--app-content-height);
-    padding: 6px 6px 6px 2px;
-  }
-
-  .analysis-overview {
-    grid-template-rows: 24px minmax(0, 1fr);
-    gap: 4px;
-    padding: 6px 8px;
-    align-content: start;
-  }
-
-  .analysis-summary,
-  .analysis-tab-list {
-    height: 22px;
-    gap: 2px;
-  }
-
-  .summary-metric {
-    height: 100%;
-    font-size: 10px;
-    min-height: 18px;
-    padding: 3px 6px;
-  }
-
-  .summary-metric strong {
-    font-size: 12px;
-  }
-
-  .chart-body {
-    overflow: hidden;
-  }
-
-  .winrate-chart {
-    height: clamp(126px, calc(var(--app-content-height) * 0.32), 144px);
-    min-height: 0;
-  }
-
-  .analysis-detail-tabs {
-    grid-template-rows: 22px minmax(0, 1fr);
-    gap: 3px;
-    padding: 5px 6px;
-  }
-
-  .analysis-tab {
-    min-width: 0;
-    height: 100%;
-    font-size: 10px;
-    padding: 0 5px;
-  }
-
-  .analysis-tab-count {
-    min-width: 13px;
-    height: 13px;
-    padding: 0 3px;
-    font-size: 9px;
-  }
-
-  .bad-move-jump {
-    padding: 4px 6px;
-  }
-
-  .bad-move-copy {
-    min-width: 46px;
-    padding: 0 6px;
-    font-size: 11px;
-  }
-}
-
-@container app-layout (min-aspect-ratio: 1 / 1) and (max-height: 520px) {
-  .app-layout {
-    height: var(--app-height);
-    min-height: 0;
-    grid-template-columns: 44px 1fr 44px minmax(240px, 320px);
-    grid-template-rows: none;
-    gap: 0;
-    padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
-    overflow: hidden;
-  }
-
-  .game-sidebar {
-    grid-row: auto;
-    height: 100%;
-    min-height: 0;
-    grid-template-columns: none;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-    align-items: stretch;
-    gap: 8px;
-    padding: 6px 4px;
-    box-shadow: none;
-  }
-
-  .sidebar-header {
-    grid-column: auto;
-    flex-direction: column;
-    justify-content: center;
-  }
-
-  .sidebar-actions {
-    flex-direction: column;
-  }
-
-  .overlay-toggles {
-    grid-auto-flow: row;
-    grid-auto-columns: auto;
-  }
-
-  .sidebar-analysis {
-    grid-column: auto;
-    grid-row: 3;
-    align-self: end;
-    justify-items: center;
-  }
-
-  .analysis-action-button {
-    width: 100%;
-  }
-
-  .game-sidebar .wide-label,
-  .wide-label {
-    display: none;
-  }
-
-  .game-sidebar .narrow-label,
-  .narrow-label {
-    display: inline;
-  }
-
-  .board-stage {
-    grid-row: auto;
-    padding: 2px 4px;
-    height: 100%;
-    max-height: var(--app-content-height);
-  }
-
-  .board-layout {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: none;
-    gap: 8px;
-  }
-
-  .board-frame {
-    --board-frame-clearance: 4px;
-    order: initial;
-  }
-
-  .board-info {
-    order: initial;
-    max-width: none;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    justify-content: initial;
-    padding: 0;
-    text-align: left;
-  }
-
-  .action-rail {
-    grid-row: auto;
-    padding: 6px 2px;
-  }
-
-  .navigation-controls {
-    gap: 3px;
-    width: 40px;
-    max-height: calc(var(--app-content-height) - 16px);
-    grid-auto-flow: row;
-    grid-auto-columns: auto;
-    justify-content: center;
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
-
-  .navigation-controls button {
-    width: 100%;
-    max-width: 36px;
-  }
-
-  .analysis-rail {
-    grid-row: auto;
-    display: grid;
-    grid-template-rows: minmax(150px, 170px) minmax(0, 1fr);
-    gap: 6px;
-    max-height: var(--app-content-height);
-    padding: 6px 6px 6px 2px;
-  }
-
-  .analysis-overview {
-    grid-template-rows: 24px minmax(0, 1fr);
-    gap: 4px;
-    padding: 6px 8px;
-    align-content: start;
-  }
-
-  .winrate-chart {
-    height: clamp(126px, calc(var(--app-content-height) * 0.32), 144px);
-    min-height: 0;
-  }
-
-  .analysis-detail-tabs {
-    grid-template-rows: 22px minmax(0, 1fr);
-    gap: 3px;
-    padding: 5px 6px;
-  }
-}
-
-@container app-layout (min-aspect-ratio: 1 / 1) and (max-width: 820px) {
-  .app-layout {
-    grid-template-columns: 44px 1fr 44px;
-    grid-template-rows: none;
-    gap: 0;
-    padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
-  }
-
-  .game-sidebar {
-    grid-row: auto;
-    grid-template-columns: none;
-    grid-template-rows: 40px minmax(0, 1fr) 40px;
-    align-content: stretch;
-    padding-bottom: 8px;
-  }
-
-  .analysis-rail {
-    display: none;
-  }
-
-  .board-stage {
-    grid-row: auto;
-    max-height: var(--app-content-height);
-  }
-
-  .board-layout {
-    grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: none;
-  }
-
-  .board-frame {
-    --board-frame-clearance: 4px;
-    order: initial;
-  }
-
-  .board-info {
-    order: initial;
-  }
-}
-
-@container app-layout (min-aspect-ratio: 1 / 1) and (min-width: 1101px) and (max-width: 1220px) {
-  .app-layout {
-    grid-template-columns: 48px 1fr 48px minmax(310px, 360px);
-    grid-template-rows: none;
-    gap: 0;
-    padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
-  }
-
-  .analysis-rail,
-  .board-stage {
-    max-height: var(--app-content-height);
-  }
-}
-
 @container app-layout (max-aspect-ratio: 1 / 1) and (min-width: 700px) and (max-width: 1220px) {
   .app-layout {
     height: var(--app-height);
@@ -2049,10 +1643,6 @@ textarea:focus-visible {
   .app-layout.side-action-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr) minmax(132px, 168px);
-  }
-
-  .rotate-prompt {
-    display: none;
   }
 
   .game-sidebar {
@@ -2369,10 +1959,6 @@ textarea:focus-visible {
     overflow: hidden;
   }
 
-  .rotate-prompt {
-    display: none;
-  }
-
   .board-stage {
     grid-row: 2;
     padding: 2px 6px 0;
@@ -2677,10 +2263,6 @@ textarea:focus-visible {
   .app-layout.side-action-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr) minmax(132px, 168px);
-  }
-
-  .rotate-prompt {
-    display: none;
   }
 
   .game-sidebar {
