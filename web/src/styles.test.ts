@@ -126,38 +126,6 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.import-dialog-body {\n  width: min(320px, 100%);')
   })
 
-  it('keeps mobile landscape navigation beside the board and import visible', () => {
-    expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
-    expect(styles).not.toContain('--app-height: 100svh;')
-    expect(styles).toContain('grid-template-columns: 44px 1fr 44px minmax(240px, 320px);')
-    expect(styles).toContain('height: var(--app-height);')
-    expect(styles).toContain('.board-stage {\n    padding: 2px 4px;\n    height: 100%;\n    max-height: var(--app-content-height);')
-    expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 4px;')
-    expect(styles).toContain('.game-sidebar.expanded .game-list')
-    expect(styles).toContain('.action-rail {')
-    expect(styles).toContain('.analysis-rail {\n    grid-template-rows: minmax(150px, 170px) minmax(0, 1fr);\n    gap: 6px;')
-    expect(styles).toContain('.analysis-overview {\n    grid-template-rows: 24px minmax(0, 1fr);')
-    expect(styles).toContain('.winrate-chart {\n    height: clamp(126px, calc(var(--app-content-height) * 0.32), 144px);\n    min-height: 0;')
-    expect(styles).toContain('.analysis-detail-tabs {\n    grid-template-rows: 22px minmax(0, 1fr);\n    gap: 3px;')
-    expect(styles).toContain('.analysis-tab {\n    min-width: 0;\n    height: 100%;')
-    expect(styles).toContain('.candidate-row,\n  .bad-move {\n    min-height: 28px;')
-  })
-
-  it('treats 11 inch iPad landscape as a tablet workspace with a square board box', () => {
-    expect(styles).toContain('@media (orientation: landscape) and (max-height: 520px),\n  (orientation: landscape) and (max-width: 1220px) and (pointer: coarse)')
-    expect(styles).toContain('@media (min-width: 1101px) and (max-width: 1220px) and (orientation: landscape)')
-    expect(styles).toContain('.board-stage {\n    max-height: var(--app-content-height);')
-    expect(styles).toContain('.go-board {\n  position: relative;\n  z-index: 1;\n  width: min(calc(100cqw - var(--board-frame-clearance)), calc(100cqh - var(--board-frame-clearance)));')
-  })
-
-  it('keeps narrow phone landscape focused on the board instead of squeezing three rails', () => {
-    expect(styles).toContain('@media (orientation: landscape) and (max-width: 820px) {')
-    expect(styles).toContain('grid-template-columns: 44px 1fr 44px;')
-    expect(styles).toContain('.analysis-rail {\n    display: none;')
-    expect(styles).toContain('.game-sidebar {\n    grid-template-rows: 40px minmax(0, 1fr) 40px;')
-    expect(styles).toContain('.board-frame {\n    --board-frame-clearance: 4px;')
-  })
-
   it('keeps the portrait workspace ordered as toolbar, game info, board, controls, then analysis', () => {
     expect(styles).toContain('@media (orientation: portrait) and (max-width: 820px) {')
     expect(styles).toContain('@container app-layout (max-aspect-ratio: 1 / 1) and (max-width: 820px) {')

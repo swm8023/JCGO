@@ -7,8 +7,8 @@ const manifest = JSON.parse(readFileSync(join(process.cwd(), 'public', 'manifest
 const indexHtml = readFileSync(join(process.cwd(), 'index.html'), 'utf8')
 
 describe('PWA install metadata', () => {
-  it('allows runtime orientation changes so mobile import can use portrait', () => {
-    expect(manifest.orientation).toBe('any')
+  it('locks orientation to portrait for portrait-only layout', () => {
+    expect(manifest.orientation).toBe('portrait')
   })
 
   it('registers as an installed app share target for SGF files', () => {

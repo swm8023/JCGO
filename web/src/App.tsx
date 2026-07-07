@@ -10,7 +10,6 @@ import { GameSidebar } from './components/GameSidebar'
 import { ImportDialog } from './components/ImportDialog'
 import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
-import { RotatePrompt } from './components/RotatePrompt'
 import { TokenGate } from './components/TokenGate'
 import { playCaptureSound, playStoneSound } from './board/stoneSound'
 import { computeSideActionPlacement, type SideActionPlacement } from './layout/sideActionRail'
@@ -463,7 +462,6 @@ export default function App() {
       </aside>
       </main>
       {showImport && <ImportDialog onImport={importGame} onImportUrl={importFromUrl} onCancel={() => setShowImport(false)} />}
-      <RotatePrompt onImport={() => setShowImport(true)} />
     </>
   )
 }
