@@ -1,10 +1,43 @@
 package app
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
+
+const yuanluoboAPIEndpoint = "https://jupiter.yuanluobo.com/r2/chess/wq/sdr/v3/record/detail"
+
+type yuanluoboResponse struct {
+	Code    int               `json:"code"`
+	Message string            `json:"message"`
+	Data    yuanluoboGameData `json:"data"`
+}
+
+type yuanluoboGameData struct {
+	SessionID       string             `json:"session_id"`
+	BlackPlayerName string             `json:"black_player_name"`
+	WhitePlayerName string             `json:"white_player_name"`
+	GameRule        int                `json:"game_rule"`
+	Tsugi           float64            `json:"tsugi"`
+	GridSize        int                `json:"grid_size"`
+	StartTime       int64              `json:"start_time"`
+	WinPieces       float64            `json:"win_pieces"`
+	Recording       yuanluoboRecording `json:"recording"`
+}
+
+type yuanluoboRecording struct {
+	Moves []yuanluoboMove `json:"moves"`
+}
+
+type yuanluoboMove struct {
+	Coordinate string `json:"coordinate"`
+}
 
 // parseReviewURL extracts session_id from a review URL.
 // Returns platform identifier and session_id, or error if URL is not supported.
@@ -26,6 +59,104 @@ func parseReviewURL(rawURL string) (platform string, sessionID string, err error
 	default:
 		return "", "", fmt.Errorf("unsupported URL host: %s", host)
 	}
+}
+
+// fetchFromURL dispatches to the appropriate platform fetcher based on URL domain.
+func fetchFromURL(rawURL string) (sgf string, displayName string, err error) {
+	platform, sessionID, err := parseReviewURL(rawURL)
+	if err != nil {
+		return "", "", err
+	}
+
+	switch platform {
+	case "yuanluobo":
+		return fetchYuanluoboSGF(sessionID)
+	default:
+		return "", "", fmt.Errorf("unsupported platform: %s", platform)
+	}
+}
+
+// fetchYuanluoboSGF calls YuanluoBo API and returns SGF text and display name.
+func fetchYuanluoboSGF(sessionID string) (sgf string, displayName string, err error) {
+	reqBody, _ := json.Marshal(map[string]string{"sessionId": sessionID})
+	resp, err := http.Post(yuanluoboAPIEndpoint, "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		return "", "", fmt.Errorf("failed to call YuanluoBo API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read API response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("YuanluoBo API returned status %d", resp.StatusCode)
+	}
+
+	var result yuanluoboResponse
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", "", fmt.Errorf("failed to parse API response: %w", err)
+	}
+
+	if result.Code != 100000 {
+		return "", "", fmt.Errorf("YuanluoBo API error: %s", result.Message)
+	}
+
+	sgf = convertYuanluoboToSGF(result.Data)
+	displayName = fmt.Sprintf("%s vs %s", result.Data.BlackPlayerName, result.Data.WhitePlayerName)
+	return sgf, displayName, nil
+}
+
+// convertYuanluoboToSGF converts YuanluoBo game data to SGF format.
+func convertYuanluoboToSGF(data yuanluoboGameData) string {
+	boardSize := yuanluoboBoardSize(data.GridSize)
+	komi := data.Tsugi
+	if komi == 0 {
+		komi = 7.5
+	}
+
+	result := formatYuanluoboResult(data)
+	date := time.Unix(data.StartTime, 0).UTC().Format("2006-01-02")
+	rules := "chinese"
+	if data.GameRule != 1 {
+		rules = "japanese"
+	}
+
+	var moves strings.Builder
+	for _, m := range data.Recording.Moves {
+		moves.WriteString(";")
+		moves.WriteString(m.Coordinate)
+	}
+
+	return fmt.Sprintf("(;GM[1]FF[4]CA[UTF-8]SZ[%d]KM[%.1f]\nPB[%s]PW[%s]\nRE[%s]DT[%s]\nRU[%s]\n%s)",
+		boardSize, komi,
+		data.BlackPlayerName, data.WhitePlayerName,
+		result, date,
+		rules,
+		moves.String(),
+	)
+}
+
+func yuanluoboBoardSize(gridSize int) int {
+	switch gridSize {
+	case 1:
+		return 9
+	case 2:
+		return 13
+	default:
+		return 19
+	}
+}
+
+func formatYuanluoboResult(data yuanluoboGameData) string {
+	if data.WinPieces > 0 {
+		return fmt.Sprintf("W+%.2f", data.WinPieces)
+	}
+	if data.WinPieces < 0 {
+		return fmt.Sprintf("B+%.2f", -data.WinPieces)
+	}
+	return "Draw"
 }
 
 // containsStr checks if substr exists in s.

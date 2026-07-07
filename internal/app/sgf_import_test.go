@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -71,6 +72,88 @@ func TestParseReviewURL(t *testing.T) {
 			}
 			if sessionID != tt.wantSID {
 				t.Errorf("sessionID = %q, want %q", sessionID, tt.wantSID)
+			}
+		})
+	}
+}
+
+func TestConvertYuanluoboToSGF(t *testing.T) {
+	data := yuanluoboGameData{
+		BlackPlayerName: "苏景澄",
+		WhitePlayerName: "V268990357",
+		GameRule:        1,
+		Tsugi:           3.75,
+		GridSize:        3,
+		StartTime:       1783393548,
+		WinPieces:       20.25,
+		Recording: yuanluoboRecording{
+			Moves: []yuanluoboMove{
+				{Coordinate: "B[pd]"},
+				{Coordinate: "W[dp]"},
+				{Coordinate: "B[pp]"},
+			},
+		},
+	}
+
+	sgf := convertYuanluoboToSGF(data)
+
+	assertions := []struct {
+		name   string
+		substr string
+	}{
+		{"board size", "SZ[19]"},
+		{"komi", "KM[3.8]"},
+		{"black player", "PB[苏景澄]"},
+		{"white player", "PW[V268990357]"},
+		{"result", "RE[W+20.25]"},
+		{"rules", "RU[chinese]"},
+		{"moves", ";B[pd];W[dp];B[pp]"},
+	}
+
+	for _, a := range assertions {
+		t.Run(a.name, func(t *testing.T) {
+			if !containsStr(sgf, a.substr) {
+				t.Errorf("expected %q in SGF, got:\n%s", a.substr, sgf)
+			}
+		})
+	}
+}
+
+func TestYuanluoboBoardSize(t *testing.T) {
+	tests := []struct {
+		gridSize int
+		want     int
+	}{
+		{1, 9},
+		{2, 13},
+		{3, 19},
+		{0, 19},
+		{99, 19},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("gridSize_%d", tt.gridSize), func(t *testing.T) {
+			if got := yuanluoboBoardSize(tt.gridSize); got != tt.want {
+				t.Errorf("yuanluoboBoardSize(%d) = %d, want %d", tt.gridSize, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFormatYuanluoboResult(t *testing.T) {
+	tests := []struct {
+		name    string
+		winRate float64
+		want    string
+	}{
+		{"white wins", 20.25, "W+20.25"},
+		{"black wins", -15.5, "B+15.50"},
+		{"draw", 0, "Draw"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := yuanluoboGameData{WinPieces: tt.winRate}
+			if got := formatYuanluoboResult(data); got != tt.want {
+				t.Errorf("formatYuanluoboResult() = %q, want %q", got, tt.want)
 			}
 		})
 	}
