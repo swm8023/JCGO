@@ -1,7 +1,8 @@
-import { type ChangeEvent, useRef } from 'react'
+import { type ChangeEvent, useRef, useState } from 'react'
 
 interface ImportDialogProps {
   onImport(displayName: string, originalFilename: string, sgfText: string): void
+  onImportUrl(url: string): void
   onCancel(): void
 }
 
@@ -35,8 +36,14 @@ const sgfPickerOptions: SGFPickerOptions = {
   ],
 }
 
-export function ImportDialog({ onImport, onCancel }: ImportDialogProps) {
+type DialogMode = 'choose' | 'url'
+
+export function ImportDialog({ onImport, onImportUrl, onCancel }: ImportDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const [mode, setMode] = useState<DialogMode>('choose')
+  const [url, setUrl] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const choose = () => {
     requestImportOrientation()
@@ -60,15 +67,58 @@ export function ImportDialog({ onImport, onCancel }: ImportDialogProps) {
   }
 
   const cancel = () => {
+    if (mode === 'url') {
+      setMode('choose')
+      setUrl('')
+      setError(null)
+      return
+    }
     releaseImportOrientation()
     onCancel()
+  }
+
+  const handleUrlSubmit = async () => {
+    if (!url.trim()) return
+    setLoading(true)
+    setError(null)
+    try {
+      onImportUrl(url.trim())
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '导入失败')
+      setLoading(false)
+    }
+  }
+
+  if (mode === 'url') {
+    return (
+      <div className="import-dialog" role="dialog" aria-label="Import from URL">
+        <div className="import-dialog-body">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="粘贴元萝卜复盘链接"
+            disabled={loading}
+            autoFocus
+          />
+          {error && <div className="import-error">{error}</div>}
+          <div className="import-dialog-actions">
+            <button onClick={handleUrlSubmit} disabled={loading || !url.trim()}>
+              {loading ? '导入中...' : '确认'}
+            </button>
+            <button onClick={cancel} disabled={loading}>取消</button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="import-dialog" role="dialog" aria-label="Import SGF">
       <div className="import-dialog-body">
-        <button onClick={choose}>Choose SGF</button>
-        <button onClick={cancel}>Cancel</button>
+        <button onClick={choose}>选择 SGF 文件</button>
+        <button onClick={() => setMode('url')}>从链接导入</button>
+        <button onClick={cancel}>取消</button>
         <input ref={inputRef} type="file" accept=".sgf" hidden onChange={onFile} />
       </div>
     </div>

@@ -20,9 +20,9 @@ describe('ImportDialog', () => {
     vi.spyOn(window, 'prompt').mockReturnValue('Demo')
     const onImport = vi.fn()
 
-    render(<ImportDialog onImport={onImport} onCancel={vi.fn()} />)
+    render(<ImportDialog onImport={onImport} onImportUrl={vi.fn()} onCancel={vi.fn()} />)
 
-    await userEvent.click(screen.getByRole('button', { name: 'Choose SGF' }))
+    await userEvent.click(screen.getByRole('button', { name: '选择 SGF 文件' }))
 
     expect(lock).toHaveBeenCalledWith('portrait')
     expect(showOpenFilePicker).toHaveBeenCalledWith(
