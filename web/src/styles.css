@@ -1838,6 +1838,7 @@ textarea:focus-visible {
   }
 
   .analysis-rail {
+    position: relative;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     grid-row: 4;
@@ -1862,13 +1863,21 @@ textarea:focus-visible {
   }
 
   .analysis-overview {
+    position: relative;
+    height: 100%;
     grid-template-rows: 20px minmax(0, 1fr);
     gap: 2px;
     padding: 0 6px 3px;
   }
 
   .analysis-detail-tabs {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(50% + 3px);
+    right: 0;
     min-height: 0;
+    overflow: auto;
     grid-template-rows: 20px minmax(0, 1fr);
     gap: 2px;
     padding: 0 6px 3px;
