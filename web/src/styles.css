@@ -1190,6 +1190,8 @@ textarea:focus-visible {
   grid-template-rows: 24px minmax(0, 1fr);
   gap: 6px;
   padding: 8px;
+  height: 100%;
+  min-height: 0;
 }
 
 .analysis-tab-list {
