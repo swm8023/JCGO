@@ -163,6 +163,16 @@ export default function App() {
     setGameListOpen(true)
   }
 
+  const importFromUrl = async (url: string) => {
+    if (!client) return
+    await client.call('game.importSgf', { url })
+    await refreshWorkspaceState()
+    setActivePV(undefined)
+    setTryMode(false)
+    setShowImport(false)
+    setGameListOpen(true)
+  }
+
   useEffect(() => {
     if (!token || !client || handledShareTargetRef.current || !isShareTargetLaunch()) return
     handledShareTargetRef.current = true
@@ -452,7 +462,7 @@ export default function App() {
         />
       </aside>
       </main>
-      {showImport && <ImportDialog onImport={importGame} onCancel={() => setShowImport(false)} />}
+      {showImport && <ImportDialog onImport={importGame} onImportUrl={importFromUrl} onCancel={() => setShowImport(false)} />}
       <RotatePrompt onImport={() => setShowImport(true)} />
     </>
   )
