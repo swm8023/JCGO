@@ -167,8 +167,8 @@ describe('responsive layout CSS', () => {
   it('uses a foldable portrait workspace with side-by-side analysis below the board', () => {
     expect(styles).toContain('@media (orientation: portrait) and (min-width: 700px) and (max-width: 1220px) {')
     expect(styles).toContain('@container app-layout (max-aspect-ratio: 1 / 1) and (min-width: 700px) and (max-width: 1220px) {')
-    expect(styles).toContain('grid-template-rows: auto minmax(0, 1fr) auto minmax(150px, 1fr);')
-    expect(styles).toContain('.app-layout.side-action-layout {\n    grid-template-columns: 1fr;\n    grid-template-rows: auto minmax(0, 1fr) minmax(150px, 1fr);')
+    expect(styles).toContain('grid-template-rows: auto minmax(0, 1fr) auto minmax(168px, 40vh);')
+    expect(styles).toContain('.app-layout.side-action-layout {\n    grid-template-columns: 1fr;\n    grid-template-rows: auto minmax(0, 1fr) minmax(168px, 40vh);')
     expect(styles).toContain('.side-action-layout .game-sidebar {\n    grid-column: 1 / -1;')
     expect(styles).toContain('.side-action-layout .analysis-rail {\n    grid-row: 3;\n    grid-column: 1 / -1;')
     expect(styles).not.toContain('grid-template-rows: auto minmax(0, 1fr) var(--side-action-row-height')

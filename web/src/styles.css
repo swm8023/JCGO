@@ -1634,7 +1634,7 @@ textarea:focus-visible {
     min-height: 0;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr) auto minmax(150px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto minmax(168px, 40vh);
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;
@@ -1642,7 +1642,7 @@ textarea:focus-visible {
 
   .app-layout.side-action-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr) minmax(150px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(168px, 40vh);
   }
 
   .game-sidebar {
@@ -2255,7 +2255,7 @@ textarea:focus-visible {
     min-height: 0;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr) auto minmax(150px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto minmax(168px, 40vh);
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;
@@ -2263,7 +2263,7 @@ textarea:focus-visible {
 
   .app-layout.side-action-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr) minmax(150px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(168px, 40vh);
   }
 
   .game-sidebar {
