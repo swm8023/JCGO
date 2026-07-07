@@ -157,11 +157,28 @@ func (h *Handler) importSGF(ctx context.Context, token string, params json.RawMe
 	if err := decodeParams(params, &in); err != nil {
 		return ImportResult{}, err
 	}
-	displayName := strings.TrimSpace(in.DisplayName)
-	if displayName == "" {
-		return ImportResult{}, errors.New("displayName is required")
+
+	var sgfText string
+	var displayName string
+
+	if in.URL != "" {
+		fetchedSGF, fetchedName, err := fetchFromURL(in.URL)
+		if err != nil {
+			return ImportResult{}, err
+		}
+		sgfText = fetchedSGF
+		displayName = fetchedName
+	} else if in.SGFText != "" {
+		sgfText = in.SGFText
+		displayName = strings.TrimSpace(in.DisplayName)
+		if displayName == "" {
+			return ImportResult{}, errors.New("displayName is required")
+		}
+	} else {
+		return ImportResult{}, errors.New("either url or sgfText is required")
 	}
-	doc, err := game.ParseSGF(in.SGFText)
+
+	doc, err := game.ParseSGF(sgfText)
 	if err != nil {
 		return ImportResult{}, err
 	}
@@ -174,7 +191,7 @@ func (h *Handler) importSGF(ctx context.Context, token string, params json.RawMe
 		return ImportResult{}, err
 	}
 	record.AnalysisStatus = string(AnalysisIdle)
-	if _, err := h.files.WriteSGF(record.SGFFilename, in.SGFText); err != nil {
+	if _, err := h.files.WriteSGF(record.SGFFilename, sgfText); err != nil {
 		_ = h.repo.DeleteGame(ctx, record.ID)
 		return ImportResult{}, err
 	}
@@ -492,8 +509,9 @@ func requestID(raw json.RawMessage) string {
 
 type importParams struct {
 	DisplayName      string `json:"displayName"`
-	OriginalFilename string `json:"originalFilename"`
-	SGFText          string `json:"sgfText"`
+	OriginalFilename string `json:"originalFilename,omitempty"`
+	SGFText          string `json:"sgfText,omitempty"`
+	URL              string `json:"url,omitempty"`
 }
 
 type renameParams struct {
