@@ -1387,102 +1387,35 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
-.winrate-chart {
+.echarts-chart {
   width: 100%;
   height: 100%;
   min-height: 88px;
   display: block;
   background: transparent;
-  overflow: visible;
+  overflow: hidden;
 }
 
-.chart-plot-bg {
-  fill: #faf8f4;
-  rx: 2;
-}
-
-.chart-grid-line {
-  stroke: #e8e0d4;
-  stroke-width: 0.5;
-}
-
-.chart-zero-line {
-  stroke: #c8bfb0;
-  stroke-dasharray: 3 3;
-  stroke-width: 0.8;
-}
-
-.chart-axis-line,
-.chart-tick-line {
-  stroke: #c8bfb0;
-  stroke-width: 0.8;
-}
-
-.chart-axis-label,
-.chart-tick-label {
+.chart-click-layer {
   position: absolute;
-  color: var(--muted);
-  font-family: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  font-stretch: normal;
-  font-size: 9px;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0;
+  left: 8.75%;
+  right: 8.75%;
+  top: 3.57%;
+  bottom: 16.07%;
   pointer-events: none;
-  opacity: 0.7;
-  font-variant-numeric: tabular-nums;
-}
-
-.chart-label-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.chart-axis-label-left {
-  transform: translate(-100%, -50%);
-  text-align: right;
-}
-
-.chart-axis-label-right {
-  transform: translate(0, -50%);
-  text-align: left;
-}
-
-.chart-tick-label {
-  transform: translate(-50%, -50%);
-  text-align: center;
-}
-
-.chart-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.winrate-line {
-  stroke: var(--table);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-}
-
-.score-line {
-  stroke: var(--signal);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  opacity: 0.8;
-}
-
-.chart-current-marker {
-  stroke: var(--ink);
-  stroke-width: 1;
-  stroke-dasharray: 2 2;
-  opacity: 0.6;
 }
 
 .chart-hit-target {
-  fill: transparent;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   cursor: pointer;
+  pointer-events: auto;
+  transform: translateX(-50%);
 }
 
 .candidate-row.low-visits {
@@ -3050,7 +2983,7 @@ textarea:focus-visible {
     font-size: 11px;
   }
 
-  .winrate-chart {
+  .echarts-chart {
     height: var(--portrait-chart-height);
     min-height: 0;
   }
@@ -3559,7 +3492,7 @@ textarea:focus-visible {
     overflow: auto;
   }
 
-  .winrate-chart {
+  .echarts-chart {
     height: 100%;
     min-height: 0;
   }

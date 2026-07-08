@@ -1,4 +1,12 @@
+import { LineChart } from 'echarts/charts'
+import { GridComponent, MarkLineComponent, TooltipComponent } from 'echarts/components'
+import * as echarts from 'echarts/core'
+import type { EChartsCoreOption } from 'echarts/core'
+import { SVGRenderer } from 'echarts/renderers'
+import { useEffect, useMemo, useRef } from 'react'
 import type { ChartPoint } from '../api/types'
+
+echarts.use([GridComponent, LineChart, MarkLineComponent, SVGRenderer, TooltipComponent])
 
 interface AnalysisChartsProps {
   points: ChartPoint[]
@@ -16,68 +24,54 @@ const chart = {
 }
 
 const plotWidth = chart.width - chart.left - chart.right
-const plotHeight = chart.height - chart.top - chart.bottom
-const plotBottom = chart.height - chart.bottom
-const scoreMidY = chart.top + plotHeight / 2
-const tickLabelY = chart.height - 7
 
 export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisChartsProps) {
-  const geometry = buildChartGeometry(points, currentMoveNumber)
+  const chartRef = useRef<HTMLDivElement>(null)
+  const option = useMemo(() => buildChartOption(points, currentMoveNumber), [points, currentMoveNumber])
+  const hitTargets = useMemo(() => buildHitTargets(points), [points])
+
+  useEffect(() => {
+    const element = chartRef.current
+    if (!element) return
+
+    const instance = echarts.init(element, null, { renderer: 'svg' })
+    const resize = () => instance.resize()
+    let observer: ResizeObserver | undefined
+
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(resize)
+      observer.observe(element)
+    } else {
+      window.addEventListener('resize', resize)
+    }
+
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', resize)
+      instance.dispose()
+    }
+  }, [])
+
+  useEffect(() => {
+    const element = chartRef.current
+    const instance = element ? echarts.getInstanceByDom(element) : undefined
+    instance?.setOption(option, true)
+  }, [option])
+
   return (
     <div className="analysis-charts" aria-label="胜率曲线">
       <div className="rail-section-body chart-body">
-        <svg className="winrate-chart" viewBox={`0 0 ${chart.width} ${chart.height}`} preserveAspectRatio="none" role="img" aria-label="Winrate curve">
-          <rect className="chart-plot-bg" x={chart.left} y={chart.top} width={plotWidth} height={plotHeight} />
-          <line className="chart-grid-line" x1={chart.left} y1={chart.top} x2={chart.width - chart.right} y2={chart.top} />
-          <line className="chart-grid-line chart-zero-line" x1={chart.left} y1={scoreMidY} x2={chart.width - chart.right} y2={scoreMidY} />
-          <line className="chart-grid-line" x1={chart.left} y1={plotBottom} x2={chart.width - chart.right} y2={plotBottom} />
-          <line className="chart-axis-line" x1={chart.left} y1={chart.top} x2={chart.left} y2={plotBottom} />
-          <line className="chart-axis-line" x1={chart.width - chart.right} y1={chart.top} x2={chart.width - chart.right} y2={plotBottom} />
-
-          {geometry.winratePath && <polyline aria-label="Black winrate line" className="chart-line winrate-line" points={geometry.winratePath} />}
-          {geometry.scorePath && <polyline aria-label="Score lead line" className="chart-line score-line" points={geometry.scorePath} />}
-          {geometry.currentX !== undefined && <line aria-label="Current move marker" className="chart-current-marker" x1={geometry.currentX} y1={chart.top} x2={geometry.currentX} y2={plotBottom} />}
-          {geometry.ticks.map((tick) => (
-            <g key={tick.value}>
-              <line className="chart-tick-line" x1={tick.x} y1={plotBottom} x2={tick.x} y2={plotBottom + 4} />
-            </g>
-          ))}
-          {geometry.hitTargets.map((target) => (
-            <rect
+        <div ref={chartRef} className="echarts-chart" role="img" aria-label="Winrate curve" />
+        <div className="chart-click-layer">
+          {hitTargets.map((target) => (
+            <button
               key={target.moveNumber}
+              type="button"
               aria-label={`Jump to move ${target.moveNumber}`}
               className="chart-hit-target"
-              x={target.x - target.width / 2}
-              y={chart.top}
-              width={target.width}
-              height={plotHeight}
+              style={{ left: `${target.leftPercent}%`, width: `${target.widthPercent}%` }}
               onClick={() => onJump(target.moveNumber)}
             />
-          ))}
-        </svg>
-        <div className="chart-label-layer" aria-hidden="true">
-          <span className="chart-axis-label chart-axis-label-left" style={{ left: percentX(chart.left - 6), top: percentY(chart.top + 4) }}>
-            100%
-          </span>
-          <span className="chart-axis-label chart-axis-label-left" style={{ left: percentX(chart.left - 6), top: percentY(scoreMidY + 4) }}>
-            50%
-          </span>
-          <span className="chart-axis-label chart-axis-label-left" style={{ left: percentX(chart.left - 6), top: percentY(plotBottom + 4) }}>
-            0%
-          </span>
-          <span className="chart-axis-label chart-axis-label-right" style={{ left: percentX(chart.width - chart.right + 6), top: percentY(chart.top + 4) }}>
-            +{geometry.scoreLimit}
-          </span>
-          <span className="chart-axis-label chart-axis-label-right" style={{ left: percentX(chart.width - chart.right + 6), top: percentY(scoreMidY + 4) }}>
-            0
-          </span>
-          <span className="chart-axis-label chart-axis-label-right" style={{ left: percentX(chart.width - chart.right + 6), top: percentY(plotBottom + 4) }}>
-            -{geometry.scoreLimit}
-          </span>
-          {geometry.ticks.map((tick) => (
-            <span key={tick.value} className="chart-tick-label" style={{ left: percentX(tick.x), top: percentY(tickLabelY) }}>
-              {tick.value}
-            </span>
           ))}
         </div>
       </div>
@@ -85,41 +79,145 @@ export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisCh
   )
 }
 
-function percentX(x: number) {
-  return `${(x / chart.width) * 100}%`
-}
-
-function percentY(y: number) {
-  return `${(y / chart.height) * 100}%`
-}
-
-function buildChartGeometry(points: ChartPoint[], currentMoveNumber?: number) {
+function buildChartOption(points: ChartPoint[], currentMoveNumber?: number): EChartsCoreOption {
   const maxMove = Math.max(1, ...points.map((point) => point.moveNumber))
   const scoreLimit = niceScoreLimit(points)
-  const winratePoints = points.map((point) => `${xForMove(point.moveNumber, maxMove)},${yForWinrate(point.winrate)}`).join(' ')
-  const scorePoints = points.map((point) => `${xForMove(point.moveNumber, maxMove)},${yForScore(point.scoreLead, scoreLimit)}`).join(' ')
-  const currentX = points.length === 0 || currentMoveNumber === undefined ? undefined : xForMove(clamp(currentMoveNumber, 0, maxMove), maxMove)
-  const hitWidth = Math.max(12, plotWidth / Math.max(points.length, 1))
   return {
-    scoreLimit,
-    winratePath: points.length > 1 ? winratePoints : '',
-    scorePath: points.length > 1 ? scorePoints : '',
-    currentX,
-    ticks: buildMoveTicks(maxMove).map((value) => ({ value, x: xForMove(value, maxMove) })),
-    hitTargets: points.map((point) => ({ moveNumber: point.moveNumber, x: xForMove(point.moveNumber, maxMove), width: hitWidth })),
+    animation: false,
+    backgroundColor: 'transparent',
+    grid: {
+      left: chart.left,
+      right: chart.right,
+      top: chart.top,
+      bottom: chart.bottom,
+      containLabel: false,
+    },
+    tooltip: {
+      trigger: 'axis',
+      confine: true,
+      backgroundColor: 'rgba(255, 255, 255, 0.96)',
+      borderColor: 'rgba(184, 168, 152, 0.58)',
+      borderWidth: 1,
+      padding: [5, 7],
+      textStyle: {
+        color: '#1a1a2e',
+        fontSize: 11,
+        fontWeight: 600,
+      },
+      valueFormatter: (value: unknown) => (typeof value === 'number' ? value.toFixed(1) : `${value}`),
+    },
+    xAxis: {
+      type: 'value',
+      min: 0,
+      max: maxMove,
+      splitNumber: 4,
+      axisLine: {
+        lineStyle: { color: 'rgba(184, 168, 152, 0.44)', width: 0.8 },
+      },
+      axisTick: {
+        length: 3,
+        lineStyle: { color: 'rgba(184, 168, 152, 0.44)', width: 0.8 },
+      },
+      axisLabel: {
+        color: '#6b7280',
+        fontSize: 9,
+        fontWeight: 600,
+        hideOverlap: true,
+        margin: 5,
+      },
+      splitLine: { show: false },
+    },
+    yAxis: [
+      {
+        type: 'value',
+        min: 0,
+        max: 100,
+        splitNumber: 2,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          color: '#6b7280',
+          fontSize: 9,
+          fontWeight: 600,
+          formatter: '{value}%',
+          margin: 5,
+        },
+        splitLine: {
+          lineStyle: { color: 'rgba(184, 168, 152, 0.28)', width: 0.6 },
+        },
+      },
+      {
+        type: 'value',
+        min: -scoreLimit,
+        max: scoreLimit,
+        splitNumber: 2,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          color: '#6b7280',
+          fontSize: 9,
+          fontWeight: 600,
+          formatter: (value: number) => (value > 0 ? `+${value}` : `${value}`),
+          margin: 5,
+        },
+        splitLine: { show: false },
+      },
+    ],
+    series: [
+      {
+        name: '黑胜率',
+        type: 'line',
+        data: points.map((point) => [point.moveNumber, round1(point.winrate * 100)]),
+        smooth: true,
+        showSymbol: false,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: {
+          color: '#1a472a',
+          width: 1.35,
+        },
+        itemStyle: { color: '#1a472a' },
+        emphasis: {
+          focus: 'series',
+          lineStyle: { width: 1.65 },
+        },
+        markLine:
+          currentMoveNumber === undefined
+            ? undefined
+            : {
+                silent: true,
+                symbol: 'none',
+                label: { show: false },
+                lineStyle: {
+                  color: 'rgba(26, 26, 46, 0.42)',
+                  width: 0.8,
+                  type: 'solid',
+                },
+                data: [{ xAxis: clamp(currentMoveNumber, 0, maxMove) }],
+              },
+      },
+      {
+        name: '目差',
+        type: 'line',
+        yAxisIndex: 1,
+        data: points.map((point) => [point.moveNumber, round1(point.scoreLead)]),
+        smooth: true,
+        showSymbol: false,
+        symbol: 'circle',
+        symbolSize: 4,
+        lineStyle: {
+          color: '#c2410c',
+          opacity: 0.54,
+          width: 1,
+        },
+        itemStyle: { color: '#c2410c' },
+        emphasis: {
+          focus: 'series',
+          lineStyle: { opacity: 0.76, width: 1.2 },
+        },
+      },
+    ],
   }
-}
-
-function xForMove(moveNumber: number, maxMove: number) {
-  return chart.left + (moveNumber / maxMove) * plotWidth
-}
-
-function yForWinrate(winrate: number) {
-  return plotBottom - clamp(winrate, 0, 1) * plotHeight
-}
-
-function yForScore(scoreLead: number, scoreLimit: number) {
-  return scoreMidY - (clamp(scoreLead, -scoreLimit, scoreLimit) / scoreLimit) * (plotHeight / 2)
 }
 
 function niceScoreLimit(points: ChartPoint[]) {
@@ -127,24 +225,20 @@ function niceScoreLimit(points: ChartPoint[]) {
   return Math.ceil(maxAbs)
 }
 
-function buildMoveTicks(maxMove: number) {
-  const roughStep = maxMove / 4
-  const step = niceMoveStep(roughStep)
-  const ticks = new Set<number>([0, maxMove])
-  for (let value = step; value < maxMove; value += step) {
-    ticks.add(value)
-  }
-  return [...ticks].sort((a, b) => a - b)
-}
-
-function niceMoveStep(value: number) {
-  if (value <= 10) return 10
-  if (value <= 25) return 25
-  if (value <= 50) return 50
-  if (value <= 100) return 100
-  return Math.ceil(value / 100) * 100
+function buildHitTargets(points: ChartPoint[]) {
+  const maxMove = Math.max(1, ...points.map((point) => point.moveNumber))
+  const hitWidthPercent = ((Math.max(12, plotWidth / Math.max(points.length, 1)) / plotWidth) * 100)
+  return points.map((point) => ({
+    moveNumber: point.moveNumber,
+    leftPercent: (point.moveNumber / maxMove) * 100,
+    widthPercent: hitWidthPercent,
+  }))
 }
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function round1(value: number) {
+  return Math.round(value * 10) / 10
 }
