@@ -52,9 +52,12 @@ describe('right rail layout', () => {
     expect(board).toBeGreaterThan(boardFrame)
   })
 
-  it('connects measured wide-portrait side controls to the app layout', () => {
+  it('connects measured board/action allocation to the app layout', () => {
     expect(app).toContain("import { computeSideActionPlacement")
     expect(app).toContain("className={sideActionPlacement.enabled ? 'app-layout side-action-layout' : 'app-layout'}")
+    expect(app).toContain('boardStageLeft: stageRect.left - layoutRect.left')
+    expect(app).toContain('boardStageWidth: stageRect.width')
+    expect(app).toContain('boardStageHeight: stageRect.height')
     expect(app).toContain('ref={layoutRef}')
     expect(app).toContain('ref={boardStageRef}')
     expect(app).toContain('ref={boardFrameRef}')

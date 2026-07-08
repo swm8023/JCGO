@@ -30,6 +30,9 @@ const shareTargetRedirectPath = '/?share-target=sgf'
 const emptySideActionPlacement = computeSideActionPlacement({
   layoutWidth: 0,
   layoutHeight: 0,
+  boardStageLeft: 0,
+  boardStageWidth: 0,
+  boardStageHeight: 0,
   boardStageRight: 0,
   boardRight: 0,
   boardTop: 0,
@@ -243,6 +246,9 @@ export default function App() {
       const next = computeSideActionPlacement({
         layoutWidth: layoutRect.width,
         layoutHeight: layoutRect.height,
+        boardStageLeft: stageRect.left - layoutRect.left,
+        boardStageWidth: stageRect.width,
+        boardStageHeight: stageRect.height,
         boardStageRight: stageRect.right - layoutRect.left,
         boardRight: boardRect.right - layoutRect.left,
         boardTop: boardRect.top - layoutRect.top,
