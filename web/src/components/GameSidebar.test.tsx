@@ -242,6 +242,43 @@ describe('GameSidebar', () => {
     expect(container.querySelector('.game-row')).toBeInTheDocument()
   })
 
+  it('uses the yuanluobo record row structure for local game rows', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'Honinbo final',
+          result: 'B+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+          gameDate: '2026-06-24',
+          analysisStatus: 'complete',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = container.querySelector('.game-row')
+    expect(row).toHaveClass('yuanluobo-record-row')
+    expect(row).toHaveAttribute('data-outcome', 'win')
+    expect(row?.querySelector('.yuanluobo-record-main')).toBeInTheDocument()
+    expect(row?.querySelector('.yuanluobo-record-title')).toHaveTextContent('Honinbo final')
+    expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('棋局 2026-06-24')
+    expect(row?.querySelector('.yuanluobo-result-watermark')).toHaveTextContent('黑')
+    expect(row?.querySelector('.game-row-actions')).toBeInTheDocument()
+  })
+
   it('shows an empty library state when no games have been imported', () => {
     render(
       <GameSidebar
