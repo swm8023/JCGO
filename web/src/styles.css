@@ -44,7 +44,7 @@
   --portrait-overview-padding-top: 2px;
   --portrait-overview-padding-bottom: 4px;
   --analysis-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-top) + var(--portrait-overview-padding-bottom));
-  --analysis-detail-preview-height: 34px;
+  --analysis-detail-preview-height: 64px;
   --analysis-bottom-height: calc(var(--analysis-overview-height) + var(--analysis-detail-preview-height));
   --wide-analysis-bottom-height: var(--analysis-overview-height);
 
@@ -212,7 +212,7 @@ textarea:focus-visible {
   min-height: 0;
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-rows: auto minmax(0, 1fr) auto var(--analysis-bottom-height);
+  grid-template-rows: auto auto auto minmax(var(--analysis-bottom-height), 1fr);
   gap: 0;
   padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
   box-sizing: border-box;
@@ -538,6 +538,11 @@ textarea:focus-visible {
   container-name: board-stage;
 }
 
+.app-layout:not(.side-action-layout) .board-stage {
+  align-content: start;
+  align-items: start;
+}
+
 .board-layout {
   display: grid;
   width: 100%;
@@ -548,6 +553,11 @@ textarea:focus-visible {
   gap: 8px;
   min-width: 0;
   min-height: 0;
+}
+
+.app-layout:not(.side-action-layout) .board-layout {
+  height: auto;
+  align-content: start;
 }
 
 .board-info {
@@ -645,6 +655,12 @@ textarea:focus-visible {
   justify-self: stretch;
   container-type: size;
   container-name: board-frame;
+}
+
+.app-layout:not(.side-action-layout) .board-frame {
+  height: auto;
+  aspect-ratio: 1;
+  align-self: start;
 }
 
 .side-action-layout .board-frame {
@@ -1355,7 +1371,7 @@ textarea:focus-visible {
     min-height: 0;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr) auto var(--analysis-bottom-height);
+    grid-template-rows: auto auto auto minmax(var(--analysis-bottom-height), 1fr);
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;
@@ -1660,7 +1676,7 @@ textarea:focus-visible {
     min-height: 0;
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr) auto var(--wide-analysis-bottom-height);
+    grid-template-rows: auto auto auto minmax(var(--wide-analysis-bottom-height), 1fr);
     gap: 0;
     padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
     overflow: hidden;

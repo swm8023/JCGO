@@ -243,12 +243,14 @@ export default function App() {
       const layoutRect = layout.getBoundingClientRect()
       const stageRect = boardStage.getBoundingClientRect()
       const boardRect = board.getBoundingClientRect()
+      const actionRect = actionRailRef.current?.getBoundingClientRect()
+      const boardActionHeight = Math.max(0, layoutRect.height - (stageRect.top - layoutRect.top) - horizontalActionHeight(actionRect) - analysisMinimumHeight(layout, stageRect.width))
       const next = computeSideActionPlacement({
         layoutWidth: layoutRect.width,
         layoutHeight: layoutRect.height,
         boardStageLeft: stageRect.left - layoutRect.left,
         boardStageWidth: stageRect.width,
-        boardStageHeight: stageRect.height,
+        boardStageHeight: boardActionHeight,
         boardStageRight: stageRect.right - layoutRect.left,
         boardRight: boardRect.right - layoutRect.left,
         boardTop: boardRect.top - layoutRect.top,
@@ -494,6 +496,26 @@ function sideActionPlacementsEqual(left: SideActionPlacement, right: SideActionP
     && left.top === right.top
     && left.width === right.width
     && left.rowHeight === right.rowHeight
+}
+
+function analysisMinimumHeight(layout: Element, layoutWidth: number) {
+  const styles = window.getComputedStyle(layout)
+  const overviewHeight = cssPx(styles, '--portrait-summary-height')
+    + cssPx(styles, '--portrait-overview-gap')
+    + cssPx(styles, '--portrait-chart-height')
+    + cssPx(styles, '--portrait-overview-padding-top')
+    + cssPx(styles, '--portrait-overview-padding-bottom')
+  if (layoutWidth >= 700) return overviewHeight
+  return overviewHeight + cssPx(styles, '--analysis-detail-preview-height')
+}
+
+function cssPx(styles: CSSStyleDeclaration, property: string) {
+  const value = Number.parseFloat(styles.getPropertyValue(property))
+  return Number.isFinite(value) ? value : 0
+}
+
+function horizontalActionHeight(rect: DOMRect | undefined) {
+  return rect?.height ?? 0
 }
 
 function websocketURL() {
