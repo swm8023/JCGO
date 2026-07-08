@@ -238,9 +238,35 @@ describe('GameSidebar', () => {
     const row = within(container).getByText('Honinbo final').closest('.game-row')
     expect(row).not.toBeNull()
     const gameRow = within(row as HTMLElement)
-    expect(gameRow.getByText('B+R')).toBeInTheDocument()
+    expect(gameRow.getByText('黑中盘胜')).toBeInTheDocument()
     expect(gameRow.getByText('棋局 2026-06-24')).toBeInTheDocument()
     expect(gameRow.getByText('上传 2026-06-25')).toBeInTheDocument()
     expect(gameRow.getByText('已分析')).toBeInTheDocument()
+  })
+
+  it('formats numeric and legacy child-count results in eyes', () => {
+    render(
+      <GameSidebar
+        games={[
+          { gameId: '1', displayName: 'Numeric', result: 'W+12.50', sgfFilename: '1.sgf', createdAt: '2026-06-24T01:00:00Z' },
+          { gameId: '2', displayName: 'Legacy', result: '白胜6.25子', sgfFilename: '2.sgf', createdAt: '2026-06-24T02:00:00Z' },
+        ]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('白胜 12.50目')).toBeInTheDocument()
+    expect(screen.getByText('白胜 12.5目')).toBeInTheDocument()
   })
 })

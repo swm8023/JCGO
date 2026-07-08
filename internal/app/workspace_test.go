@@ -131,6 +131,26 @@ func TestAnalysisViewUsesPlayedMovePointLossLikeKaTrain(t *testing.T) {
 	}
 }
 
+func TestWorkspaceMarksAnalysisUnavailableOnError(t *testing.T) {
+	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd])`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws := NewWorkspaceStore().ForToken("secret")
+	if err := ws.LoadGame("game-1", doc); err != nil {
+		t.Fatal(err)
+	}
+	ws.MarkAnalysisStarted("game-1")
+	ws.SetAnalysisError("game-1", "bad komi")
+
+	if state := ws.AnalysisState("game-1"); state != AnalysisUnavailable {
+		t.Fatalf("analysis state = %s", state)
+	}
+	if err := ws.AnalysisError("game-1"); err != "bad komi" {
+		t.Fatalf("analysis error = %q", err)
+	}
+}
+
 func TestClearVariationPreservesMainlineAnalysisAndState(t *testing.T) {
 	doc, err := game.ParseSGF(`(;GM[1]FF[4]SZ[19];B[pd])`)
 	if err != nil {

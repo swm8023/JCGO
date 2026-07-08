@@ -105,10 +105,10 @@ func TestConvertYuanluoboToSGF(t *testing.T) {
 		substr string
 	}{
 		{"board size", "SZ[19]"},
-		{"komi", "KM[3.8]"},
+		{"komi", "KM[7.5]"},
 		{"black player", "PB[苏景澄]"},
 		{"white player", "PW[V268990357]"},
-		{"result", "RE[W+20.25]"},
+		{"result", "RE[W+40.50]"},
 		{"rules", "RU[chinese]"},
 		{"moves", ";B[pd];W[dp];B[pp]"},
 	}
@@ -151,12 +151,12 @@ func TestFormatYuanluoboResult(t *testing.T) {
 		{
 			name: "black wins by points",
 			data: yuanluoboGameData{Status: 2, WinPieces: 50.5, BlackNumber: 231, WhiteNumber: 130},
-			want: "B+50.50",
+			want: "B+101.00",
 		},
 		{
 			name: "white wins by points",
 			data: yuanluoboGameData{Status: 1, WinPieces: 20.25, BlackNumber: 164, WhiteNumber: 197},
-			want: "W+20.25",
+			want: "W+40.50",
 		},
 		{
 			name: "black wins by resignation",
@@ -190,8 +190,8 @@ func TestFormatYuanluoboResultDisplay(t *testing.T) {
 		wantLabel  string
 		wantWinner string
 	}{
-		{"black wins by points", yuanluoboGameData{Status: 2, WinPieces: 50.5, BlackNumber: 231, WhiteNumber: 130}, "黑胜 50.5子", "B"},
-		{"white wins by points", yuanluoboGameData{Status: 1, WinPieces: 20.25, BlackNumber: 164, WhiteNumber: 197}, "白胜 20.25子", "W"},
+		{"black wins by points", yuanluoboGameData{Status: 2, WinPieces: 50.5, BlackNumber: 231, WhiteNumber: 130}, "黑胜 101目", "B"},
+		{"white wins by points", yuanluoboGameData{Status: 1, WinPieces: 20.25, BlackNumber: 164, WhiteNumber: 197}, "白胜 40.5目", "W"},
 		{"black wins by resignation", yuanluoboGameData{Status: 2, WinPieces: 0}, "黑中盘胜", "B"},
 		{"white wins by resignation", yuanluoboGameData{Status: 1, WinPieces: 0}, "白中盘胜", "W"},
 		{"draw", yuanluoboGameData{WinPieces: 0}, "和棋", "draw"},

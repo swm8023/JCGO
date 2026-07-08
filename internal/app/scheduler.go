@@ -23,6 +23,7 @@ type Event struct {
 	NodeID         string              `json:"nodeId"`
 	MoveNumber     int                 `json:"moveNumber"`
 	Analysis       game.AnalysisResult `json:"analysis"`
+	Error          string              `json:"error,omitempty"`
 	IsDuringSearch bool                `json:"isDuringSearch,omitempty"`
 }
 
@@ -123,7 +124,12 @@ func (s *Scheduler) run() {
 				AnalyzeTurn:   task.node.MoveNumber,
 			})
 			result, err := s.analyze(context.Background(), task, query)
-			if err != nil || s.isStopped(task.token, task.gameID) {
+			if err != nil {
+				s.setStopped(task.token, task.gameID, true)
+				s.publishError(task, err)
+				continue
+			}
+			if s.isStopped(task.token, task.gameID) {
 				continue
 			}
 			s.publishAnalysis(task, result)
@@ -158,6 +164,16 @@ func (s *Scheduler) publishAnalysis(task task, result katago.Result) {
 		MoveNumber:     task.node.MoveNumber,
 		Analysis:       game.NormalizeAnalysis(task.node.ToPlay, result),
 		IsDuringSearch: result.IsDuringSearch,
+	})
+}
+
+func (s *Scheduler) publishError(task task, err error) {
+	s.publish(Event{
+		Token:      task.token,
+		GameID:     task.gameID,
+		NodeID:     task.node.NodeID,
+		MoveNumber: task.node.MoveNumber,
+		Error:      err.Error(),
 	})
 }
 

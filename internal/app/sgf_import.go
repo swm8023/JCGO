@@ -116,7 +116,7 @@ func fetchYuanluoboSGF(sessionID string) (sgf string, displayName string, err er
 // convertYuanluoboToSGF converts YuanluoBo game data to SGF format.
 func convertYuanluoboToSGF(data yuanluoboGameData) string {
 	boardSize := yuanluoboBoardSize(data.GridSize)
-	komi := data.Tsugi
+	komi := yuanluoboChildrenToPoints(data.Tsugi)
 	if komi == 0 {
 		komi = 7.5
 	}
@@ -158,7 +158,7 @@ func formatYuanluoboResult(data yuanluoboGameData) string {
 	winner := yuanluoboResultWinner(data)
 	if winner == "B" || winner == "W" {
 		if margin := yuanluoboResultMargin(data); margin > 0 {
-			return fmt.Sprintf("%s+%.2f", winner, margin)
+			return fmt.Sprintf("%s+%.2f", winner, yuanluoboChildrenToPoints(margin))
 		}
 		return winner + "+R"
 	}
@@ -169,12 +169,12 @@ func formatYuanluoboResultLabel(data yuanluoboGameData) string {
 	switch yuanluoboResultWinner(data) {
 	case "W":
 		if margin := yuanluoboResultMargin(data); margin > 0 {
-			return "白胜 " + formatYuanluoboScore(margin) + "子"
+			return "白胜 " + formatYuanluoboScore(yuanluoboChildrenToPoints(margin)) + "目"
 		}
 		return "白中盘胜"
 	case "B":
 		if margin := yuanluoboResultMargin(data); margin > 0 {
-			return "黑胜 " + formatYuanluoboScore(margin) + "子"
+			return "黑胜 " + formatYuanluoboScore(yuanluoboChildrenToPoints(margin)) + "目"
 		}
 		return "黑中盘胜"
 	default:
@@ -215,6 +215,10 @@ func yuanluoboResultMargin(data yuanluoboGameData) float64 {
 
 func formatYuanluoboScore(winPieces float64) string {
 	return strconv.FormatFloat(absYuanluoboScore(winPieces), 'f', -1, 64)
+}
+
+func yuanluoboChildrenToPoints(children float64) float64 {
+	return children * 2
 }
 
 func absYuanluoboScore(winPieces float64) float64 {

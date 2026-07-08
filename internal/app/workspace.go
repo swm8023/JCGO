@@ -21,6 +21,7 @@ type Workspace struct {
 	games          map[string]*game.Game
 	analysis       map[string]game.AnalysisResult
 	analysisState  map[string]AnalysisState
+	analysisError  map[string]string
 	selectedGameID string
 }
 
@@ -47,6 +48,7 @@ func newWorkspace() *Workspace {
 		games:         map[string]*game.Game{},
 		analysis:      map[string]game.AnalysisResult{},
 		analysisState: map[string]AnalysisState{},
+		analysisError: map[string]string{},
 	}
 }
 
@@ -60,6 +62,7 @@ func (w *Workspace) LoadGame(gameID string, doc game.SGFDocument) error {
 	w.games[gameID] = g
 	w.clearAnalysisLocked(gameID)
 	w.analysisState[gameID] = AnalysisIdle
+	delete(w.analysisError, gameID)
 	w.selectedGameID = gameID
 	return nil
 }
@@ -76,12 +79,19 @@ func (w *Workspace) AnalysisState(gameID string) AnalysisState {
 	return w.analysisStateLocked(gameID)
 }
 
+func (w *Workspace) AnalysisError(gameID string) string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.analysisErrorLocked(gameID)
+}
+
 func (w *Workspace) RemoveGame(gameID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	delete(w.games, gameID)
 	w.clearAnalysisLocked(gameID)
 	delete(w.analysisState, gameID)
+	delete(w.analysisError, gameID)
 	if w.selectedGameID == gameID {
 		w.selectedGameID = ""
 	}
@@ -190,6 +200,7 @@ func (w *Workspace) ClearVariation(gameID string) (game.Snapshot, error) {
 func (w *Workspace) SetAnalysis(gameID string, nodeID string, result game.AnalysisResult) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	delete(w.analysisError, gameID)
 	w.analysis[analysisCacheKey(gameID, nodeID)] = cloneAnalysisResult(result)
 	if strings.HasPrefix(nodeID, "var:") {
 		return
@@ -207,12 +218,21 @@ func (w *Workspace) MarkAnalysisStarted(gameID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.analysisState[gameID] = AnalysisRunning
+	delete(w.analysisError, gameID)
 }
 
 func (w *Workspace) MarkAnalysisStopped(gameID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.analysisState[gameID] = AnalysisStopped
+	delete(w.analysisError, gameID)
+}
+
+func (w *Workspace) SetAnalysisError(gameID string, message string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.analysisState[gameID] = AnalysisUnavailable
+	w.analysisError[gameID] = message
 }
 
 func (w *Workspace) LoadMainlineAnalysis(gameID string, analysis map[string]game.AnalysisResult) {
@@ -259,6 +279,7 @@ func (w *Workspace) ClearAnalysisAndVariations(gameID string, fallbackNodeID str
 	}
 	w.clearAnalysisLocked(gameID)
 	w.analysisState[gameID] = AnalysisIdle
+	delete(w.analysisError, gameID)
 	snapshot, err := g.ClearCurrentVariation()
 	if err != nil {
 		return game.Snapshot{}, err
@@ -391,7 +412,7 @@ func playedMovePointLoss(color game.Color, parentScore float64, score float64) f
 func formatBadMovePrompt(before game.Snapshot, move string, pointsLost float64, bestMove string) string {
 	blackStones, whiteStones := stoneCoordinates(before.Stones)
 	return fmt.Sprintf(
-		"当前棋局黑棋占 %s，白棋占 %s，现在轮到%s，走在 %s，这一步AI认为不好，损失%.1f子，AI认为最佳点在 %s。帮我分析下为什么不好，原因是什么，以及为什么推荐下在%s",
+		"当前棋局黑棋占 %s，白棋占 %s，现在轮到%s，走在 %s，这一步AI认为不好，损失%.1f目，AI认为最佳点在 %s。帮我分析下为什么不好，原因是什么，以及为什么推荐下在%s",
 		formatCoordinateList(blackStones),
 		formatCoordinateList(whiteStones),
 		colorName(before.ToPlay),
@@ -515,10 +536,17 @@ func (w *Workspace) analysisStateLocked(gameID string) AnalysisState {
 	if state == "" {
 		state = AnalysisIdle
 	}
+	if state == AnalysisUnavailable {
+		return AnalysisUnavailable
+	}
 	if state == AnalysisRunning && w.analysisCompleteLocked(gameID) {
 		return AnalysisComplete
 	}
 	return state
+}
+
+func (w *Workspace) analysisErrorLocked(gameID string) string {
+	return w.analysisError[gameID]
 }
 
 func (w *Workspace) analysisCompleteLocked(gameID string) bool {

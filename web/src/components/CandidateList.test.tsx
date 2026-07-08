@@ -19,6 +19,7 @@ describe('CandidateList', () => {
     screen.getByText('Q16').click()
     expect(screen.getByText('400v')).toBeInTheDocument()
     expect(screen.getByText('63.0%')).toBeInTheDocument()
+    expect(screen.getByText('损失 0.0目')).toBeInTheDocument()
     expect(onCandidateClick).toHaveBeenCalledWith(candidate)
   })
 })

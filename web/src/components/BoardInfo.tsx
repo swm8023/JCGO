@@ -1,3 +1,5 @@
+import { formatGameResult } from './gameResult'
+
 interface BoardInfoProps {
   blackName?: string
   whiteName?: string
@@ -23,21 +25,4 @@ export function BoardInfo({ blackName, whiteName, result }: BoardInfoProps) {
       <span className="board-result">{formatGameResult(result)}</span>
     </aside>
   )
-}
-
-function formatGameResult(result?: string) {
-  const value = result?.trim()
-  if (!value || value === '?' || value.toLowerCase() === 'unknown') return '结果未知'
-  if (value === '0' || value.toLowerCase() === 'draw' || value.toLowerCase() === 'jigo') return '和棋'
-
-  const match = /^([BW])\+(.+)$/i.exec(value)
-  if (!match) return value
-
-  const winner = match[1].toUpperCase() === 'B' ? '黑' : '白'
-  const detail = match[2].toUpperCase()
-  if (detail === 'R' || detail === 'RESIGN') return `${winner}中盘胜`
-  if (detail === 'T' || detail === 'TIME') return `${winner}超时胜`
-  if (detail === 'F' || detail === 'FORFEIT') return `${winner}弃权胜`
-  if (/^\d+(?:\.\d+)?$/.test(match[2])) return `${winner}胜 ${match[2]}目`
-  return `${winner}胜`
 }

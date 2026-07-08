@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -32,6 +33,15 @@ func (f *fakeAnalyzer) Status() katago.Status {
 	return katago.Status{Available: true}
 }
 func (f *fakeAnalyzer) Close() error { return nil }
+
+type fakeErrorAnalyzer struct {
+	fakeAnalyzer
+}
+
+func (f *fakeErrorAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
+	f.calls = append(f.calls, query.ID)
+	return katago.Result{}, errors.New("bad komi")
+}
 
 type fakeProgressAnalyzer struct {
 	fakeAnalyzer
@@ -137,6 +147,34 @@ func TestSchedulerPublishesSearchProgressEvents(t *testing.T) {
 	second := waitSchedulerEvent(t, received)
 	if second.Analysis.Root.Visits != 500 || second.Analysis.Candidates[0].Move != "Q16" {
 		t.Fatalf("final event analysis = %#v", second.Analysis)
+	}
+}
+
+func TestSchedulerPublishesAnalysisError(t *testing.T) {
+	engine := &fakeErrorAnalyzer{}
+	scheduler := NewScheduler(engine, 500)
+	defer scheduler.Close()
+
+	received := make(chan Event, 1)
+	scheduler.Subscribe(func(event Event) { received <- event })
+	scheduler.StartGame(StartInput{
+		Token:       "secret",
+		GameID:      "game-1",
+		FocusNodeID: "main:0",
+		Nodes: []NodeInput{
+			{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 3.8},
+		},
+	})
+
+	event := waitSchedulerEvent(t, received)
+	if event.Token != "secret" || event.GameID != "game-1" || event.NodeID != "main:0" {
+		t.Fatalf("event = %#v", event)
+	}
+	if event.Error != "bad komi" {
+		t.Fatalf("error = %q", event.Error)
+	}
+	if len(engine.calls) != 1 {
+		t.Fatalf("calls = %v", engine.calls)
 	}
 }
 

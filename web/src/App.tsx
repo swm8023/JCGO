@@ -81,6 +81,7 @@ export default function App() {
     setChartPoints(chartPointsForState(state))
     setBadMoves(badMovesForState(state))
     setAnalysisState(state.analysisState)
+    setError(state.analysisError || undefined)
   }
 
   const updateOverlays = (value: OverlayState) => {
@@ -396,6 +397,7 @@ export default function App() {
   const startAnalysis = async () => {
     if (!client || !selectedGameId) return
     setAnalysisState('running')
+    setError(undefined)
     try {
       const state = await client.call<StatePayload>('analysis.start', { gameId: selectedGameId })
       applyWorkspaceState(state)
@@ -414,6 +416,7 @@ export default function App() {
   const restartAnalysis = async () => {
     if (!client || !selectedGameId) return
     setAnalysisState('running')
+    setError(undefined)
     const state = await client.call<StatePayload>('analysis.restart', { gameId: selectedGameId })
     applyWorkspaceState(state)
   }

@@ -20,6 +20,9 @@ describe('BoardInfo', () => {
     const { rerender } = render(<BoardInfo blackName="Lee" whiteName="Cho" result="W+2.5" />)
     expect(screen.getByText('白胜 2.5目')).toBeInTheDocument()
 
+    rerender(<BoardInfo blackName="Lee" whiteName="Cho" result="白胜6.25子" />)
+    expect(screen.getByText('白胜 12.5目')).toBeInTheDocument()
+
     rerender(<BoardInfo blackName="Lee" whiteName="Cho" result="" />)
     expect(screen.getByText('结果未知')).toBeInTheDocument()
   })

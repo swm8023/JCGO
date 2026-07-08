@@ -1,5 +1,6 @@
 import type { AnalysisProgress, AnalysisState, GameRecord } from '../api/types'
 import type { ReactNode } from 'react'
+import { formatGameResult } from './gameResult'
 
 interface GameSidebarProps {
   games: GameRecord[]
@@ -67,7 +68,7 @@ export function GameSidebar({
             <button className="game-title" onClick={() => onSelect(game.gameId)}>
               <span className="game-title-name">{game.displayName}</span>
               <span className="game-title-meta">
-                <small>{game.result || 'Unknown result'}</small>
+                <small>{formatGameResult(game.result)}</small>
                 {game.gameDate && <small>{`棋局 ${formatDateLabel(game.gameDate)}`}</small>}
                 <small>{`上传 ${formatDateLabel(game.createdAt)}`}</small>
                 <small className={game.analysisStatus === 'complete' ? 'game-analysis-badge complete' : 'game-analysis-badge'}>

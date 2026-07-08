@@ -59,7 +59,7 @@ export function BadMoveListContent({ badMoves, onJump, onRequestBadMovePrompt, e
           <button type="button" className="bad-move-jump" onClick={() => onJump(move.moveNumber)}>
             <span>{move.moveNumber}</span>
             <span>{move.move}</span>
-            <span>{move.pointLoss.toFixed(1)}</span>
+            <span>{move.pointLoss.toFixed(1)}目</span>
           </button>
           {onRequestBadMovePrompt && (
             <button

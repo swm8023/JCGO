@@ -10,10 +10,11 @@ import (
 type AnalysisState string
 
 const (
-	AnalysisIdle     AnalysisState = "idle"
-	AnalysisRunning  AnalysisState = "running"
-	AnalysisStopped  AnalysisState = "stopped"
-	AnalysisComplete AnalysisState = "complete"
+	AnalysisIdle        AnalysisState = "idle"
+	AnalysisRunning     AnalysisState = "running"
+	AnalysisStopped     AnalysisState = "stopped"
+	AnalysisComplete    AnalysisState = "complete"
+	AnalysisUnavailable AnalysisState = "unavailable"
 )
 
 type EmptyWorkspaceState struct {
@@ -21,6 +22,7 @@ type EmptyWorkspaceState struct {
 	Schema        int                `json:"schema"`
 	Games         []store.GameRecord `json:"games"`
 	AnalysisState AnalysisState      `json:"analysisState"`
+	AnalysisError string             `json:"analysisError,omitempty"`
 }
 
 func (h *Handler) workspaceState(ctx context.Context, token string) (any, error) {

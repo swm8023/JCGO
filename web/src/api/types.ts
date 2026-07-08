@@ -128,6 +128,7 @@ export interface StatePayload {
   gameId?: string
   currentNodeId?: string
   analysisState: AnalysisState
+  analysisError?: string
   snapshot?: Snapshot
   timeline?: TimelineColumns
   badMoves?: BadMoveColumns

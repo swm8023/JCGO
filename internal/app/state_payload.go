@@ -16,6 +16,7 @@ type StatePayload struct {
 	GameID        string             `json:"gameId"`
 	CurrentNodeID string             `json:"currentNodeId"`
 	AnalysisState AnalysisState      `json:"analysisState"`
+	AnalysisError string             `json:"analysisError,omitempty"`
 	Snapshot      game.Snapshot      `json:"snapshot"`
 	Timeline      TimelineColumns    `json:"timeline"`
 	BadMoves      BadMoveColumns     `json:"badMoves"`
@@ -91,6 +92,7 @@ func (w *Workspace) StatePayload(gameID string) (StatePayload, error) {
 		GameID:        gameID,
 		CurrentNodeID: snapshot.NodeID,
 		AnalysisState: analysisState,
+		AnalysisError: w.analysisErrorLocked(gameID),
 		Snapshot:      snapshot,
 		Timeline:      w.timelineColumnsLocked(gameID, g.MainlineAnalysisInputs()),
 		BadMoves:      badMoveColumns(badMoves),

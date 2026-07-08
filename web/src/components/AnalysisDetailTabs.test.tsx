@@ -35,12 +35,14 @@ describe('AnalysisDetailTabs', () => {
     await userEvent.click(screen.getByRole('tab', { name: '黑恶手 1' }))
     expect(screen.getByRole('tab', { name: '黑恶手 1' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('tabpanel', { name: '黑恶手 1' })).toHaveTextContent('Q16')
+    expect(screen.getByRole('tabpanel', { name: '黑恶手 1' })).toHaveTextContent('3.2目')
     expect(screen.queryByText('D4')).not.toBeInTheDocument()
     await userEvent.click(screen.getByText('Q16'))
     expect(onJump).toHaveBeenCalledWith(1)
 
     await userEvent.click(screen.getByRole('tab', { name: '白恶手 1' }))
     expect(screen.getByRole('tabpanel', { name: '白恶手 1' })).toHaveTextContent('D4')
+    expect(screen.getByRole('tabpanel', { name: '白恶手 1' })).toHaveTextContent('4.8目')
     expect(screen.queryByText('Q16')).not.toBeInTheDocument()
   })
 

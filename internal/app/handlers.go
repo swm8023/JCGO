@@ -82,6 +82,10 @@ func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, worksp
 	if analysis != nil {
 		analysis.Subscribe(func(event Event) {
 			ws := h.workspaces.ForToken(event.Token)
+			if event.Error != "" {
+				ws.SetAnalysisError(event.GameID, event.Error)
+				return
+			}
 			ws.SetAnalysis(event.GameID, event.NodeID, event.Analysis)
 			if !event.IsDuringSearch && strings.HasPrefix(event.NodeID, "main:") {
 				h.persistMainlineAnalysis(context.Background(), event.GameID, ws)
@@ -158,7 +162,12 @@ func (h *Handler) ServeWS(token string, conn *websocket.Conn) {
 			if event.Token != token {
 				return
 			}
-			h.workspaces.ForToken(event.Token).SetAnalysis(event.GameID, event.NodeID, event.Analysis)
+			ws := h.workspaces.ForToken(event.Token)
+			if event.Error != "" {
+				ws.SetAnalysisError(event.GameID, event.Error)
+			} else {
+				ws.SetAnalysis(event.GameID, event.NodeID, event.Analysis)
+			}
 			state, err := h.workspaceState(ctx, token)
 			if err != nil {
 				return

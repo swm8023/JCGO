@@ -35,7 +35,7 @@ function CandidateRow({ candidate, onClick }: { candidate: CandidateMove; onClic
       <span>{candidate.visits}v</span>
       <span>{(candidate.winrate * 100).toFixed(1)}%</span>
       <span>{formatScore(candidate.scoreLead)}</span>
-      <span>loss {candidate.pointLoss.toFixed(1)}</span>
+      <span>损失 {candidate.pointLoss.toFixed(1)}目</span>
     </button>
   )
 }

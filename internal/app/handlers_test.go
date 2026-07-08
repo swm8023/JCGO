@@ -254,7 +254,7 @@ func TestYuanluoboRecordsMarksImportedGames(t *testing.T) {
 	if !out.Records[0].Imported || out.Records[0].GameID != imported.ID {
 		t.Fatalf("imported marker = %#v", out.Records[0])
 	}
-	if out.Records[0].Result != "B+20.25" || out.Records[0].ResultLabel != "黑胜 20.25子" || out.Records[0].ResultWinner != "B" || out.Records[0].TotalRound != 128 {
+	if out.Records[0].Result != "B+40.50" || out.Records[0].ResultLabel != "黑胜 40.5目" || out.Records[0].ResultWinner != "B" || out.Records[0].TotalRound != 128 {
 		t.Fatalf("imported result metadata = %#v", out.Records[0])
 	}
 	if out.Records[1].Imported || out.Records[1].GameID != "" {
@@ -572,7 +572,7 @@ func TestBadMovePromptDescribesPositionBeforeBadMove(t *testing.T) {
 	result := callResult[struct {
 		Prompt string `json:"prompt"`
 	}](t, h, token, "analysis.badMovePrompt", map[string]any{"gameId": gameID, "nodeId": "main:3"})
-	want := "当前棋局黑棋占 Q16，白棋占 D16，现在轮到黑棋，走在 R4，这一步AI认为不好，损失3.5子，AI认为最佳点在 D4。帮我分析下为什么不好，原因是什么，以及为什么推荐下在D4"
+	want := "当前棋局黑棋占 Q16，白棋占 D16，现在轮到黑棋，走在 R4，这一步AI认为不好，损失3.5目，AI认为最佳点在 D4。帮我分析下为什么不好，原因是什么，以及为什么推荐下在D4"
 	if result.Prompt != want {
 		t.Fatalf("prompt = %q, want %q", result.Prompt, want)
 	}
