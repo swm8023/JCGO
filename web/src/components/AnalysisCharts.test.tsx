@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { AnalysisCharts } from './AnalysisCharts'
 
@@ -41,30 +41,4 @@ describe('AnalysisCharts', () => {
     expect(screen.queryByText('5.2')).not.toBeInTheDocument()
   })
 
-  it('renders refreshed visual layers for the winrate trend', () => {
-    const { container } = render(
-      <AnalysisCharts
-        points={[
-          { moveNumber: 0, winrate: 0.42, scoreLead: -2.1 },
-          { moveNumber: 50, winrate: 0.56, scoreLead: 1.4 },
-          { moveNumber: 100, winrate: 0.48, scoreLead: -0.8 },
-          { moveNumber: 200, winrate: 0.66, scoreLead: 5.2 },
-        ]}
-        currentMoveNumber={100}
-        onJump={() => undefined}
-      />,
-    )
-    const chart = within(container)
-
-    const winrateArea = chart.getByLabelText('Black winrate area')
-    const winrateLine = chart.getByLabelText('Black winrate line')
-    const scoreLine = chart.getByLabelText('Score lead line')
-
-    expect(winrateArea.tagName.toLowerCase()).toBe('path')
-    expect(winrateArea).toHaveClass('winrate-area')
-    expect(winrateLine.tagName.toLowerCase()).toBe('path')
-    expect(winrateLine.getAttribute('d')).toContain('C')
-    expect(scoreLine.tagName.toLowerCase()).toBe('path')
-    expect(chart.getByLabelText('Current move point')).toHaveClass('chart-current-point')
-  })
 })

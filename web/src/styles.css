@@ -1357,25 +1357,25 @@ textarea:focus-visible {
 }
 
 .chart-plot-bg {
-  fill: transparent;
-  rx: 3;
+  fill: #faf8f4;
+  rx: 2;
 }
 
 .chart-grid-line {
-  stroke: rgb(184 168 152 / 0.26);
+  stroke: #e8e0d4;
   stroke-width: 0.5;
 }
 
 .chart-zero-line {
-  stroke: rgb(26 71 42 / 0.18);
-  stroke-dasharray: 4 5;
+  stroke: #c8bfb0;
+  stroke-dasharray: 3 3;
   stroke-width: 0.8;
 }
 
 .chart-axis-line,
 .chart-tick-line {
-  stroke: rgb(184 168 152 / 0.3);
-  stroke-width: 0.7;
+  stroke: #c8bfb0;
+  stroke-width: 0.8;
 }
 
 .chart-axis-label,
@@ -1389,7 +1389,7 @@ textarea:focus-visible {
   line-height: 1;
   letter-spacing: 0;
   pointer-events: none;
-  opacity: 0.58;
+  opacity: 0.7;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1420,38 +1420,24 @@ textarea:focus-visible {
   stroke-linejoin: round;
 }
 
-.winrate-area {
-  fill: url(#winrateAreaGradient);
-  pointer-events: none;
-}
-
 .winrate-line {
   stroke: var(--table);
-  stroke-width: 2.8;
+  stroke-width: 2.5;
   stroke-linecap: round;
-  filter: drop-shadow(0 1px 1px rgb(15 45 26 / 0.16));
 }
 
 .score-line {
   stroke: var(--signal);
-  stroke-width: 1.1;
+  stroke-width: 1.8;
   stroke-linecap: round;
-  stroke-dasharray: 4 5;
-  opacity: 0.42;
+  opacity: 0.8;
 }
 
 .chart-current-marker {
-  stroke: rgb(26 26 46 / 0.42);
-  stroke-width: 0.8;
-  stroke-dasharray: 2 4;
-}
-
-.chart-current-point {
-  fill: var(--surface-raised);
-  stroke: var(--table);
-  stroke-width: 1.8;
-  filter: drop-shadow(0 1px 2px rgb(15 45 26 / 0.22));
-  pointer-events: none;
+  stroke: var(--ink);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+  opacity: 0.6;
 }
 
 .chart-hit-target {
