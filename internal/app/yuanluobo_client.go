@@ -76,11 +76,15 @@ type YuanluoboRemoteRecord struct {
 	TotalRound      int     `json:"total_round"`
 	GridSize        int     `json:"grid_size"`
 	PlayMode        int     `json:"play_mode"`
+	Status          int     `json:"status"`
 	StartTime       int64   `json:"start_time"`
 	BlackPlayerName string  `json:"black_player_name"`
 	WhitePlayerName string  `json:"white_player_name"`
 	RobotStrength   string  `json:"robot_strength_desc"`
 	WinPieces       float64 `json:"win_pieces"`
+	FinalScore      float64 `json:"final_score"`
+	BlackNumber     float64 `json:"black_number"`
+	WhiteNumber     float64 `json:"white_number"`
 }
 
 type yuanluoboEnvelope[T any] struct {

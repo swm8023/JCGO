@@ -27,8 +27,12 @@ type yuanluoboGameData struct {
 	GameRule        int                `json:"game_rule"`
 	Tsugi           float64            `json:"tsugi"`
 	GridSize        int                `json:"grid_size"`
+	Status          int                `json:"status"`
 	StartTime       int64              `json:"start_time"`
 	WinPieces       float64            `json:"win_pieces"`
+	FinalScore      float64            `json:"final_score"`
+	BlackNumber     float64            `json:"black_number"`
+	WhiteNumber     float64            `json:"white_number"`
 	Recording       yuanluoboRecording `json:"recording"`
 }
 
@@ -151,11 +155,12 @@ func yuanluoboBoardSize(gridSize int) int {
 }
 
 func formatYuanluoboResult(data yuanluoboGameData) string {
-	if data.WinPieces > 0 {
-		return fmt.Sprintf("W+%.2f", data.WinPieces)
-	}
-	if data.WinPieces < 0 {
-		return fmt.Sprintf("B+%.2f", -data.WinPieces)
+	winner := yuanluoboResultWinner(data)
+	if winner == "B" || winner == "W" {
+		if margin := yuanluoboResultMargin(data); margin > 0 {
+			return fmt.Sprintf("%s+%.2f", winner, margin)
+		}
+		return winner + "+R"
 	}
 	return "Draw"
 }
@@ -163,29 +168,60 @@ func formatYuanluoboResult(data yuanluoboGameData) string {
 func formatYuanluoboResultLabel(data yuanluoboGameData) string {
 	switch yuanluoboResultWinner(data) {
 	case "W":
-		return "白胜 " + formatYuanluoboScore(data.WinPieces) + "子"
+		if margin := yuanluoboResultMargin(data); margin > 0 {
+			return "白胜 " + formatYuanluoboScore(margin) + "子"
+		}
+		return "白中盘胜"
 	case "B":
-		return "黑胜 " + formatYuanluoboScore(data.WinPieces) + "子"
+		if margin := yuanluoboResultMargin(data); margin > 0 {
+			return "黑胜 " + formatYuanluoboScore(margin) + "子"
+		}
+		return "黑中盘胜"
 	default:
 		return "和棋"
 	}
 }
 
 func yuanluoboResultWinner(data yuanluoboGameData) string {
-	if data.WinPieces > 0 {
+	if data.BlackNumber > 0 || data.WhiteNumber > 0 {
+		if data.BlackNumber > data.WhiteNumber {
+			return "B"
+		}
+		if data.WhiteNumber > data.BlackNumber {
+			return "W"
+		}
+	}
+	switch data.Status {
+	case 2:
+		return "B"
+	case 1:
 		return "W"
 	}
 	if data.WinPieces < 0 {
 		return "B"
 	}
+	if data.WinPieces > 0 {
+		return "B"
+	}
 	return "draw"
 }
 
-func formatYuanluoboScore(winPieces float64) string {
-	if winPieces < 0 {
-		winPieces = -winPieces
+func yuanluoboResultMargin(data yuanluoboGameData) float64 {
+	if data.WinPieces != 0 {
+		return absYuanluoboScore(data.WinPieces)
 	}
-	return strconv.FormatFloat(winPieces, 'f', -1, 64)
+	return absYuanluoboScore(data.FinalScore)
+}
+
+func formatYuanluoboScore(winPieces float64) string {
+	return strconv.FormatFloat(absYuanluoboScore(winPieces), 'f', -1, 64)
+}
+
+func absYuanluoboScore(winPieces float64) float64 {
+	if winPieces < 0 {
+		return -winPieces
+	}
+	return winPieces
 }
 
 func yuanluoboDisplayName(data yuanluoboGameData) string {

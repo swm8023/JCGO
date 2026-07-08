@@ -298,7 +298,7 @@ function viewerOutcome(record: YuanluoboRecord, playerName = ''): ViewerOutcome 
 function outcomeLabel(outcome: ViewerOutcome) {
   if (outcome === 'win') return '胜'
   if (outcome === 'loss') return '负'
-  if (outcome === 'draw') return '平'
+  if (outcome === 'draw') return '和'
   return ''
 }
 

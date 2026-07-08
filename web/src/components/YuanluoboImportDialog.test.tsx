@@ -42,7 +42,7 @@ describe('YuanluoboImportDialog', () => {
       status: vi.fn(() => Promise.resolve({ loggedIn: true })),
       players: vi.fn(() => Promise.resolve([{ playerId: 'player-1', name: '棋手一' }])),
       records: vi.fn(() => Promise.resolve({
-        total: 2,
+        total: 3,
         page: 1,
         size: 10,
         pageTotal: 1,
@@ -79,6 +79,21 @@ describe('YuanluoboImportDialog', () => {
             totalRound: 88,
             imported: false,
           },
+          {
+            sessionId: 'session-3',
+            gameMode: 15,
+            category: '星阵AI',
+            startDate: '2026-07-06',
+            startTime: 1783300000,
+            blackPlayerName: '棋手一',
+            whitePlayerName: 'Draw Opponent',
+            title: '星阵AI',
+            result: 'Draw',
+            resultLabel: '和棋',
+            resultWinner: 'draw',
+            totalRound: 240,
+            imported: false,
+          },
         ],
       })),
     })
@@ -88,7 +103,7 @@ describe('YuanluoboImportDialog', () => {
     expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toHaveClass('yuanluobo-fullscreen-page')
     expect(await screen.findByText('棋手一')).toBeInTheDocument()
     expect(await screen.findByRole('tab', { name: '星阵AI' })).toBeInTheDocument()
-    expect(screen.getByText('共 2 局')).toBeInTheDocument()
+    expect(screen.getByText('共 3 局')).toBeInTheDocument()
     expect(screen.getByText('2026-07-08 · 128手 · 黑胜 20.25子')).toBeInTheDocument()
     expect(screen.queryByText('2026-07-08 · 星阵AI · B+20.25')).not.toBeInTheDocument()
 
@@ -99,6 +114,10 @@ describe('YuanluoboImportDialog', () => {
 
     const lossRow = screen.getByRole('button', { name: /Opponent vs 棋手一/ })
     expect(within(lossRow).getByText('负')).toHaveClass('yuanluobo-result-watermark', 'loss')
+
+    const drawRow = screen.getByRole('button', { name: /棋手一 vs Draw Opponent/ })
+    expect(within(drawRow).getByText('和')).toHaveClass('yuanluobo-result-watermark', 'draw')
+    expect(screen.queryByText('平')).not.toBeInTheDocument()
   })
 
   it('opens imported games and imports new games', async () => {

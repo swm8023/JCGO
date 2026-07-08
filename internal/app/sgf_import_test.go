@@ -85,7 +85,10 @@ func TestConvertYuanluoboToSGF(t *testing.T) {
 		Tsugi:           3.75,
 		GridSize:        3,
 		StartTime:       1783393548,
+		Status:          1,
 		WinPieces:       20.25,
+		BlackNumber:     164,
+		WhiteNumber:     197,
 		Recording: yuanluoboRecording{
 			Moves: []yuanluoboMove{
 				{Coordinate: "B[pd]"},
@@ -141,18 +144,39 @@ func TestYuanluoboBoardSize(t *testing.T) {
 
 func TestFormatYuanluoboResult(t *testing.T) {
 	tests := []struct {
-		name    string
-		winRate float64
-		want    string
+		name string
+		data yuanluoboGameData
+		want string
 	}{
-		{"white wins", 20.25, "W+20.25"},
-		{"black wins", -15.5, "B+15.50"},
-		{"draw", 0, "Draw"},
+		{
+			name: "black wins by points",
+			data: yuanluoboGameData{Status: 2, WinPieces: 50.5, BlackNumber: 231, WhiteNumber: 130},
+			want: "B+50.50",
+		},
+		{
+			name: "white wins by points",
+			data: yuanluoboGameData{Status: 1, WinPieces: 20.25, BlackNumber: 164, WhiteNumber: 197},
+			want: "W+20.25",
+		},
+		{
+			name: "black wins by resignation",
+			data: yuanluoboGameData{Status: 2, WinPieces: 0},
+			want: "B+R",
+		},
+		{
+			name: "white wins by resignation",
+			data: yuanluoboGameData{Status: 1, WinPieces: 0},
+			want: "W+R",
+		},
+		{
+			name: "draw",
+			data: yuanluoboGameData{WinPieces: 0},
+			want: "Draw",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data := yuanluoboGameData{WinPieces: tt.winRate}
-			if got := formatYuanluoboResult(data); got != tt.want {
+			if got := formatYuanluoboResult(tt.data); got != tt.want {
 				t.Errorf("formatYuanluoboResult() = %q, want %q", got, tt.want)
 			}
 		})
@@ -162,21 +186,22 @@ func TestFormatYuanluoboResult(t *testing.T) {
 func TestFormatYuanluoboResultDisplay(t *testing.T) {
 	tests := []struct {
 		name       string
-		winPieces  float64
+		data       yuanluoboGameData
 		wantLabel  string
 		wantWinner string
 	}{
-		{"white wins", 20.25, "白胜 20.25子", "W"},
-		{"black wins trims zeroes", -15.5, "黑胜 15.5子", "B"},
-		{"draw", 0, "和棋", "draw"},
+		{"black wins by points", yuanluoboGameData{Status: 2, WinPieces: 50.5, BlackNumber: 231, WhiteNumber: 130}, "黑胜 50.5子", "B"},
+		{"white wins by points", yuanluoboGameData{Status: 1, WinPieces: 20.25, BlackNumber: 164, WhiteNumber: 197}, "白胜 20.25子", "W"},
+		{"black wins by resignation", yuanluoboGameData{Status: 2, WinPieces: 0}, "黑中盘胜", "B"},
+		{"white wins by resignation", yuanluoboGameData{Status: 1, WinPieces: 0}, "白中盘胜", "W"},
+		{"draw", yuanluoboGameData{WinPieces: 0}, "和棋", "draw"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data := yuanluoboGameData{WinPieces: tt.winPieces}
-			if got := formatYuanluoboResultLabel(data); got != tt.wantLabel {
+			if got := formatYuanluoboResultLabel(tt.data); got != tt.wantLabel {
 				t.Errorf("formatYuanluoboResultLabel() = %q, want %q", got, tt.wantLabel)
 			}
-			if got := yuanluoboResultWinner(data); got != tt.wantWinner {
+			if got := yuanluoboResultWinner(tt.data); got != tt.wantWinner {
 				t.Errorf("yuanluoboResultWinner() = %q, want %q", got, tt.wantWinner)
 			}
 		})

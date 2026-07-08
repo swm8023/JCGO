@@ -136,7 +136,13 @@ func yuanluoboRecordView(item YuanluoboRemoteRecord) YuanluoboRecordView {
 	if title == "" {
 		title = YuanluoboCategoryName(item.GameMode)
 	}
-	resultData := yuanluoboGameData{WinPieces: item.WinPieces}
+	resultData := yuanluoboGameData{
+		Status:      item.Status,
+		WinPieces:   item.WinPieces,
+		FinalScore:  item.FinalScore,
+		BlackNumber: item.BlackNumber,
+		WhiteNumber: item.WhiteNumber,
+	}
 	return YuanluoboRecordView{
 		SessionID:       item.SessionID,
 		GameMode:        item.GameMode,

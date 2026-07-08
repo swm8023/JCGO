@@ -227,8 +227,8 @@ func TestYuanluoboRecordsMarksImportedGames(t *testing.T) {
 		records: YuanluoboRecordList{
 			Total: 2, Page: 1, Size: 10, PageTotal: 1,
 			List: []YuanluoboRemoteRecord{
-				{SessionID: "session-imported", GameMode: 1, StartTime: 1783500000, BlackPlayerName: "A", WhitePlayerName: "B", WinPieces: 20.25, TotalRound: 128},
-				{SessionID: "session-new", GameMode: 15, StartTime: 1783400000, BlackPlayerName: "C", WhitePlayerName: "D", WinPieces: -15.5, TotalRound: 88},
+				{SessionID: "session-imported", GameMode: 1, StartTime: 1783500000, BlackPlayerName: "A", WhitePlayerName: "B", Status: 2, WinPieces: 20.25, BlackNumber: 190, WhiteNumber: 150, TotalRound: 128},
+				{SessionID: "session-new", GameMode: 15, StartTime: 1783400000, BlackPlayerName: "C", WhitePlayerName: "D", Status: 1, WinPieces: 0, TotalRound: 88},
 			},
 		},
 	}
@@ -254,13 +254,13 @@ func TestYuanluoboRecordsMarksImportedGames(t *testing.T) {
 	if !out.Records[0].Imported || out.Records[0].GameID != imported.ID {
 		t.Fatalf("imported marker = %#v", out.Records[0])
 	}
-	if out.Records[0].Result != "W+20.25" || out.Records[0].ResultLabel != "白胜 20.25子" || out.Records[0].ResultWinner != "W" || out.Records[0].TotalRound != 128 {
+	if out.Records[0].Result != "B+20.25" || out.Records[0].ResultLabel != "黑胜 20.25子" || out.Records[0].ResultWinner != "B" || out.Records[0].TotalRound != 128 {
 		t.Fatalf("imported result metadata = %#v", out.Records[0])
 	}
 	if out.Records[1].Imported || out.Records[1].GameID != "" {
 		t.Fatalf("new marker = %#v", out.Records[1])
 	}
-	if out.Records[1].Result != "B+15.50" || out.Records[1].ResultLabel != "黑胜 15.5子" || out.Records[1].ResultWinner != "B" || out.Records[1].TotalRound != 88 {
+	if out.Records[1].Result != "W+R" || out.Records[1].ResultLabel != "白中盘胜" || out.Records[1].ResultWinner != "W" || out.Records[1].TotalRound != 88 {
 		t.Fatalf("new result metadata = %#v", out.Records[1])
 	}
 }
