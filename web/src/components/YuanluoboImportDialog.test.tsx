@@ -102,30 +102,52 @@ describe('YuanluoboImportDialog', () => {
 
     expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toHaveClass('yuanluobo-fullscreen-page')
     expect(await screen.findByText('棋手一')).toBeInTheDocument()
-    const platformSelect = screen.getByLabelText('平台')
-    expect(platformSelect).toHaveDisplayValue('元萝卜AI')
-    expect(screen.getByRole('option', { name: '星阵AI' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: '全部' })).not.toBeInTheDocument()
+    expect(screen.getByText('棋局记录')).toBeInTheDocument()
+    expect(screen.getByText('按时间倒序')).toBeInTheDocument()
+    const playerTrigger = screen.getByRole('button', { name: /棋手 棋手一/ })
+    expect(playerTrigger).toHaveClass('yuanluobo-filter-trigger')
+    const platformTrigger = screen.getByRole('button', { name: /平台 元萝卜AI/ })
+    expect(platformTrigger).toHaveClass('yuanluobo-filter-trigger')
+    expect(screen.queryByLabelText('平台')).not.toBeInTheDocument()
     expect(screen.queryByRole('tablist', { name: '元萝卜分类' })).not.toBeInTheDocument()
     await waitFor(() => expect(testAPI.records).toHaveBeenCalledWith({ playerId: 'player-1', gameMode: 1, page: 1 }))
     expect(screen.getByText('共 3 局')).toBeInTheDocument()
-    expect(screen.getByText('2026-07-08 · 128手 · 黑胜 20.25子')).toBeInTheDocument()
-    expect(screen.queryByText('2026-07-08 · 星阵AI · B+20.25')).not.toBeInTheDocument()
+    expect(screen.getByText((content, element) => element?.classList.contains('yuanluobo-record-meta') && content.includes('128手'))).toBeInTheDocument()
+    expect(screen.queryByText((content, element) => element?.classList.contains('yuanluobo-record-meta') && content.includes('星阵AI'))).not.toBeInTheDocument()
 
-    const winRow = screen.getByRole('button', { name: /棋手一 vs Opponent/ })
+    const winRow = screen.getByRole('button', { name: /棋手一.*vs.*Opponent.*128手/ })
     expect(winRow).toHaveClass('yuanluobo-record-row')
+    expect(winRow).toHaveAttribute('data-outcome', 'win')
     expect(within(winRow).getByText('已导入')).toBeInTheDocument()
     expect(within(winRow).getByText('胜')).toHaveClass('yuanluobo-result-watermark', 'win')
 
-    const lossRow = screen.getByRole('button', { name: /Opponent vs 棋手一/ })
+    const lossRow = screen.getByRole('button', { name: /Opponent.*vs.*棋手一.*88手/ })
     expect(within(lossRow).getByText('负')).toHaveClass('yuanluobo-result-watermark', 'loss')
 
-    const drawRow = screen.getByRole('button', { name: /棋手一 vs Draw Opponent/ })
+    const drawRow = screen.getByRole('button', { name: /棋手一.*vs.*Draw Opponent.*240手/ })
     expect(within(drawRow).getByText('和')).toHaveClass('yuanluobo-result-watermark', 'draw')
     expect(screen.queryByText('平')).not.toBeInTheDocument()
 
-    await userEvent.selectOptions(platformSelect, '15')
+    await userEvent.click(playerTrigger)
+    const playerDialog = await screen.findByRole('dialog', { name: '选择棋手' })
+    expect(playerDialog).toHaveClass('yuanluobo-picker-sheet')
+    expect(within(playerDialog).getByPlaceholderText('搜索棋手')).toBeInTheDocument()
+    expect(within(playerDialog).getByRole('button', { name: /棋手一/ })).toHaveAttribute('aria-pressed', 'true')
+
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择棋手' })).not.toBeInTheDocument())
+
+    await userEvent.click(platformTrigger)
+    const platformDialog = await screen.findByRole('dialog', { name: '选择平台' })
+    expect(platformDialog).toHaveClass('yuanluobo-picker-sheet')
+    expect(within(platformDialog).getByPlaceholderText('搜索平台')).toBeInTheDocument()
+    expect(within(platformDialog).getByRole('button', { name: /元萝卜AI/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(platformDialog).getByRole('button', { name: /星阵AI/ })).toBeInTheDocument()
+    expect(within(platformDialog).queryByText('全部')).not.toBeInTheDocument()
+
+    await userEvent.click(within(platformDialog).getByRole('button', { name: /星阵AI/ }))
     await waitFor(() => expect(testAPI.records).toHaveBeenCalledWith({ playerId: 'player-1', gameMode: 15, page: 1 }))
+    expect(screen.queryByRole('dialog', { name: '选择平台' })).not.toBeInTheDocument()
   })
 
   it('opens imported games and imports new games', async () => {
@@ -187,11 +209,11 @@ describe('YuanluoboImportDialog', () => {
 
     render(<YuanluoboImportDialog api={testAPI} onOpenGame={onOpenGame} onBack={vi.fn()} />)
 
-    await screen.findByText('Imported vs Opponent')
-    await userEvent.click(screen.getByText('Imported vs Opponent'))
+    await screen.findByRole('button', { name: /Imported.*vs.*Opponent/ })
+    await userEvent.click(screen.getByRole('button', { name: /Imported.*vs.*Opponent/ }))
     expect(onOpenGame).toHaveBeenCalledWith('game-imported')
 
-    await userEvent.click(screen.getByText('New vs Opponent'))
+    await userEvent.click(screen.getByRole('button', { name: /New.*vs.*Opponent/ }))
     await waitFor(() => expect(testAPI.importRecord).toHaveBeenCalledWith('session-new'))
     expect(onOpenGame).toHaveBeenCalledWith('game-new')
   })

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, LogOut, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Grid3X3, List, LogOut, RefreshCw, Search, UserRound } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type {
   ImportResult,
@@ -29,6 +29,7 @@ interface YuanluoboImportDialogProps {
 
 type LoginState = 'checking' | 'logged-out' | 'polling' | 'logged-in'
 type YuanluoboRecordCategory = { title: string; gameMode: number }
+type YuanluoboPickerKind = 'player' | 'platform'
 const defaultYuanluoboCategory: YuanluoboRecordCategory = { title: '元萝卜AI', gameMode: 1 }
 const defaultYuanluoboGameMode = defaultYuanluoboCategory.gameMode
 
@@ -151,6 +152,8 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
   const [pageTotal, setPageTotal] = useState(0)
   const [total, setTotal] = useState(0)
   const [records, setRecords] = useState<YuanluoboRecord[]>([])
+  const [pickerKind, setPickerKind] = useState<YuanluoboPickerKind>()
+  const [pickerSearch, setPickerSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
 
@@ -159,7 +162,7 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
     setError(undefined)
     try {
       const result = await api.records({ playerId: nextPlayerId, gameMode: nextGameMode, page: nextPage })
-      setCategories(result.categories)
+      setCategories(result.categories.length > 0 ? result.categories : [defaultYuanluoboCategory])
       setRecords(result.records)
       setTotal(result.total)
       setPageTotal(result.pageTotal)
@@ -191,6 +194,32 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
     void loadRecords(playerId, gameMode, page)
   }, [playerId, gameMode, page])
 
+  useEffect(() => {
+    if (!pickerKind) return undefined
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPickerKind(undefined)
+    }
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [pickerKind])
+
+  const openPicker = (kind: YuanluoboPickerKind) => {
+    setPickerSearch('')
+    setPickerKind(kind)
+  }
+
+  const choosePlayer = (nextPlayerId: string) => {
+    setPlayerId(nextPlayerId)
+    setPage(1)
+    setPickerKind(undefined)
+  }
+
+  const choosePlatform = (nextGameMode: number) => {
+    setGameMode(nextGameMode)
+    setPage(1)
+    setPickerKind(undefined)
+  }
+
   const chooseRecord = async (record: YuanluoboRecord) => {
     if (record.imported && record.gameId) {
       await onOpenGame(record.gameId)
@@ -201,6 +230,14 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
   }
 
   const selectedPlayer = players.find((player) => player.playerId === playerId)
+  const selectedCategory = categories.find((category) => category.gameMode === gameMode) ?? defaultYuanluoboCategory
+  const normalizedPickerSearch = pickerSearch.trim().toLowerCase()
+  const visiblePlayers = normalizedPickerSearch
+    ? players.filter((player) => player.name.toLowerCase().includes(normalizedPickerSearch))
+    : players
+  const visibleCategories = normalizedPickerSearch
+    ? categories.filter((category) => category.title.toLowerCase().includes(normalizedPickerSearch))
+    : categories
 
   return (
     <section className="yuanluobo-panel yuanluobo-fullscreen-page yuanluobo-browser" role="region" aria-label="元萝卜棋局浏览">
@@ -221,18 +258,45 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
       </header>
 
       <div className="yuanluobo-filter-bar">
-        <label className="yuanluobo-player-select">
-          <span>棋手</span>
-          <select value={playerId} onChange={(event) => { setPlayerId(event.target.value); setPage(1) }}>
-            {players.map((player) => <option key={player.playerId} value={player.playerId}>{player.name}</option>)}
-          </select>
-        </label>
-        <label className="yuanluobo-platform-select">
-          <span>平台</span>
-          <select value={gameMode} onChange={(event) => { setGameMode(Number(event.target.value)); setPage(1) }}>
-            {categories.map((category) => <option key={category.gameMode} value={category.gameMode}>{category.title}</option>)}
-          </select>
-        </label>
+        <button
+          className="yuanluobo-filter-trigger"
+          type="button"
+          aria-label={`棋手 ${selectedPlayer?.name ?? '未选择'}`}
+          onClick={() => openPicker('player')}
+        >
+          <span className="yuanluobo-filter-icon" aria-hidden="true">
+            <UserRound size={19} />
+          </span>
+          <span className="yuanluobo-filter-label">棋手</span>
+          <span className="yuanluobo-filter-divider" aria-hidden="true" />
+          <strong>{selectedPlayer?.name ?? '未选择'}</strong>
+          <ChevronDown className="yuanluobo-filter-chevron" size={18} aria-hidden="true" />
+        </button>
+        <button
+          className="yuanluobo-filter-trigger"
+          type="button"
+          aria-label={`平台 ${selectedCategory.title}`}
+          onClick={() => openPicker('platform')}
+        >
+          <span className="yuanluobo-filter-icon" aria-hidden="true">
+            <Grid3X3 size={19} />
+          </span>
+          <span className="yuanluobo-filter-label">平台</span>
+          <span className="yuanluobo-filter-divider" aria-hidden="true" />
+          <strong>{selectedCategory.title}</strong>
+          <ChevronDown className="yuanluobo-filter-chevron" size={18} aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="yuanluobo-record-toolbar">
+        <div>
+          <strong>棋局记录</strong>
+          <span aria-hidden="true" />
+          <small>按时间倒序</small>
+        </div>
+        <button type="button" aria-label="列表视图">
+          <List size={18} aria-hidden="true" />
+        </button>
       </div>
 
       <div className="yuanluobo-browser-body">
@@ -253,15 +317,28 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
                   onClick={() => void chooseRecord(record)}
                 >
                   <span className="yuanluobo-record-main">
-                    <span className="yuanluobo-record-title">{record.blackPlayerName} vs {record.whitePlayerName}</span>
+                    <span className="yuanluobo-record-title">
+                      <span className="yuanluobo-stone black" aria-hidden="true" />
+                      {record.blackPlayerName}
+                      <span className="yuanluobo-vs">vs</span>
+                      <span className="yuanluobo-stone white" aria-hidden="true" />
+                      {record.whitePlayerName}
+                    </span>
                     {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
                   </span>
-                  <span className="yuanluobo-record-meta">{record.startDate} · {record.totalRound}手 · {record.resultLabel}</span>
+                  <span className="yuanluobo-record-meta">
+                    {record.startDate}
+                    <span className="yuanluobo-meta-sep" aria-hidden="true" />
+                    {record.totalRound}手
+                    <span className="yuanluobo-meta-sep" aria-hidden="true" />
+                    {record.resultLabel}
+                  </span>
                   {outcome !== 'unknown' && (
                     <span className={`yuanluobo-result-watermark ${outcome}`} aria-hidden="true">
                       {outcomeLabel(outcome)}
                     </span>
                   )}
+                  <ChevronRight className="yuanluobo-row-chevron" size={20} aria-hidden="true" />
                 </button>
               )
             })}
@@ -274,6 +351,79 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
         <span>{page} / {Math.max(pageTotal, 1)}</span>
         <button disabled={pageTotal > 0 && page >= pageTotal} onClick={() => setPage((value) => value + 1)}>下一页</button>
       </footer>
+
+      {pickerKind && (
+        <div className="yuanluobo-picker-backdrop" onClick={() => setPickerKind(undefined)}>
+          <div
+            className="yuanluobo-picker-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label={pickerKind === 'player' ? '选择棋手' : '选择平台'}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <span className="yuanluobo-picker-handle" aria-hidden="true" />
+            <header className="yuanluobo-picker-header">
+              <span aria-hidden="true">◆</span>
+              <h3>{pickerKind === 'player' ? '选择棋手' : '选择平台'}</h3>
+              <span aria-hidden="true">◆</span>
+            </header>
+            <label className="yuanluobo-picker-search">
+              <Search size={18} aria-hidden="true" />
+              <input
+                value={pickerSearch}
+                onChange={(event) => setPickerSearch(event.target.value)}
+                placeholder={pickerKind === 'player' ? '搜索棋手' : '搜索平台'}
+                autoFocus
+              />
+            </label>
+            <div className="yuanluobo-picker-options">
+              {pickerKind === 'player' ? (
+                visiblePlayers.length === 0 ? (
+                  <p className="yuanluobo-picker-empty">没有匹配的棋手</p>
+                ) : (
+                  visiblePlayers.map((player) => (
+                    <button
+                      key={player.playerId}
+                      className="yuanluobo-picker-option"
+                      type="button"
+                      aria-pressed={player.playerId === playerId}
+                      onClick={() => choosePlayer(player.playerId)}
+                    >
+                      <span className="yuanluobo-picker-mark" data-tone="person" aria-hidden="true">
+                        {player.name.slice(0, 1) || '棋'}
+                      </span>
+                      <strong>{player.name}</strong>
+                      <span className="yuanluobo-picker-check" aria-hidden="true">
+                        {player.playerId === playerId && <Check size={18} />}
+                      </span>
+                    </button>
+                  ))
+                )
+              ) : visibleCategories.length === 0 ? (
+                <p className="yuanluobo-picker-empty">没有匹配的平台</p>
+              ) : (
+                visibleCategories.map((category) => (
+                  <button
+                    key={category.gameMode}
+                    className="yuanluobo-picker-option"
+                    type="button"
+                    aria-pressed={category.gameMode === gameMode}
+                    onClick={() => choosePlatform(category.gameMode)}
+                  >
+                    <span className="yuanluobo-picker-mark" data-tone={categoryTone(category.gameMode)} aria-hidden="true">
+                      {categoryShortName(category)}
+                    </span>
+                    <strong>{category.title}</strong>
+                    <span className="yuanluobo-picker-check" aria-hidden="true">
+                      {category.gameMode === gameMode && <Check size={18} />}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   )
 }
@@ -298,6 +448,33 @@ function outcomeLabel(outcome: ViewerOutcome) {
   if (outcome === 'loss') return '负'
   if (outcome === 'draw') return '和'
   return ''
+}
+
+function categoryShortName(category: YuanluoboRecordCategory) {
+  if (category.gameMode === 1) return '元'
+  if (category.gameMode === 15) return '★'
+  if (category.gameMode === 2) return '山'
+  if (category.gameMode === 5) return '99'
+  if (category.gameMode === 6) return '新'
+  if (category.gameMode === 7 || category.gameMode === 14) return '少'
+  if (category.gameMode === 8) return '弈'
+  if (category.gameMode === 9) return '佳'
+  if (category.gameMode === 4) return '五'
+  if (category.gameMode === 3) return '友'
+  if (category.gameMode === 13) return '狐'
+  return category.title.slice(0, 1)
+}
+
+function categoryTone(gameMode: number) {
+  if (gameMode === 1) return 'green'
+  if (gameMode === 15 || gameMode === 3) return 'purple'
+  if (gameMode === 2) return 'blue'
+  if (gameMode === 5 || gameMode === 17) return 'red'
+  if (gameMode === 6 || gameMode === 8) return 'teal'
+  if (gameMode === 7 || gameMode === 14) return 'gold'
+  if (gameMode === 9 || gameMode === 13) return 'orange'
+  if (gameMode === 4) return 'brown'
+  return 'gray'
 }
 
 function qrStatusLabel(status: number) {
