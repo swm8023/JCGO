@@ -25,15 +25,18 @@ interface YuanluoboImportDialogProps {
   api: YuanluoboImportAPI
   onOpenGame(gameId: string): void | Promise<void>
   onBack(): void
+  pickerKind?: YuanluoboPickerKind
+  onOpenPicker(kind: YuanluoboPickerKind): void
+  onClosePicker(): void
 }
 
 type LoginState = 'checking' | 'logged-out' | 'polling' | 'logged-in'
 type YuanluoboRecordCategory = { title: string; gameMode: number }
-type YuanluoboPickerKind = 'player' | 'platform'
+export type YuanluoboPickerKind = 'player' | 'platform'
 const defaultYuanluoboCategory: YuanluoboRecordCategory = { title: '元萝卜AI', gameMode: 1 }
 const defaultYuanluoboGameMode = defaultYuanluoboCategory.gameMode
 
-export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImportDialogProps) {
+export function YuanluoboImportDialog({ api, onOpenGame, onBack, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
   const [loginState, setLoginState] = useState<LoginState>('checking')
   const [qr, setQR] = useState<YuanluoboQRCode>()
   const [pollDesc, setPollDesc] = useState('未扫码')
@@ -140,10 +143,19 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImpo
     )
   }
 
-  return <YuanluoboRecordBrowser api={api} onOpenGame={onOpenGame} onBack={onBack} />
+  return (
+    <YuanluoboRecordBrowser
+      api={api}
+      onOpenGame={onOpenGame}
+      onBack={onBack}
+      pickerKind={pickerKind}
+      onOpenPicker={onOpenPicker}
+      onClosePicker={onClosePicker}
+    />
+  )
 }
 
-function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDialogProps) {
+function YuanluoboRecordBrowser({ api, onOpenGame, onBack, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
   const [players, setPlayers] = useState<YuanluoboPlayer[]>([])
   const [playerId, setPlayerId] = useState('')
   const [categories, setCategories] = useState<YuanluoboRecordCategory[]>([defaultYuanluoboCategory])
@@ -152,7 +164,6 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
   const [pageTotal, setPageTotal] = useState(0)
   const [total, setTotal] = useState(0)
   const [records, setRecords] = useState<YuanluoboRecord[]>([])
-  const [pickerKind, setPickerKind] = useState<YuanluoboPickerKind>()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
 
@@ -193,29 +204,20 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
     void loadRecords(playerId, gameMode, page)
   }, [playerId, gameMode, page])
 
-  useEffect(() => {
-    if (!pickerKind) return undefined
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setPickerKind(undefined)
-    }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [pickerKind])
-
   const openPicker = (kind: YuanluoboPickerKind) => {
-    setPickerKind(kind)
+    onOpenPicker(kind)
   }
 
   const choosePlayer = (nextPlayerId: string) => {
     setPlayerId(nextPlayerId)
     setPage(1)
-    setPickerKind(undefined)
+    onClosePicker()
   }
 
   const choosePlatform = (nextGameMode: number) => {
     setGameMode(nextGameMode)
     setPage(1)
-    setPickerKind(undefined)
+    onClosePicker()
   }
 
   const chooseRecord = async (record: YuanluoboRecord) => {
@@ -343,7 +345,7 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
       </footer>
 
       {pickerKind && (
-        <div className="yuanluobo-picker-backdrop" onClick={() => setPickerKind(undefined)}>
+        <div className="yuanluobo-picker-backdrop" onClick={onClosePicker}>
           <div
             className="yuanluobo-picker-sheet"
             role="dialog"

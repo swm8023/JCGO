@@ -28,7 +28,7 @@ describe('ImportDialog', () => {
   })
 
   it('presents import sources as a compact tool panel', () => {
-    render(<ImportDialog onImport={vi.fn()} onImportUrl={vi.fn()} onCancel={vi.fn()} yuanluoboApi={yuanluoboApi()} onOpenGame={vi.fn()} />)
+    renderImportDialog()
 
     expect(screen.getByRole('heading', { name: '导入棋局' })).toBeInTheDocument()
     expect(screen.getByText('选择一个来源，导入后会进入当前棋盘。')).toBeInTheDocument()
@@ -49,7 +49,7 @@ describe('ImportDialog', () => {
     vi.spyOn(window, 'prompt').mockReturnValue('Demo')
     const onImport = vi.fn()
 
-    render(<ImportDialog onImport={onImport} onImportUrl={vi.fn()} onCancel={vi.fn()} yuanluoboApi={yuanluoboApi()} onOpenGame={vi.fn()} />)
+    renderImportDialog({ onImport })
 
     await userEvent.click(screen.getByRole('button', { name: /SGF 文件/ }))
 
@@ -63,21 +63,37 @@ describe('ImportDialog', () => {
     await waitFor(() => expect(onImport).toHaveBeenCalledWith('Demo', 'demo.sgf', '(;GM[1]FF[4]SZ[19])'))
   })
 
-  it('opens the yuanluobo import entry from the choose screen', async () => {
-    render(
-      <ImportDialog
-        onImport={vi.fn()}
-        onImportUrl={vi.fn()}
-        onCancel={vi.fn()}
-        yuanluoboApi={yuanluoboApi()}
-        onOpenGame={vi.fn()}
-      />,
-    )
+  it('requests the yuanluobo import entry from the choose screen', async () => {
+    const onOpenYuanluobo = vi.fn()
+    renderImportDialog({ onOpenYuanluobo })
 
     await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
+
+    expect(onOpenYuanluobo).toHaveBeenCalledOnce()
+  })
+
+  it('renders the yuanluobo import entry as a fullscreen dialog', async () => {
+    renderImportDialog({ mode: 'yuanluobo' })
 
     const dialog = await screen.findByRole('dialog', { name: '元萝卜导入' })
     expect(dialog).toHaveClass('yuanluobo-fullscreen-dialog')
     expect(await screen.findByRole('region', { name: '元萝卜登录' })).toBeInTheDocument()
   })
 })
+
+function renderImportDialog(overrides: Partial<Parameters<typeof ImportDialog>[0]> = {}) {
+  const props: Parameters<typeof ImportDialog>[0] = {
+    mode: 'choose',
+    onImport: vi.fn(),
+    onImportUrl: vi.fn(),
+    onBack: vi.fn(),
+    onOpenUrl: vi.fn(),
+    onOpenYuanluobo: vi.fn(),
+    yuanluoboApi: yuanluoboApi(),
+    onOpenGame: vi.fn(),
+    onOpenYuanluoboPicker: vi.fn(),
+    onCloseYuanluoboPicker: vi.fn(),
+    ...overrides,
+  }
+  return render(<ImportDialog {...props} />)
+}

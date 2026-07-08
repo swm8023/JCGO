@@ -1,13 +1,19 @@
-import { type ChangeEvent, useRef, useState } from 'react'
+import { type ChangeEvent, useEffect, useRef, useState } from 'react'
 import { ArrowLeft, Cloud, FileUp, Link2, X } from 'lucide-react'
-import { YuanluoboImportDialog, type YuanluoboImportAPI } from './YuanluoboImportDialog'
+import { YuanluoboImportDialog, type YuanluoboImportAPI, type YuanluoboPickerKind } from './YuanluoboImportDialog'
 
 interface ImportDialogProps {
-  onImport(displayName: string, originalFilename: string, sgfText: string): void
-  onImportUrl(url: string): void
-  onCancel(): void
+  mode: ImportDialogMode
+  onImport(displayName: string, originalFilename: string, sgfText: string): void | Promise<void>
+  onImportUrl(url: string): void | Promise<void>
+  onBack(): void
+  onOpenUrl(): void
+  onOpenYuanluobo(): void
   yuanluoboApi: YuanluoboImportAPI
   onOpenGame(gameId: string): void | Promise<void>
+  yuanluoboPickerKind?: YuanluoboPickerKind
+  onOpenYuanluoboPicker(kind: YuanluoboPickerKind): void
+  onCloseYuanluoboPicker(): void
 }
 
 type SGFPickerOptions = {
@@ -40,11 +46,22 @@ const sgfPickerOptions: SGFPickerOptions = {
   ],
 }
 
-type DialogMode = 'choose' | 'url' | 'yuanluobo'
+export type ImportDialogMode = 'choose' | 'url' | 'yuanluobo'
 
-export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, onOpenGame }: ImportDialogProps) {
+export function ImportDialog({
+  mode,
+  onImport,
+  onImportUrl,
+  onBack,
+  onOpenUrl,
+  onOpenYuanluobo,
+  yuanluoboApi,
+  onOpenGame,
+  yuanluoboPickerKind,
+  onOpenYuanluoboPicker,
+  onCloseYuanluoboPicker,
+}: ImportDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const [mode, setMode] = useState<DialogMode>('choose')
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,14 +84,18 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
     }
   }
 
-  const cancel = () => {
-    if (mode === 'url' || mode === 'yuanluobo') {
-      setMode('choose')
+  useEffect(() => {
+    if (mode !== 'url') {
       setUrl('')
       setError(null)
-      return
+      setLoading(false)
     }
-    onCancel()
+  }, [mode])
+
+  const back = () => {
+    setUrl('')
+    setError(null)
+    onBack()
   }
 
   const handleUrlSubmit = async () => {
@@ -82,7 +103,7 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
     setLoading(true)
     setError(null)
     try {
-      onImportUrl(url.trim())
+      await onImportUrl(url.trim())
     } catch (e) {
       setError(e instanceof Error ? e.message : '导入失败')
       setLoading(false)
@@ -94,7 +115,7 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
       <div className="import-dialog" role="dialog" aria-label="从链接导入">
         <div className="import-dialog-body import-url-panel">
           <header className="import-panel-header">
-            <button className="import-icon-button" onClick={cancel} disabled={loading} aria-label="返回导入来源">
+            <button className="import-icon-button" onClick={back} disabled={loading} aria-label="返回导入来源">
               <ArrowLeft size={17} aria-hidden="true" />
             </button>
             <div>
@@ -116,7 +137,7 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
           </label>
           {error && <div className="import-error">{error}</div>}
           <div className="import-dialog-actions">
-            <button className="import-secondary-button" onClick={cancel} disabled={loading}>返回</button>
+            <button className="import-secondary-button" onClick={back} disabled={loading}>返回</button>
             <button className="import-primary-button" onClick={handleUrlSubmit} disabled={loading || !url.trim()}>
               {loading ? '导入中...' : '导入'}
             </button>
@@ -129,7 +150,14 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
   if (mode === 'yuanluobo') {
     return (
       <div className="import-dialog yuanluobo-fullscreen-dialog" role="dialog" aria-label="元萝卜导入">
-        <YuanluoboImportDialog api={yuanluoboApi} onOpenGame={onOpenGame} onBack={() => setMode('choose')} />
+        <YuanluoboImportDialog
+          api={yuanluoboApi}
+          onOpenGame={onOpenGame}
+          onBack={onBack}
+          pickerKind={yuanluoboPickerKind}
+          onOpenPicker={onOpenYuanluoboPicker}
+          onClosePicker={onCloseYuanluoboPicker}
+        />
       </div>
     )
   }
@@ -143,7 +171,7 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
             <h2>导入棋局</h2>
             <p>选择一个来源，导入后会进入当前棋盘。</p>
           </div>
-          <button className="import-icon-button" onClick={cancel} aria-label="关闭导入">
+          <button className="import-icon-button" onClick={back} aria-label="关闭导入">
             <X size={17} aria-hidden="true" />
           </button>
         </header>
@@ -156,14 +184,14 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
               <small>从本地选择 .sgf 文件</small>
             </span>
           </button>
-          <button className="import-source-card" onClick={() => setMode('url')}>
+          <button className="import-source-card" onClick={onOpenUrl}>
             <span className="import-source-icon"><Link2 size={20} aria-hidden="true" /></span>
             <span className="import-source-copy">
               <strong>复盘链接</strong>
               <small>粘贴元萝卜分享链接</small>
             </span>
           </button>
-          <button className="import-source-card primary" onClick={() => setMode('yuanluobo')}>
+          <button className="import-source-card primary" onClick={onOpenYuanluobo}>
             <span className="import-source-icon"><Cloud size={20} aria-hidden="true" /></span>
             <span className="import-source-copy">
               <strong>元萝卜账号</strong>

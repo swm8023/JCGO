@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StatePayload } from './api/types'
@@ -8,7 +8,7 @@ import App from './App'
 const rpc = vi.hoisted(() => ({
   calls: [] as { method: string; params?: unknown }[],
   state: undefined as StatePayload | undefined,
-  responses: [] as StatePayload[],
+  responses: [] as unknown[],
   handlers: new Map<string, (params: unknown) => void>(),
 }))
 
@@ -42,6 +42,7 @@ describe('App variation navigation', () => {
     rpc.state = undefined
     rpc.responses = []
     rpc.handlers.clear()
+    window.history.replaceState(null, '', '/')
   })
 
   it('uses variation node ids for previous navigation inside a trial branch', async () => {
@@ -349,7 +350,112 @@ describe('App variation navigation', () => {
     })
     expect(list).toHaveAttribute('aria-hidden', 'true')
   })
+
+  it('closes the local game list when the browser history returns to the board', async () => {
+    stubAuthenticatedStorage()
+    rpc.state = gameLibraryState('game-1')
+
+    const { container } = render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    const homeState = window.history.state
+    const list = container.querySelector<HTMLElement>('[aria-label="本地棋局列表"]')
+    expect(list).not.toBeNull()
+
+    await userEvent.click(screen.getByLabelText('Show game list'))
+    expect(list).toHaveAttribute('aria-hidden', 'false')
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
+
+    await waitFor(() => expect(list).toHaveAttribute('aria-hidden', 'true'))
+  })
+
+  it('walks browser history from nested import screens back to the board', async () => {
+    stubAuthenticatedStorage()
+    rpc.responses = [
+      mainlineState(5, 12),
+      { loggedIn: false },
+      {
+        key: 'key-1',
+        image: 'jpeg-base64',
+        scanUrl: 'https://jupiter.yuanluobo.com/robot-public/all-in-app/scanned-page?key=key-1&from=qrcode-login',
+      },
+      { status: 0, desc: '未扫码' },
+    ]
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    const homeState = window.history.state
+
+    await userEvent.click(screen.getByLabelText('Import SGF'))
+    const chooseState = window.history.state
+    expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /复盘链接/ }))
+    expect(screen.getByRole('dialog', { name: '从链接导入' })).toBeInTheDocument()
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: chooseState }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument())
+    expect(screen.queryByRole('dialog', { name: '从链接导入' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
+    expect(await screen.findByRole('region', { name: '元萝卜登录' })).toBeInTheDocument()
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: chooseState }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument())
+    expect(screen.queryByRole('dialog', { name: '元萝卜导入' })).not.toBeInTheDocument()
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '导入棋局' })).not.toBeInTheDocument())
+  })
+
+  it('closes a yuanluobo picker on browser back before leaving the yuanluobo screen', async () => {
+    stubAuthenticatedStorage()
+    rpc.responses = [
+      mainlineState(5, 12),
+      { loggedIn: true },
+      [{ playerId: 'player-1', name: '棋手一' }],
+      {
+        total: 0,
+        page: 1,
+        size: 10,
+        pageTotal: 0,
+        categories: [{ title: '元萝卜AI', gameMode: 1 }],
+        records: [],
+      },
+    ]
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    await userEvent.click(screen.getByLabelText('Import SGF'))
+    const chooseState = window.history.state
+    await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
+    const yuanluoboState = window.history.state
+    expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /棋手 棋手一/ }))
+    expect(await screen.findByRole('dialog', { name: '选择棋手' })).toBeInTheDocument()
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: yuanluoboState }))
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择棋手' })).not.toBeInTheDocument())
+    expect(screen.getByRole('region', { name: '元萝卜棋局浏览' })).toBeInTheDocument()
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: chooseState }))
+    await waitFor(() => expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument())
+  })
 })
+
+function stubAuthenticatedStorage(entries: [string, string][] = []) {
+  const storage = new Map<string, string>([['jcgo.accessToken', 'secret'], ...entries])
+  vi.stubGlobal('localStorage', {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: string) => storage.set(key, value),
+    removeItem: (key: string) => storage.delete(key),
+    clear: () => storage.clear(),
+  })
+}
 
 function emptyWorkspaceState(): StatePayload {
   return {

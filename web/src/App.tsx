@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { RPCClient } from './api/jsonrpc'
 import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
@@ -7,11 +7,11 @@ import { AnalysisPanel } from './components/AnalysisPanel'
 import { Board } from './components/Board'
 import { BoardInfo } from './components/BoardInfo'
 import { GameSidebar } from './components/GameSidebar'
-import { ImportDialog } from './components/ImportDialog'
+import { ImportDialog, type ImportDialogMode } from './components/ImportDialog'
 import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
 import { TokenGate } from './components/TokenGate'
-import type { YuanluoboImportAPI } from './components/YuanluoboImportDialog'
+import type { YuanluoboImportAPI, YuanluoboPickerKind } from './components/YuanluoboImportDialog'
 import { playCaptureSound, playStoneSound } from './board/stoneSound'
 import { computeSideActionPlacement, sideActionEdgeGap, sideActionGap, type SideActionPlacement } from './layout/sideActionRail'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
@@ -21,6 +21,19 @@ const jumpStep = 5
 
 type NavigationCommand = { method: 'game.goto'; moveNumber: number } | { method: 'game.gotoNode'; nodeId: string }
 type RememberedView = { gameId?: string; nodeId?: string }
+type AppHistoryLayer =
+  | 'home'
+  | 'game-list'
+  | 'import-choose'
+  | 'import-url'
+  | 'import-yuanluobo'
+  | 'yuanluobo-player-picker'
+  | 'yuanluobo-platform-picker'
+
+type AppHistoryState = {
+  jcgoLayer: AppHistoryLayer
+  jcgoLayerSession: number
+}
 
 const accessTokenKey = 'jcgo.accessToken'
 const selectedGameKey = 'jcgo.selectedGameId'
@@ -28,6 +41,15 @@ const viewGameKey = 'jcgo.view.gameId'
 const viewNodeKey = 'jcgo.view.nodeId'
 const sharedSGFURL = '/shared-sgf/latest'
 const shareTargetRedirectPath = '/?share-target=sgf'
+const appHistoryLayers = new Set<AppHistoryLayer>([
+  'home',
+  'game-list',
+  'import-choose',
+  'import-url',
+  'import-yuanluobo',
+  'yuanluobo-player-picker',
+  'yuanluobo-platform-picker',
+])
 const emptySideActionPlacement = computeSideActionPlacement({
   layoutWidth: 0,
   layoutHeight: 0,
@@ -57,12 +79,16 @@ export default function App() {
   const [workspace, setWorkspace] = useState<StatePayload>()
   const [overlays, setOverlays] = useState<OverlayState>(() => readOverlayState())
   const [showImport, setShowImport] = useState(false)
+  const [importMode, setImportMode] = useState<ImportDialogMode>('choose')
+  const [yuanluoboPickerKind, setYuanluoboPickerKind] = useState<YuanluoboPickerKind>()
   const [gameListOpen, setGameListOpen] = useState(false)
   const [error, setError] = useState<string>()
   const [connectionAttempt, setConnectionAttempt] = useState(0)
   const wasConnected = useRef(false)
   const currentViewRef = useRef<RememberedView>(readRememberedView())
   const handledShareTargetRef = useRef(false)
+  const appHistoryLayerRef = useRef<AppHistoryLayer>('home')
+  const appHistorySessionRef = useRef(0)
   const layoutRef = useRef<HTMLElement>(null)
   const boardStageRef = useRef<HTMLElement>(null)
   const boardFrameRef = useRef<HTMLDivElement>(null)
@@ -89,7 +115,44 @@ export default function App() {
     localStorage.setItem('jcgo.boardOverlays', JSON.stringify(value))
   }
 
-  const returnToTokenGate = () => {
+  const applyAppHistoryLayer = useCallback((layer: AppHistoryLayer) => {
+    appHistoryLayerRef.current = layer
+    setGameListOpen(layer === 'game-list')
+    setShowImport(isImportLayer(layer))
+    setImportMode(importModeForLayer(layer))
+    setYuanluoboPickerKind(yuanluoboPickerForLayer(layer))
+  }, [])
+
+  const pushAppHistoryLayer = useCallback((layer: AppHistoryLayer) => {
+    if (layer === appHistoryLayerRef.current) return
+    applyAppHistoryLayer(layer)
+    window.history.pushState(appHistoryState(layer, appHistorySessionRef.current), '', currentHistoryURL())
+  }, [applyAppHistoryLayer])
+
+  const resetAppHistoryLayer = useCallback((layer: AppHistoryLayer) => {
+    appHistorySessionRef.current += 1
+    applyAppHistoryLayer(layer)
+    window.history.replaceState(appHistoryState(layer, appHistorySessionRef.current), '', currentHistoryURL())
+  }, [applyAppHistoryLayer])
+
+  const closeCurrentAppHistoryLayer = useCallback(() => {
+    if (appHistoryLayerRef.current === 'home') return
+    window.history.back()
+  }, [])
+
+  useEffect(() => {
+    const initialLayer = appHistoryLayerFromState(window.history.state, appHistorySessionRef.current)
+    window.history.replaceState(appHistoryState(initialLayer, appHistorySessionRef.current), '', currentHistoryURL())
+    applyAppHistoryLayer(initialLayer)
+
+    const onPopState = (event: PopStateEvent) => {
+      applyAppHistoryLayer(appHistoryLayerFromState(event.state, appHistorySessionRef.current))
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [applyAppHistoryLayer])
+
+  const returnToTokenGate = useCallback(() => {
     localStorage.removeItem(accessTokenKey)
     clearRememberedView()
     currentViewRef.current = {}
@@ -105,9 +168,8 @@ export default function App() {
     setBadMoves([])
     setAnalysisState('idle')
     setWorkspace(undefined)
-    setShowImport(false)
-    setGameListOpen(false)
-  }
+    resetAppHistoryLayer('home')
+  }, [resetAppHistoryLayer])
 
   useEffect(() => {
     if (!token) return
@@ -149,7 +211,7 @@ export default function App() {
       if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer)
       nextClient.close()
     }
-  }, [token, wsUrl, connectionAttempt])
+  }, [token, wsUrl, connectionAttempt, returnToTokenGate])
 
   const refreshWorkspaceState = async (activeClient = client) => {
     if (!activeClient) return
@@ -163,8 +225,7 @@ export default function App() {
     await refreshWorkspaceState()
     setActivePV(undefined)
     setTryMode(false)
-    setShowImport(false)
-    setGameListOpen(true)
+    resetAppHistoryLayer('game-list')
   }
 
   const importFromUrl = async (url: string) => {
@@ -173,8 +234,7 @@ export default function App() {
     await refreshWorkspaceState()
     setActivePV(undefined)
     setTryMode(false)
-    setShowImport(false)
-    setGameListOpen(true)
+    resetAppHistoryLayer('game-list')
   }
 
   useEffect(() => {
@@ -202,19 +262,24 @@ export default function App() {
         applyWorkspaceState(state)
         setActivePV(undefined)
         setTryMode(false)
-        setShowImport(false)
-        setGameListOpen(true)
+        resetAppHistoryLayer('game-list')
       } catch (reason) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : 'shared SGF import failed')
       } finally {
-        if (!cancelled) window.history.replaceState(null, '', `${window.location.pathname}${window.location.hash}`)
+        if (!cancelled) {
+          window.history.replaceState(
+            appHistoryState(appHistoryLayerRef.current, appHistorySessionRef.current),
+            '',
+            `${window.location.pathname}${window.location.hash}`,
+          )
+        }
       }
     }
     void importSharedSGF()
     return () => {
       cancelled = true
     }
-  }, [client, token])
+  }, [client, token, resetAppHistoryLayer])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -222,8 +287,7 @@ export default function App() {
       if (event.key === 'ArrowLeft') void goPrevious()
       if (event.key === 'ArrowRight') void goNext()
       if (event.key === 'Escape') {
-        if (showImport) setShowImport(false)
-        else if (gameListOpen) setGameListOpen(false)
+        if (appHistoryLayerRef.current !== 'home') closeCurrentAppHistoryLayer()
         else if (activePV?.length) setActivePV(undefined)
         else if (tryMode || snapshot?.canBackToMain) void exitTryMode()
       }
@@ -293,7 +357,7 @@ export default function App() {
     applyWorkspaceState(state)
     setActivePV(undefined)
     setTryMode(false)
-    setGameListOpen(false)
+    resetAppHistoryLayer('home')
   }
 
   const requireClient = () => {
@@ -314,8 +378,7 @@ export default function App() {
   const openImportedGame = async (gameId: string) => {
     await refreshWorkspaceState()
     await selectGame(gameId)
-    setShowImport(false)
-    setGameListOpen(true)
+    resetAppHistoryLayer('game-list')
   }
 
   const renameGame = async (gameId: string, displayName: string) => {
@@ -435,8 +498,8 @@ export default function App() {
         analysisError={error}
         analysisState={analysisState}
         analysisProgress={analysisProgressForState(workspace)}
-        onToggleList={() => setGameListOpen((open) => !open)}
-        onImport={() => setShowImport(true)}
+        onToggleList={() => (gameListOpen ? closeCurrentAppHistoryLayer() : pushAppHistoryLayer('game-list'))}
+        onImport={() => pushAppHistoryLayer('import-choose')}
         onSelect={selectGame}
         onRename={renameGame}
         onDelete={deleteGame}
@@ -498,11 +561,17 @@ export default function App() {
       </main>
       {showImport && client && (
         <ImportDialog
+          mode={importMode}
           onImport={importGame}
           onImportUrl={importFromUrl}
-          onCancel={() => setShowImport(false)}
+          onBack={closeCurrentAppHistoryLayer}
+          onOpenUrl={() => pushAppHistoryLayer('import-url')}
+          onOpenYuanluobo={() => pushAppHistoryLayer('import-yuanluobo')}
           yuanluoboApi={yuanluoboApi}
           onOpenGame={openImportedGame}
+          yuanluoboPickerKind={yuanluoboPickerKind}
+          onOpenYuanluoboPicker={(kind) => pushAppHistoryLayer(kind === 'player' ? 'yuanluobo-player-picker' : 'yuanluobo-platform-picker')}
+          onCloseYuanluoboPicker={closeCurrentAppHistoryLayer}
         />
       )}
     </>
@@ -555,6 +624,43 @@ function cssPx(styles: CSSStyleDeclaration, property: string) {
 
 function horizontalActionHeight(rect: DOMRect | undefined) {
   return rect?.height ?? 0
+}
+
+function appHistoryState(layer: AppHistoryLayer, session: number): AppHistoryState {
+  return { jcgoLayer: layer, jcgoLayerSession: session }
+}
+
+function appHistoryLayerFromState(state: unknown, session: number): AppHistoryLayer {
+  if (!state || typeof state !== 'object') return 'home'
+  const candidate = state as Partial<AppHistoryState>
+  if (candidate.jcgoLayerSession !== session) return 'home'
+  return typeof candidate.jcgoLayer === 'string' && appHistoryLayers.has(candidate.jcgoLayer)
+    ? candidate.jcgoLayer
+    : 'home'
+}
+
+function currentHistoryURL() {
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`
+}
+
+function isImportLayer(layer: AppHistoryLayer) {
+  return layer === 'import-choose'
+    || layer === 'import-url'
+    || layer === 'import-yuanluobo'
+    || layer === 'yuanluobo-player-picker'
+    || layer === 'yuanluobo-platform-picker'
+}
+
+function importModeForLayer(layer: AppHistoryLayer): ImportDialogMode {
+  if (layer === 'import-url') return 'url'
+  if (layer === 'import-yuanluobo' || layer === 'yuanluobo-player-picker' || layer === 'yuanluobo-platform-picker') return 'yuanluobo'
+  return 'choose'
+}
+
+function yuanluoboPickerForLayer(layer: AppHistoryLayer): YuanluoboPickerKind | undefined {
+  if (layer === 'yuanluobo-player-picker') return 'player'
+  if (layer === 'yuanluobo-platform-picker') return 'platform'
+  return undefined
 }
 
 function websocketURL() {

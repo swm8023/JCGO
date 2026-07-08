@@ -1,8 +1,9 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { YuanluoboImportDialog, type YuanluoboImportAPI } from './YuanluoboImportDialog'
+import { YuanluoboImportDialog, type YuanluoboImportAPI, type YuanluoboPickerKind } from './YuanluoboImportDialog'
 
 const scanUrl = 'https://jupiter.yuanluobo.com/robot-public/all-in-app/scanned-page?key=key-1&from=qrcode-login'
 
@@ -26,7 +27,7 @@ describe('YuanluoboImportDialog', () => {
   })
 
   it('shows scan login when yuanluobo is not logged in', async () => {
-    render(<YuanluoboImportDialog api={api()} onOpenGame={vi.fn()} onBack={vi.fn()} />)
+    renderYuanluoboImportDialog({ testAPI: api() })
 
     const panel = await screen.findByRole('region', { name: '元萝卜登录' })
     expect(panel).toHaveClass('yuanluobo-login-layout', 'yuanluobo-fullscreen-page')
@@ -101,7 +102,7 @@ describe('YuanluoboImportDialog', () => {
       })),
     })
 
-    render(<YuanluoboImportDialog api={testAPI} onOpenGame={vi.fn()} onBack={vi.fn()} />)
+    renderYuanluoboImportDialog({ testAPI })
 
     expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toHaveClass('yuanluobo-fullscreen-page')
     expect(await screen.findByText('棋手一')).toBeInTheDocument()
@@ -219,7 +220,7 @@ describe('YuanluoboImportDialog', () => {
       })),
     })
 
-    render(<YuanluoboImportDialog api={testAPI} onOpenGame={onOpenGame} onBack={vi.fn()} />)
+    renderYuanluoboImportDialog({ testAPI, onOpenGame })
 
     await screen.findByRole('button', { name: /Imported.*vs.*Opponent/ })
     await userEvent.click(screen.getByRole('button', { name: /Imported.*vs.*Opponent/ }))
@@ -230,3 +231,29 @@ describe('YuanluoboImportDialog', () => {
     expect(onOpenGame).toHaveBeenCalledWith('game-new')
   })
 })
+
+function renderYuanluoboImportDialog({
+  testAPI,
+  onOpenGame = vi.fn(),
+  onBack = vi.fn(),
+}: {
+  testAPI: YuanluoboImportAPI
+  onOpenGame?: (gameId: string) => void | Promise<void>
+  onBack?: () => void
+}) {
+  function Harness() {
+    const [pickerKind, setPickerKind] = useState<YuanluoboPickerKind>()
+    return (
+      <YuanluoboImportDialog
+        api={testAPI}
+        onOpenGame={onOpenGame}
+        onBack={onBack}
+        pickerKind={pickerKind}
+        onOpenPicker={setPickerKind}
+        onClosePicker={() => setPickerKind(undefined)}
+      />
+    )
+  }
+
+  return render(<Harness />)
+}
