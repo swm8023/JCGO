@@ -2774,7 +2774,7 @@ textarea:focus-visible {
   }
 
   .yuanluobo-fullscreen-page {
-    padding: 12px;
+    padding: 8px 12px 10px;
   }
 
   .yuanluobo-login-layout {
@@ -2783,43 +2783,71 @@ textarea:focus-visible {
   }
 
   .yuanluobo-browser {
-    gap: 10px;
+    gap: 6px;
     overflow: hidden;
   }
 
   .yuanluobo-header {
+    min-height: 34px;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    gap: 8px;
+    gap: 6px;
+    padding: 0 0 7px;
+  }
+
+  .yuanluobo-title-block {
+    gap: 1px;
+  }
+
+  .yuanluobo-title-block .yuanluobo-eyebrow {
+    font-size: 9px;
+    line-height: 1;
   }
 
   .yuanluobo-title-block h2,
   .yuanluobo-login-copy h2 {
-    font-size: 18px;
+    font-size: 16px;
+    line-height: 1.05;
+  }
+
+  .yuanluobo-title-block span {
+    min-height: 18px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .yuanluobo-panel .yuanluobo-back-button,
+  .yuanluobo-panel .yuanluobo-logout-button {
+    min-height: 34px;
+    padding: 0 9px;
+    border-radius: 9px;
+    font-size: 14px;
+    gap: 4px;
   }
 
   .yuanluobo-filter-bar {
     grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
   }
 
   .yuanluobo-panel .yuanluobo-filter-trigger {
-    min-height: 60px;
-    grid-template-columns: 34px auto 1px minmax(0, 1fr) auto;
-    gap: 10px;
-    padding: 0 12px;
-    border-radius: 12px;
+    min-height: 44px;
+    grid-template-columns: 26px auto 1px minmax(0, 1fr) auto;
+    gap: 7px;
+    padding: 0 9px;
+    border-radius: 10px;
   }
 
   .yuanluobo-filter-icon {
-    width: 34px;
-    height: 34px;
+    width: 26px;
+    height: 26px;
   }
 
   .yuanluobo-filter-label {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .yuanluobo-filter-trigger strong {
-    font-size: 16px;
+    font-size: 14px;
   }
 
   .yuanluobo-panel .yuanluobo-record-row {
