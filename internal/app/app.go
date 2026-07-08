@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"path/filepath"
 
 	"jcgo/internal/config"
 	"jcgo/internal/katago"
@@ -30,7 +31,9 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 	workspaces := NewWorkspaceStore()
 	scheduler := NewScheduler(engine, cfg.MaxVisits)
-	handler := NewHandler(repo, files, workspaces, scheduler)
+	handler := NewHandlerWithOptions(repo, files, workspaces, scheduler, HandlerOptions{
+		YuanluoboAuthStore: NewYuanluoboFileAuthStore(filepath.Join(cfg.DataDir, "yuanluobo_auth.json")),
+	})
 	return &App{
 		Repo:       repo,
 		Files:      files,

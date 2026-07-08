@@ -176,6 +176,110 @@ func TestImportRejectsEmptyDisplayName(t *testing.T) {
 	}
 }
 
+type fakeYuanluoboBackend struct {
+	status  YuanluoboStatusResult
+	players []YuanluoboPlayer
+	records YuanluoboRecordList
+	sgf     string
+	name    string
+	cleared bool
+}
+
+func (f *fakeYuanluoboBackend) LoginStart(ctx context.Context) (YuanluoboQRCode, error) {
+	return YuanluoboQRCode{Key: "key-1", Image: "image-1"}, nil
+}
+
+func (f *fakeYuanluoboBackend) LoginPoll(ctx context.Context, key string) (YuanluoboLoginPoll, error) {
+	return YuanluoboLoginPoll{Status: YuanluoboQRLogined, Desc: "已登录"}, nil
+}
+
+func (f *fakeYuanluoboBackend) Status(ctx context.Context) (YuanluoboStatusResult, error) {
+	return f.status, nil
+}
+
+func (f *fakeYuanluoboBackend) Logout(ctx context.Context) error {
+	f.cleared = true
+	return nil
+}
+
+func (f *fakeYuanluoboBackend) Players(ctx context.Context) ([]YuanluoboPlayer, error) {
+	return f.players, nil
+}
+
+func (f *fakeYuanluoboBackend) Records(ctx context.Context, in YuanluoboRecordListRequest) (YuanluoboRecordList, error) {
+	f.records.Page = in.Page
+	f.records.Size = 10
+	return f.records, nil
+}
+
+func (f *fakeYuanluoboBackend) DetailSGF(ctx context.Context, sessionID string) (string, string, error) {
+	return f.sgf, f.name, nil
+}
+
+func (f *fakeYuanluoboBackend) ClearAuth(ctx context.Context) error {
+	f.cleared = true
+	return nil
+}
+
+func TestYuanluoboRecordsMarksImportedGames(t *testing.T) {
+	h, token := newTestHandler(t)
+	fake := &fakeYuanluoboBackend{
+		records: YuanluoboRecordList{
+			Total: 2, Page: 1, Size: 10, PageTotal: 1,
+			List: []YuanluoboRemoteRecord{
+				{SessionID: "session-imported", GameMode: 1, StartTime: 1783500000, BlackPlayerName: "A", WhitePlayerName: "B"},
+				{SessionID: "session-new", GameMode: 15, StartTime: 1783400000, BlackPlayerName: "C", WhitePlayerName: "D"},
+			},
+		},
+	}
+	h.yuanluobo = fake
+	imported, err := h.repo.CreateGame(context.Background(), store.CreateGameInput{
+		DisplayName:    "Imported",
+		Result:         "B+R",
+		SourcePlatform: yuanluoboSourcePlatform,
+		SourceID:       "session-imported",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out := callResult[YuanluoboRecordsResult](t, h, token, "yuanluobo.records", map[string]any{
+		"playerId": "player-1",
+		"gameMode": 1,
+		"page":     1,
+	})
+	if len(out.Records) != 2 {
+		t.Fatalf("records = %#v", out)
+	}
+	if !out.Records[0].Imported || out.Records[0].GameID != imported.ID {
+		t.Fatalf("imported marker = %#v", out.Records[0])
+	}
+	if out.Records[1].Imported || out.Records[1].GameID != "" {
+		t.Fatalf("new marker = %#v", out.Records[1])
+	}
+}
+
+func TestYuanluoboImportRecordCreatesAndDeduplicates(t *testing.T) {
+	h, token := newTestHandler(t)
+	h.yuanluobo = &fakeYuanluoboBackend{
+		sgf:  "(;GM[1]FF[4]SZ[19]RE[B+R]DT[2026-07-08]PB[Black]PW[White];B[pd])",
+		name: "Black vs White",
+	}
+
+	first := callResult[ImportResult](t, h, token, "yuanluobo.importRecord", map[string]any{"sessionId": "session-1"})
+	second := callResult[ImportResult](t, h, token, "yuanluobo.importRecord", map[string]any{"sessionId": "session-1"})
+	if first.Game.ID != second.Game.ID {
+		t.Fatalf("dedupe failed: %s vs %s", first.Game.ID, second.Game.ID)
+	}
+	stored, err := h.repo.GetGame(context.Background(), first.Game.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.SourcePlatform != yuanluoboSourcePlatform || stored.SourceID != "session-1" {
+		t.Fatalf("stored source = %#v", stored)
+	}
+}
+
 func TestAnalysisStartStoresResultInWorkspace(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()

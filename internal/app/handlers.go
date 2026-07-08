@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -29,6 +30,13 @@ type Handler struct {
 	files      store.FileStore
 	workspaces *WorkspaceStore
 	analysis   AnalysisController
+	yuanluobo  YuanluoboBackend
+}
+
+type HandlerOptions struct {
+	YuanluoboAuthStore  YuanluoboAuthStore
+	YuanluoboHTTPClient *http.Client
+	YuanluoboBaseURL    string
 }
 
 type ImportResult struct {
@@ -57,7 +65,20 @@ type BadMovePromptResult struct {
 }
 
 func NewHandler(repo *store.Repository, files store.FileStore, workspaces *WorkspaceStore, analysis AnalysisController) *Handler {
-	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis}
+	return NewHandlerWithOptions(repo, files, workspaces, analysis, HandlerOptions{})
+}
+
+func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, workspaces *WorkspaceStore, analysis AnalysisController, opts HandlerOptions) *Handler {
+	authStore := opts.YuanluoboAuthStore
+	if authStore == nil {
+		authStore = NewYuanluoboMemoryAuthStore()
+	}
+	ylb := NewYuanluoboService(YuanluoboServiceOptions{
+		AuthStore:  authStore,
+		HTTPClient: opts.YuanluoboHTTPClient,
+		BaseURL:    opts.YuanluoboBaseURL,
+	})
+	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis, yuanluobo: ylb}
 	if analysis != nil {
 		analysis.Subscribe(func(event Event) {
 			ws := h.workspaces.ForToken(event.Token)
@@ -109,6 +130,20 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.analysisCall(ctx, token, params, "restart")
 	case "analysis.badMovePrompt":
 		return h.badMovePrompt(ctx, token, params)
+	case "yuanluobo.loginStart":
+		return h.yuanluoboLoginStart(ctx)
+	case "yuanluobo.loginPoll":
+		return h.yuanluoboLoginPoll(ctx, params)
+	case "yuanluobo.status":
+		return h.yuanluobo.Status(ctx)
+	case "yuanluobo.logout":
+		return nil, h.yuanluobo.Logout(ctx)
+	case "yuanluobo.players":
+		return h.yuanluobo.Players(ctx)
+	case "yuanluobo.records":
+		return h.yuanluoboRecords(ctx, params)
+	case "yuanluobo.importRecord":
+		return h.yuanluoboImportRecord(ctx, token, params)
 	default:
 		return nil, errors.New("method not found")
 	}
@@ -178,15 +213,18 @@ func (h *Handler) importSGF(ctx context.Context, token string, params json.RawMe
 		return ImportResult{}, errors.New("either url or sgfText is required")
 	}
 
+	return h.importSGFText(ctx, token, sgfText, displayName, store.CreateGameInput{})
+}
+
+func (h *Handler) importSGFText(ctx context.Context, token string, sgfText string, displayName string, create store.CreateGameInput) (ImportResult, error) {
 	doc, err := game.ParseSGF(sgfText)
 	if err != nil {
 		return ImportResult{}, err
 	}
-	record, err := h.repo.CreateGame(ctx, store.CreateGameInput{
-		DisplayName: displayName,
-		Result:      doc.Result,
-		GameDate:    doc.GameDate,
-	})
+	create.DisplayName = displayName
+	create.Result = doc.Result
+	create.GameDate = doc.GameDate
+	record, err := h.repo.CreateGame(ctx, create)
 	if err != nil {
 		return ImportResult{}, err
 	}
