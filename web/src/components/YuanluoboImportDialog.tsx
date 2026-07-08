@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { QRCodeSVG } from 'qrcode.react'
 import type {
   ImportResult,
   YuanluoboLoginPoll,
@@ -96,7 +97,16 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImpo
           <button onClick={onBack}>返回</button>
           <strong>元萝卜扫码登录</strong>
         </header>
-        {qr && <img className="yuanluobo-qr" src={`data:image/jpeg;base64,${qr.image}`} alt="元萝卜登录二维码" />}
+        {qr && (
+          <QRCodeSVG
+            className="yuanluobo-qr"
+            value={qr.scanUrl}
+            role="img"
+            aria-label="元萝卜登录二维码"
+            data-qr-value={qr.scanUrl}
+            includeMargin
+          />
+        )}
         <p className="yuanluobo-muted">请使用元萝卜 App 扫码确认</p>
         <p className="yuanluobo-muted">{pollDesc}</p>
         {error && <p className="import-error">{error}</p>}

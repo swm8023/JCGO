@@ -4,10 +4,12 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { YuanluoboImportDialog, type YuanluoboImportAPI } from './YuanluoboImportDialog'
 
+const scanUrl = 'https://jupiter.yuanluobo.com/robot-public/all-in-app/scanned-page?key=key-1&from=qrcode-login'
+
 function api(overrides: Partial<YuanluoboImportAPI> = {}): YuanluoboImportAPI {
   return {
     status: vi.fn(() => Promise.resolve({ loggedIn: false })),
-    loginStart: vi.fn(() => Promise.resolve({ key: 'key-1', image: 'jpeg-base64' })),
+    loginStart: vi.fn(() => Promise.resolve({ key: 'key-1', image: 'jpeg-base64', scanUrl })),
     loginPoll: vi.fn(() => Promise.resolve({ status: 0, desc: '未扫码' })),
     logout: vi.fn(() => Promise.resolve()),
     players: vi.fn(() => Promise.resolve([])),
@@ -27,7 +29,8 @@ describe('YuanluoboImportDialog', () => {
     render(<YuanluoboImportDialog api={api()} onOpenGame={vi.fn()} onBack={vi.fn()} />)
 
     expect(await screen.findByText('元萝卜扫码登录')).toBeInTheDocument()
-    expect(await screen.findByAltText('元萝卜登录二维码')).toHaveAttribute('src', 'data:image/jpeg;base64,jpeg-base64')
+    expect(await screen.findByRole('img', { name: '元萝卜登录二维码' })).toHaveAttribute('data-qr-value', scanUrl)
+    expect(screen.queryByAltText('元萝卜登录二维码')).not.toBeInTheDocument()
     expect(screen.getByText('请使用元萝卜 App 扫码确认')).toBeInTheDocument()
   })
 

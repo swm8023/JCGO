@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 )
 
@@ -48,6 +49,24 @@ func TestYuanluoboClientStartsAndPollsQRCodeLogin(t *testing.T) {
 	}
 	if qr.Key != "qr-key" || qr.Image != "base64-jpeg" {
 		t.Fatalf("qr = %#v", qr)
+	}
+	qrPayload := map[string]string{}
+	rawQR, err := json.Marshal(qr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(rawQR, &qrPayload); err != nil {
+		t.Fatal(err)
+	}
+	scanURL, err := url.Parse(qrPayload["scanUrl"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scanURL.Scheme != "http" || scanURL.Host != server.Listener.Addr().String() || scanURL.Path != "/robot-public/all-in-app/scanned-page" {
+		t.Fatalf("scanUrl = %q", qrPayload["scanUrl"])
+	}
+	if scanURL.Query().Get("key") != "qr-key" || scanURL.Query().Get("from") != "qrcode-login" {
+		t.Fatalf("scanUrl query = %q", scanURL.RawQuery)
 	}
 	poll, err := client.LoginPoll(context.Background(), "qr-key")
 	if err != nil {

@@ -185,6 +185,7 @@ export interface EncodedOwnership {
 export interface YuanluoboQRCode {
   key: string
   image: string
+  scanUrl: string
 }
 
 export type YuanluoboQRStatusCode = 0 | 1 | 2 | 3 | 4

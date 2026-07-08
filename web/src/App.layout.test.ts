@@ -45,7 +45,7 @@ describe('right rail layout', () => {
   it('wraps the board in a measured frame after the game metadata', () => {
     const boardInfo = app.indexOf('<BoardInfo')
     const boardFrame = app.indexOf('<div ref={boardFrameRef} className="board-frame">')
-    const board = app.indexOf('<Board\n', boardFrame)
+    const board = app.indexOf('<Board', boardFrame)
 
     expect(boardInfo).toBeGreaterThan(0)
     expect(boardFrame).toBeGreaterThan(boardInfo)

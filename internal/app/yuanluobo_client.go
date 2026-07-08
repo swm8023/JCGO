@@ -25,8 +25,9 @@ const (
 )
 
 type YuanluoboQRCode struct {
-	Key   string `json:"key"`
-	Image string `json:"image"`
+	Key     string `json:"key"`
+	Image   string `json:"image"`
+	ScanURL string `json:"scanUrl"`
 }
 
 type YuanluoboLoginPoll struct {
@@ -121,7 +122,20 @@ func NewYuanluoboClient(baseURL string, httpClient *http.Client) *YuanluoboClien
 }
 
 func (c *YuanluoboClient) LoginStart(ctx context.Context) (YuanluoboQRCode, error) {
-	return getYuanluobo[YuanluoboQRCode](ctx, c, YuanluoboAuth{}, "/sso/permit/v1/qrcode", nil)
+	qr, err := getYuanluobo[YuanluoboQRCode](ctx, c, YuanluoboAuth{}, "/sso/permit/v1/qrcode", nil)
+	if err != nil {
+		return qr, err
+	}
+	qr.ScanURL = c.loginScanURL(qr.Key)
+	return qr, nil
+}
+
+func (c *YuanluoboClient) loginScanURL(key string) string {
+	query := url.Values{
+		"key":  {key},
+		"from": {"qrcode-login"},
+	}
+	return c.baseURL + "/robot-public/all-in-app/scanned-page?" + query.Encode()
 }
 
 func (c *YuanluoboClient) LoginPoll(ctx context.Context, key string) (YuanluoboLoginPoll, error) {

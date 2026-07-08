@@ -8,7 +8,11 @@ import type { YuanluoboImportAPI } from './YuanluoboImportDialog'
 function yuanluoboApi(): YuanluoboImportAPI {
   return {
     status: vi.fn(() => Promise.resolve({ loggedIn: false })),
-    loginStart: vi.fn(() => Promise.resolve({ key: 'key-1', image: 'jpeg-base64' })),
+    loginStart: vi.fn(() => Promise.resolve({
+      key: 'key-1',
+      image: 'jpeg-base64',
+      scanUrl: 'https://jupiter.yuanluobo.com/robot-public/all-in-app/scanned-page?key=key-1&from=qrcode-login',
+    })),
     loginPoll: vi.fn(() => Promise.resolve({ status: 0, desc: '未扫码' })),
     logout: vi.fn(() => Promise.resolve()),
     players: vi.fn(() => Promise.resolve([])),

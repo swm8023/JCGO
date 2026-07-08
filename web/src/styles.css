@@ -1389,6 +1389,7 @@ textarea:focus-visible {
 
 .yuanluobo-qr {
   width: min(260px, 72vw);
+  height: min(260px, 72vw);
   aspect-ratio: 1;
   justify-self: center;
   border: 1px solid var(--line);
