@@ -111,14 +111,15 @@ export function GameSidebar({
                         )}
                       </span>
                       {selected && <span className="yuanluobo-imported-badge">当前</span>}
-                      <span className={analysisBadgeClass(game.analysisStatus)}>
-                        {analysisStatusLabel(game.analysisStatus)}
-                      </span>
                     </span>
                     <span className="yuanluobo-record-meta">
                       <span>{dateLabel}</span>
                       <span className="yuanluobo-meta-sep" aria-hidden="true" />
                       <span>{formatGameResult(game.result)}</span>
+                      <span className="yuanluobo-meta-sep" aria-hidden="true" />
+                      <span className={analysisBadgeClass(game.analysisStatus)}>
+                        {analysisStatusLabel(game.analysisStatus)}
+                      </span>
                     </span>
                   </button>
                   <span className="game-row-actions">

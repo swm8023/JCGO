@@ -383,6 +383,44 @@ describe('GameSidebar', () => {
     expect(players?.[1].querySelector('.local-game-result-marker')).toHaveAttribute('data-winner', 'white')
   })
 
+  it('keeps analysis status in the metadata row so names keep the full title line', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'AlphaGo Zero vs FineArt Master',
+          result: 'B+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+          gameDate: '2026-06-24',
+          blackName: 'AlphaGo Zero',
+          whiteName: 'FineArt Master',
+          analysisStatus: 'complete',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = container.querySelector('.game-row')
+    const main = row?.querySelector('.yuanluobo-record-main')
+    const meta = row?.querySelector('.yuanluobo-record-meta')
+    expect(main).toHaveTextContent('AlphaGo ZerovsFineArt Master')
+    expect(main).not.toHaveTextContent('已分析')
+    expect(meta).toHaveTextContent('2026-06-24黑中盘胜已分析')
+    expect(meta?.querySelector('.game-analysis-badge')).toHaveTextContent('已分析')
+  })
+
   it('shows an empty library state when no games have been imported', () => {
     render(
       <GameSidebar

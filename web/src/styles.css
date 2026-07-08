@@ -615,14 +615,15 @@ textarea:focus-visible {
 }
 
 .game-list .yuanluobo-player-name {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .game-list .yuanluobo-player-label,
 .game-list .local-game-title-label {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
