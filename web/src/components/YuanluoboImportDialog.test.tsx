@@ -119,6 +119,7 @@ describe('YuanluoboImportDialog', () => {
     const winRow = screen.getByRole('button', { name: /棋手一.*vs.*Opponent.*128手/ })
     expect(winRow).toHaveClass('yuanluobo-record-row')
     expect(winRow).toHaveAttribute('data-outcome', 'win')
+    expect(winRow.querySelectorAll('.yuanluobo-player-name')).toHaveLength(2)
     expect(within(winRow).getByText('已导入')).toBeInTheDocument()
     expect(within(winRow).getByText('胜')).toHaveClass('yuanluobo-result-watermark', 'win')
 

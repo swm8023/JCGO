@@ -313,11 +313,15 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
                 >
                   <span className="yuanluobo-record-main">
                     <span className="yuanluobo-record-title">
-                      <span className="yuanluobo-stone black" aria-hidden="true" />
-                      {record.blackPlayerName}
+                      <span className="yuanluobo-player-name">
+                        <span className="yuanluobo-stone black" aria-hidden="true" />
+                        {record.blackPlayerName}
+                      </span>
                       <span className="yuanluobo-vs">vs</span>
-                      <span className="yuanluobo-stone white" aria-hidden="true" />
-                      {record.whitePlayerName}
+                      <span className="yuanluobo-player-name">
+                        <span className="yuanluobo-stone white" aria-hidden="true" />
+                        {record.whitePlayerName}
+                      </span>
                     </span>
                     {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
                   </span>
