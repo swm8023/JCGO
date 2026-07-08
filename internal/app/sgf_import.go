@@ -104,7 +104,7 @@ func fetchYuanluoboSGF(sessionID string) (sgf string, displayName string, err er
 	}
 
 	sgf = convertYuanluoboToSGF(result.Data)
-	displayName = fmt.Sprintf("%s vs %s", result.Data.BlackPlayerName, result.Data.WhitePlayerName)
+	displayName = yuanluoboDisplayName(result.Data)
 	return sgf, displayName, nil
 }
 
@@ -157,6 +157,10 @@ func formatYuanluoboResult(data yuanluoboGameData) string {
 		return fmt.Sprintf("B+%.2f", -data.WinPieces)
 	}
 	return "Draw"
+}
+
+func yuanluoboDisplayName(data yuanluoboGameData) string {
+	return fmt.Sprintf("%s vs %s", data.BlackPlayerName, data.WhitePlayerName)
 }
 
 // containsStr checks if substr exists in s.

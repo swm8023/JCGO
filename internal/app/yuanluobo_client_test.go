@@ -129,3 +129,30 @@ func TestYuanluoboClientReturnsAuthInvalid(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestYuanluoboRecordCategoryName(t *testing.T) {
+	cases := map[int]string{
+		0:  "全部",
+		1:  "元萝卜AI",
+		15: "星阵AI",
+		2:  "巅峰对决",
+		5:  "99围棋",
+		6:  "新博围棋",
+		7:  "弈客少儿",
+		8:  "弈客围棋",
+		9:  "佳弈围棋",
+		4:  "五子棋",
+		3:  "好友约战",
+		13: "野狐成人",
+		14: "野狐少儿",
+		17: "赛事",
+	}
+	for mode, want := range cases {
+		if got := YuanluoboCategoryName(mode); got != want {
+			t.Fatalf("mode %d category = %q, want %q", mode, got, want)
+		}
+	}
+	if got := YuanluoboCategoryName(99); got != "其他" {
+		t.Fatalf("unknown category = %q", got)
+	}
+}
