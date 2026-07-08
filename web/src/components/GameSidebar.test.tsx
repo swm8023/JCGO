@@ -284,6 +284,38 @@ describe('GameSidebar', () => {
     expect(row?.querySelector('.game-row-actions')).toBeInTheDocument()
   })
 
+  it('normalizes legacy matchup display names to the yuanluobo title structure', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'Lee VS Cho',
+          result: 'B+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = container.querySelector('.game-row')
+    expect(row?.querySelector('.yuanluobo-record-title')).toHaveTextContent('LeevsCho')
+    expect(row?.querySelector('.yuanluobo-vs')).toHaveTextContent('vs')
+    expect(row?.querySelectorAll('.yuanluobo-stone')).toHaveLength(2)
+    expect(row?.querySelector('.game-title-name')).not.toBeInTheDocument()
+  })
+
   it('uses the left result stripe instead of a result watermark for local game rows', () => {
     const { container } = render(
       <GameSidebar

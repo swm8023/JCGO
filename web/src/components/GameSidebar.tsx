@@ -79,6 +79,7 @@ export function GameSidebar({
               const selected = game.gameId === selectedGameId
               const outcome = localGameOutcome(game.result)
               const dateLabel = formatDateLabel(game.gameDate || game.createdAt)
+              const title = localGameTitle(game)
               return (
                 <div
                   className={selected ? 'game-row yuanluobo-record-row selected' : 'game-row yuanluobo-record-row'}
@@ -88,20 +89,20 @@ export function GameSidebar({
                   <button className="game-row-open" onClick={() => onSelect(game.gameId)}>
                     <span className="yuanluobo-record-main">
                       <span className="yuanluobo-record-title">
-                        {game.blackName && game.whiteName ? (
+                        {title.kind === 'matchup' ? (
                           <>
                             <span className="yuanluobo-player-name">
                               <span className="yuanluobo-stone black" aria-hidden="true" />
-                              {game.blackName}
+                              {title.blackName}
                             </span>
                             <span className="yuanluobo-vs">vs</span>
                             <span className="yuanluobo-player-name">
                               <span className="yuanluobo-stone white" aria-hidden="true" />
-                              {game.whiteName}
+                              {title.whiteName}
                             </span>
                           </>
                         ) : (
-                          <span className="game-title-name">{game.displayName}</span>
+                          <span className="game-title-name">{title.displayName}</span>
                         )}
                       </span>
                       {selected && <span className="yuanluobo-imported-badge">当前</span>}
@@ -144,6 +145,25 @@ export function GameSidebar({
       </section>
     </aside>
   )
+}
+
+type LocalGameTitle =
+  | { kind: 'matchup'; blackName: string; whiteName: string }
+  | { kind: 'plain'; displayName: string }
+
+function localGameTitle(game: GameRecord): LocalGameTitle {
+  const blackName = game.blackName?.trim()
+  const whiteName = game.whiteName?.trim()
+  if (blackName && whiteName) return { kind: 'matchup', blackName, whiteName }
+
+  const matchup = /^\s*(.*?)\s+vs\s+(.*?)\s*$/i.exec(game.displayName)
+  const fallbackBlackName = matchup?.[1]?.trim()
+  const fallbackWhiteName = matchup?.[2]?.trim()
+  if (fallbackBlackName && fallbackWhiteName) {
+    return { kind: 'matchup', blackName: fallbackBlackName, whiteName: fallbackWhiteName }
+  }
+
+  return { kind: 'plain', displayName: game.displayName }
 }
 
 function analysisButton(analysisState: AnalysisState, progress: AnalysisProgress | undefined, onStart: () => void) {
