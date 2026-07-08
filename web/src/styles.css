@@ -2823,42 +2823,63 @@ textarea:focus-visible {
   }
 
   .yuanluobo-panel .yuanluobo-record-row {
-    min-height: 78px;
-    grid-template-columns: minmax(0, 1fr) 36px 18px;
-    column-gap: 12px;
-    row-gap: 6px;
-    padding: 14px 14px 14px 44px;
+    min-height: 64px;
+    grid-template-columns: minmax(0, 1fr) 30px 16px;
+    column-gap: 8px;
+    row-gap: 3px;
+    padding: 10px 12px 10px 38px;
     border-radius: 8px;
   }
 
   .yuanluobo-panel .yuanluobo-record-row::before {
-    left: 16px;
-    top: 18px;
-    bottom: 18px;
+    left: 14px;
+    top: 14px;
+    bottom: 14px;
     width: 4px;
   }
 
   .yuanluobo-record-title {
-    gap: 7px;
-    font-size: 16px;
+    gap: 5px;
+    font-size: 14px;
+    line-height: 1.1;
+  }
+
+  .yuanluobo-record-main {
+    gap: 6px;
+  }
+
+  .yuanluobo-player-name {
+    gap: 5px;
   }
 
   .yuanluobo-record-title .yuanluobo-stone {
-    width: 13px;
-    height: 13px;
+    width: 11px;
+    height: 11px;
   }
 
-  .yuanluobo-vs,
+  .yuanluobo-vs {
+    font-size: 12px;
+  }
+
   .yuanluobo-record-meta {
-    font-size: 13px;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 1.15;
+  }
+
+  .yuanluobo-imported-badge {
+    min-width: 40px;
+    min-height: 18px;
+    padding: 0 6px;
+    font-size: 10px;
   }
 
   .yuanluobo-result-watermark {
-    min-width: 32px;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    font-size: 17px;
+    min-width: 28px;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    font-size: 15px;
   }
 
   .yuanluobo-picker-backdrop {
