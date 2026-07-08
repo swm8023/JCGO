@@ -222,9 +222,10 @@ export default function App() {
       if (event.key === 'ArrowLeft') void goPrevious()
       if (event.key === 'ArrowRight') void goNext()
       if (event.key === 'Escape') {
-        if (activePV?.length) setActivePV(undefined)
+        if (showImport) setShowImport(false)
+        else if (gameListOpen) setGameListOpen(false)
+        else if (activePV?.length) setActivePV(undefined)
         else if (tryMode || snapshot?.canBackToMain) void exitTryMode()
-        else if (showImport) setShowImport(false)
       }
     }
     window.addEventListener('keydown', onKeyDown)

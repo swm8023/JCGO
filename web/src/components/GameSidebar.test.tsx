@@ -57,6 +57,40 @@ describe('GameSidebar', () => {
     expect(onImport).toHaveBeenCalledTimes(1)
   })
 
+  it('renders the local game list as a titlebar-below library surface', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[
+          { gameId: '2', displayName: 'New', result: 'W+R', sgfFilename: '2.sgf', createdAt: '2026-06-24T02:00:00Z' },
+          { gameId: '1', displayName: 'Old', result: 'B+R', sgfFilename: '1.sgf', createdAt: '2026-06-24T01:00:00Z' },
+        ]}
+        listOpen
+        selectedGameId="2"
+        analysisAvailable
+        analysisState="idle"
+        toolbarSlot={<div data-testid="overlay-slot">荐势弱</div>}
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const header = container.querySelector('.sidebar-header')
+    const list = container.querySelector<HTMLElement>('[aria-label="本地棋局列表"]')
+    expect(header).toContainElement(within(container).getByLabelText('Show game list'))
+    expect(list).not.toBeNull()
+    expect(list).toHaveClass('game-list')
+    expect(list).toHaveAttribute('aria-hidden', 'false')
+    expect(list?.querySelector('.game-list-shell')).toBeInTheDocument()
+    expect(within(list as HTMLElement).getByText('本地棋局')).toBeInTheDocument()
+    expect(within(list as HTMLElement).getByText('共 2 局')).toBeInTheDocument()
+  })
+
   it('places the analysis action in the left sidebar', () => {
     const onStartAnalysis = vi.fn()
     const { container } = render(
@@ -203,9 +237,32 @@ describe('GameSidebar', () => {
     const remove = screen.getByLabelText('Delete Demo')
     expect(rename).toHaveClass('game-row-action')
     expect(remove).toHaveClass('game-row-action', 'danger')
-    expect(rename).toHaveTextContent('✎')
-    expect(remove).toHaveTextContent('×')
+    expect(rename.querySelector('svg')).toBeInTheDocument()
+    expect(remove.querySelector('svg')).toBeInTheDocument()
     expect(container.querySelector('.game-row')).toBeInTheDocument()
+  })
+
+  it('shows an empty library state when no games have been imported', () => {
+    render(
+      <GameSidebar
+        games={[]}
+        listOpen
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const list = document.querySelector<HTMLElement>('[aria-label="本地棋局列表"][aria-hidden="false"]')
+    expect(list).not.toBeNull()
+    expect(within(list as HTMLElement).getByText('还没有本地棋局')).toBeInTheDocument()
   })
 
   it('shows game metadata without hiding dates or analysis status', () => {

@@ -1,5 +1,6 @@
 import type { AnalysisProgress, AnalysisState, GameRecord } from '../api/types'
 import type { ReactNode } from 'react'
+import { Menu, Pencil, Plus, Trash2 } from 'lucide-react'
 import { formatGameResult } from './gameResult'
 
 interface GameSidebarProps {
@@ -46,11 +47,11 @@ export function GameSidebar({
       <div className="sidebar-header">
         <h1>JCGO</h1>
         <div className="sidebar-actions sidebar-file-actions">
-          <button className="icon-button" onClick={onToggleList} aria-label="Show game list">
-            ☰
+          <button className="icon-button" onClick={onToggleList} aria-label="Show game list" aria-pressed={listOpen}>
+            <Menu size={17} aria-hidden="true" />
           </button>
           <button className="icon-button" onClick={onImport} aria-label="Import SGF">
-            +
+            <Plus size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="sidebar-toggle-actions">{toolbarSlot}</div>
@@ -62,42 +63,60 @@ export function GameSidebar({
         </button>
         {!analysisAvailable && analysisError && <small className="engine-error">{analysisError}</small>}
       </div>
-      <div className="game-list">
-        {games.map((game) => (
-          <div className={game.gameId === selectedGameId ? 'game-row selected' : 'game-row'} key={game.gameId}>
-            <button className="game-title" onClick={() => onSelect(game.gameId)}>
-              <span className="game-title-name">{game.displayName}</span>
-              <span className="game-title-meta">
-                <small>{formatGameResult(game.result)}</small>
-                {game.gameDate && <small>{`棋局 ${formatDateLabel(game.gameDate)}`}</small>}
-                <small>{`上传 ${formatDateLabel(game.createdAt)}`}</small>
-                <small className={game.analysisStatus === 'complete' ? 'game-analysis-badge complete' : 'game-analysis-badge'}>
-                  {analysisStatusLabel(game.analysisStatus)}
-                </small>
-              </span>
-            </button>
-            <button
-              className="game-row-action"
-              aria-label={`Rename ${game.displayName}`}
-              onClick={() => {
-                const name = window.prompt('Rename game', game.displayName)
-                if (name && name.trim()) onRename(game.gameId, name.trim())
-              }}
-            >
-              <span aria-hidden="true">✎</span>
-            </button>
-            <button
-              className="game-row-action danger"
-              aria-label={`Delete ${game.displayName}`}
-              onClick={() => {
-                if (window.confirm(`Delete ${game.displayName}?`)) onDelete(game.gameId)
-              }}
-            >
-              <span aria-hidden="true">×</span>
-            </button>
+      <section className="game-list" role="region" aria-label="本地棋局列表" aria-hidden={!listOpen}>
+        <div className="game-list-shell">
+          <header className="game-list-header">
+            <div>
+              <p className="game-list-eyebrow">Local games</p>
+              <h2>本地棋局</h2>
+            </div>
+            <span className="game-list-count">共 {games.length} 局</span>
+          </header>
+          <div className="game-list-body">
+            {games.length === 0 ? (
+              <p className="game-list-empty">还没有本地棋局</p>
+            ) : games.map((game) => (
+              <div className={game.gameId === selectedGameId ? 'game-row selected' : 'game-row'} key={game.gameId}>
+                <button className="game-title" onClick={() => onSelect(game.gameId)}>
+                  <span className="game-title-name">
+                    {game.displayName}
+                    {game.gameId === selectedGameId && <span className="game-selected-badge">当前</span>}
+                  </span>
+                  <span className="game-title-meta">
+                    <small>{formatGameResult(game.result)}</small>
+                    {game.gameDate && <small>{`棋局 ${formatDateLabel(game.gameDate)}`}</small>}
+                    <small>{`上传 ${formatDateLabel(game.createdAt)}`}</small>
+                    <small className={analysisBadgeClass(game.analysisStatus)}>
+                      {analysisStatusLabel(game.analysisStatus)}
+                    </small>
+                  </span>
+                </button>
+                <span className="game-row-actions">
+                  <button
+                    className="game-row-action"
+                    aria-label={`Rename ${game.displayName}`}
+                    onClick={() => {
+                      const name = window.prompt('Rename game', game.displayName)
+                      if (name && name.trim()) onRename(game.gameId, name.trim())
+                    }}
+                  >
+                    <Pencil size={15} aria-hidden="true" />
+                  </button>
+                  <button
+                    className="game-row-action danger"
+                    aria-label={`Delete ${game.displayName}`}
+                    onClick={() => {
+                      if (window.confirm(`Delete ${game.displayName}?`)) onDelete(game.gameId)
+                    }}
+                  >
+                    <Trash2 size={15} aria-hidden="true" />
+                  </button>
+                </span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      </section>
     </aside>
   )
 }
@@ -126,6 +145,10 @@ function formatDateLabel(value: string) {
   if (!value) return '-'
   const timeIndex = value.indexOf('T')
   return timeIndex > 0 ? value.slice(0, timeIndex) : value
+}
+
+function analysisBadgeClass(status?: AnalysisState) {
+  return status === 'complete' ? 'game-analysis-badge complete' : 'game-analysis-badge'
 }
 
 function analysisStatusLabel(status?: AnalysisState) {

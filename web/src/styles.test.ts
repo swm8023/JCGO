@@ -122,9 +122,15 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.analysis-tab[aria-selected=\'true\'] {\n  background: var(--analysis-pill-surface);\n  color: var(--ink);')
   })
 
-  it('keeps imported game rows aligned with compact icon actions', () => {
-    expect(styles).toContain('width: min(520px, calc(100vw - 72px));')
-    expect(styles).toContain('.game-row {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) 34px 34px;')
+  it('opens the local game library below the light titlebar with compact icon actions', () => {
+    expect(styles).toContain('--topbar-height: 42px;')
+    expect(styles).toContain('.game-sidebar.expanded .game-list {\n  position: fixed;\n  left: var(--app-safe-left);\n  right: var(--app-safe-right);\n  top: calc(var(--app-safe-top) + var(--topbar-height));')
+    expect(styles).toContain('bottom: var(--app-safe-bottom);')
+    expect(styles).toContain('.game-list-shell {\n  width: min(1040px, 100%);')
+    expect(styles).toContain('.game-list-header {')
+    expect(styles).toContain('.game-list-body {')
+    expect(styles).toContain('.game-row {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) auto;')
+    expect(styles).toContain('.game-row-actions {\n  display: flex;')
     expect(styles).toContain('.game-title span,\n.game-title small {\n  overflow: hidden;\n  text-overflow: ellipsis;\n  white-space: nowrap;')
     expect(styles).toContain('.game-title-meta {\n  display: flex;\n  flex-wrap: wrap;')
     expect(styles).toContain('.game-analysis-badge {\n  min-width: max-content;')
