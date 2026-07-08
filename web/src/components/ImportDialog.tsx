@@ -1,4 +1,5 @@
 import { type ChangeEvent, useRef, useState } from 'react'
+import { ArrowLeft, Cloud, FileUp, Link2, X } from 'lucide-react'
 import { YuanluoboImportDialog, type YuanluoboImportAPI } from './YuanluoboImportDialog'
 
 interface ImportDialogProps {
@@ -90,22 +91,35 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
 
   if (mode === 'url') {
     return (
-      <div className="import-dialog" role="dialog" aria-label="Import from URL">
-        <div className="import-dialog-body">
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="粘贴元萝卜复盘链接"
-            disabled={loading}
-            autoFocus
-          />
+      <div className="import-dialog" role="dialog" aria-label="从链接导入">
+        <div className="import-dialog-body import-url-panel">
+          <header className="import-panel-header">
+            <button className="import-icon-button" onClick={cancel} disabled={loading} aria-label="返回导入来源">
+              <ArrowLeft size={17} aria-hidden="true" />
+            </button>
+            <div>
+              <p className="import-panel-eyebrow">URL</p>
+              <h2>从链接导入</h2>
+              <p>粘贴元萝卜复盘链接，系统会读取棋局并生成 SGF。</p>
+            </div>
+          </header>
+          <label className="import-url-field">
+            <span>复盘链接</span>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://jupiter.yuanluobo.com/..."
+              disabled={loading}
+              autoFocus
+            />
+          </label>
           {error && <div className="import-error">{error}</div>}
           <div className="import-dialog-actions">
-            <button onClick={handleUrlSubmit} disabled={loading || !url.trim()}>
-              {loading ? '导入中...' : '确认'}
+            <button className="import-secondary-button" onClick={cancel} disabled={loading}>返回</button>
+            <button className="import-primary-button" onClick={handleUrlSubmit} disabled={loading || !url.trim()}>
+              {loading ? '导入中...' : '导入'}
             </button>
-            <button onClick={cancel} disabled={loading}>取消</button>
           </div>
         </div>
       </div>
@@ -121,12 +135,42 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
   }
 
   return (
-    <div className="import-dialog" role="dialog" aria-label="Import SGF">
-      <div className="import-dialog-body">
-        <button onClick={choose}>选择 SGF 文件</button>
-        <button onClick={() => setMode('url')}>从链接导入</button>
-        <button onClick={() => setMode('yuanluobo')}>元萝卜</button>
-        <button onClick={cancel}>取消</button>
+    <div className="import-dialog" role="dialog" aria-label="导入棋局">
+      <div className="import-dialog-body import-source-panel">
+        <header className="import-panel-header">
+          <div>
+            <p className="import-panel-eyebrow">Import</p>
+            <h2>导入棋局</h2>
+            <p>选择一个来源，导入后会进入当前棋盘。</p>
+          </div>
+          <button className="import-icon-button" onClick={cancel} aria-label="关闭导入">
+            <X size={17} aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="import-source-grid">
+          <button className="import-source-card" onClick={choose}>
+            <span className="import-source-icon"><FileUp size={20} aria-hidden="true" /></span>
+            <span className="import-source-copy">
+              <strong>SGF 文件</strong>
+              <small>从本地选择 .sgf 文件</small>
+            </span>
+          </button>
+          <button className="import-source-card" onClick={() => setMode('url')}>
+            <span className="import-source-icon"><Link2 size={20} aria-hidden="true" /></span>
+            <span className="import-source-copy">
+              <strong>复盘链接</strong>
+              <small>粘贴元萝卜分享链接</small>
+            </span>
+          </button>
+          <button className="import-source-card primary" onClick={() => setMode('yuanluobo')}>
+            <span className="import-source-icon"><Cloud size={20} aria-hidden="true" /></span>
+            <span className="import-source-copy">
+              <strong>元萝卜账号</strong>
+              <small>扫码后浏览历史棋局</small>
+            </span>
+          </button>
+        </div>
         <input ref={inputRef} type="file" accept=".sgf" hidden onChange={onFile} />
       </div>
     </div>

@@ -135,7 +135,10 @@ describe('responsive layout CSS', () => {
   it('keeps portrait import controls styled for compact dialogs', () => {
     expect(styles).toContain('.portrait-import-button {\n  min-height: 42px;')
     expect(styles).toContain('.import-dialog {\n  position: fixed;\n  inset: 0;\n  z-index: 40;')
-    expect(styles).toContain('.import-dialog-body {\n  width: min(320px, 100%);')
+    expect(styles).toContain('.import-dialog-body {\n  width: min(680px, 100%);')
+    expect(styles).toContain('.import-source-grid {\n  display: grid;')
+    expect(styles).toContain('.yuanluobo-login-layout {\n  width: min(760px, 100%);')
+    expect(styles).toContain('.yuanluobo-browser {\n  width: min(860px, 100%);')
   })
 
   it('keeps the portrait workspace ordered as toolbar, game info, board, controls, then analysis', () => {

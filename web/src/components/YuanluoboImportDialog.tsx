@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, LogOut, RefreshCw } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type {
   ImportResult,
@@ -87,31 +88,51 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImpo
   }, [])
 
   if (loginState === 'checking') {
-    return <div className="yuanluobo-panel">正在检查元萝卜登录...</div>
+    return (
+      <section className="yuanluobo-panel yuanluobo-login-layout" role="region" aria-label="元萝卜登录">
+        <p className="yuanluobo-muted">正在检查元萝卜登录...</p>
+      </section>
+    )
   }
 
   if (loginState !== 'logged-in') {
     return (
-      <div className="yuanluobo-panel">
-        <header className="yuanluobo-header">
-          <button onClick={onBack}>返回</button>
-          <strong>元萝卜扫码登录</strong>
-        </header>
-        {qr && (
-          <QRCodeSVG
-            className="yuanluobo-qr"
-            value={qr.scanUrl}
-            role="img"
-            aria-label="元萝卜登录二维码"
-            data-qr-value={qr.scanUrl}
-            includeMargin
-          />
-        )}
-        <p className="yuanluobo-muted">请使用元萝卜 App 扫码确认</p>
-        <p className="yuanluobo-muted">{pollDesc}</p>
+      <section className="yuanluobo-panel yuanluobo-login-layout" role="region" aria-label="元萝卜登录">
+        <div className="yuanluobo-login-copy">
+          <button className="yuanluobo-back-button" onClick={onBack}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            返回
+          </button>
+          <div>
+            <p className="yuanluobo-eyebrow">Account import</p>
+            <h2>元萝卜账号</h2>
+            <p>扫码后读取账号棋局，选择后导入到本地棋盘。</p>
+          </div>
+          <div className="yuanluobo-scan-status" aria-label="扫码状态">
+            <span className="yuanluobo-status-dot" aria-hidden="true" />
+            {pollDesc}
+          </div>
+        </div>
+
+        <div className="yuanluobo-qr-card">
+          {qr && (
+            <QRCodeSVG
+              className="yuanluobo-qr"
+              value={qr.scanUrl}
+              role="img"
+              aria-label="元萝卜登录二维码"
+              data-qr-value={qr.scanUrl}
+              includeMargin
+            />
+          )}
+          <p className="yuanluobo-muted">请使用元萝卜 App 扫码确认</p>
+          <button className="yuanluobo-refresh-button" onClick={() => void startLogin()}>
+            <RefreshCw size={16} aria-hidden="true" />
+            刷新二维码
+          </button>
+        </div>
         {error && <p className="import-error">{error}</p>}
-        <button onClick={() => void startLogin()}>刷新二维码</button>
-      </div>
+      </section>
     )
   }
 
@@ -125,6 +146,7 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
   const [gameMode, setGameMode] = useState(0)
   const [page, setPage] = useState(1)
   const [pageTotal, setPageTotal] = useState(0)
+  const [total, setTotal] = useState(0)
   const [records, setRecords] = useState<YuanluoboRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
@@ -136,6 +158,7 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
       const result = await api.records({ playerId: nextPlayerId, gameMode: nextGameMode, page: nextPage })
       setCategories(result.categories)
       setRecords(result.records)
+      setTotal(result.total)
       setPageTotal(result.pageTotal)
     } catch (reason) {
       setError(errorMessage(reason))
@@ -175,19 +198,31 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
   }
 
   return (
-    <div className="yuanluobo-panel">
+    <section className="yuanluobo-panel yuanluobo-browser" role="region" aria-label="元萝卜棋局浏览">
       <header className="yuanluobo-header">
-        <button onClick={onBack}>返回</button>
-        <strong>元萝卜棋局</strong>
-        <button onClick={() => void api.logout().then(onBack)}>退出</button>
+        <button className="yuanluobo-back-button" onClick={onBack}>
+          <ArrowLeft size={16} aria-hidden="true" />
+          返回
+        </button>
+        <div className="yuanluobo-title-block">
+          <p className="yuanluobo-eyebrow">Account games</p>
+          <h2>元萝卜棋局</h2>
+          <span>共 {total} 局</span>
+        </div>
+        <button className="yuanluobo-logout-button" onClick={() => void api.logout().then(onBack)}>
+          <LogOut size={16} aria-hidden="true" />
+          退出
+        </button>
       </header>
 
-      <label className="yuanluobo-player-select">
-        <span>棋手</span>
-        <select value={playerId} onChange={(event) => { setPlayerId(event.target.value); setPage(1) }}>
-          {players.map((player) => <option key={player.playerId} value={player.playerId}>{player.name}</option>)}
-        </select>
-      </label>
+      <div className="yuanluobo-filter-bar">
+        <label className="yuanluobo-player-select">
+          <span>棋手</span>
+          <select value={playerId} onChange={(event) => { setPlayerId(event.target.value); setPage(1) }}>
+            {players.map((player) => <option key={player.playerId} value={player.playerId}>{player.name}</option>)}
+          </select>
+        </label>
+      </div>
 
       <div className="yuanluobo-tabs" role="tablist" aria-label="元萝卜分类">
         {categories.map((category) => (
@@ -205,22 +240,26 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
       {error && <p className="import-error">{error}</p>}
       {loading && <p className="yuanluobo-muted">加载中...</p>}
 
-      <div className="yuanluobo-record-list">
-        {records.map((record) => (
-          <button key={record.sessionId} className="yuanluobo-record-row" onClick={() => void chooseRecord(record)}>
-            <span className="yuanluobo-record-title">{record.blackPlayerName} vs {record.whitePlayerName}</span>
-            <span className="yuanluobo-record-meta">{record.startDate} · {record.category} · {record.result}</span>
-            {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
-          </button>
-        ))}
-      </div>
+      {records.length === 0 && !loading ? (
+        <p className="yuanluobo-empty">当前分类暂无棋局</p>
+      ) : (
+        <div className="yuanluobo-record-list">
+          {records.map((record) => (
+            <button key={record.sessionId} className="yuanluobo-record-row" onClick={() => void chooseRecord(record)}>
+              <span className="yuanluobo-record-title">{record.blackPlayerName} vs {record.whitePlayerName}</span>
+              <span className="yuanluobo-record-meta">{record.startDate} · {record.category} · {record.result}</span>
+              {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
+            </button>
+          ))}
+        </div>
+      )}
 
       <footer className="yuanluobo-pager">
         <button disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
         <span>{page} / {Math.max(pageTotal, 1)}</span>
         <button disabled={pageTotal > 0 && page >= pageTotal} onClick={() => setPage((value) => value + 1)}>下一页</button>
       </footer>
-    </div>
+    </section>
   )
 }
 

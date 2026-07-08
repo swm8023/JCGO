@@ -27,6 +27,21 @@ describe('ImportDialog', () => {
     vi.restoreAllMocks()
   })
 
+  it('presents import sources as a compact tool panel', () => {
+    render(<ImportDialog onImport={vi.fn()} onImportUrl={vi.fn()} onCancel={vi.fn()} yuanluoboApi={yuanluoboApi()} onOpenGame={vi.fn()} />)
+
+    expect(screen.getByRole('heading', { name: '导入棋局' })).toBeInTheDocument()
+    expect(screen.getByText('选择一个来源，导入后会进入当前棋盘。')).toBeInTheDocument()
+
+    const file = screen.getByRole('button', { name: /SGF 文件/ })
+    const link = screen.getByRole('button', { name: /复盘链接/ })
+    const yuanluobo = screen.getByRole('button', { name: /元萝卜账号/ })
+
+    expect(file).toHaveClass('import-source-card')
+    expect(link).toHaveClass('import-source-card')
+    expect(yuanluobo).toHaveClass('import-source-card', 'primary')
+  })
+
   it('uses the File System Access picker with a stable SGF directory id when available', async () => {
     const file = new File(['(;GM[1]FF[4]SZ[19])'], 'demo.sgf', { type: 'application/x-go-sgf' })
     const showOpenFilePicker = vi.fn(() => Promise.resolve([{ getFile: () => Promise.resolve(file) }]))
@@ -36,7 +51,7 @@ describe('ImportDialog', () => {
 
     render(<ImportDialog onImport={onImport} onImportUrl={vi.fn()} onCancel={vi.fn()} yuanluoboApi={yuanluoboApi()} onOpenGame={vi.fn()} />)
 
-    await userEvent.click(screen.getByRole('button', { name: '选择 SGF 文件' }))
+    await userEvent.click(screen.getByRole('button', { name: /SGF 文件/ }))
 
     expect(showOpenFilePicker).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -59,8 +74,8 @@ describe('ImportDialog', () => {
       />,
     )
 
-    await userEvent.click(screen.getByRole('button', { name: '元萝卜' }))
+    await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
 
-    expect(await screen.findByText('元萝卜扫码登录')).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '元萝卜登录' })).toBeInTheDocument()
   })
 })

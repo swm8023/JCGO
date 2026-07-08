@@ -28,10 +28,13 @@ describe('YuanluoboImportDialog', () => {
   it('shows scan login when yuanluobo is not logged in', async () => {
     render(<YuanluoboImportDialog api={api()} onOpenGame={vi.fn()} onBack={vi.fn()} />)
 
-    expect(await screen.findByText('元萝卜扫码登录')).toBeInTheDocument()
+    const panel = await screen.findByRole('region', { name: '元萝卜登录' })
+    expect(panel).toHaveClass('yuanluobo-login-layout')
+    expect(screen.getByRole('heading', { name: '元萝卜账号' })).toBeInTheDocument()
+    expect(screen.getByText('扫码后读取账号棋局，选择后导入到本地棋盘。')).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: '元萝卜登录二维码' })).toHaveAttribute('data-qr-value', scanUrl)
     expect(screen.queryByAltText('元萝卜登录二维码')).not.toBeInTheDocument()
-    expect(screen.getByText('请使用元萝卜 App 扫码确认')).toBeInTheDocument()
+    expect(screen.getByLabelText('扫码状态')).toHaveTextContent('未扫码')
   })
 
   it('loads categories, records, and marks imported games', async () => {
@@ -65,8 +68,10 @@ describe('YuanluoboImportDialog', () => {
 
     render(<YuanluoboImportDialog api={testAPI} onOpenGame={vi.fn()} onBack={vi.fn()} />)
 
+    expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toBeInTheDocument()
     expect(await screen.findByText('棋手一')).toBeInTheDocument()
     expect(await screen.findByRole('tab', { name: '星阵AI' })).toBeInTheDocument()
+    expect(screen.getByText('共 2 局')).toBeInTheDocument()
     expect(screen.getByText('Black vs White')).toBeInTheDocument()
     expect(screen.getByText('已导入')).toBeInTheDocument()
   })
