@@ -18,18 +18,28 @@ type RPCHandler interface {
 	ServeWS(token string, conn *websocket.Conn)
 }
 
+type WorkerHandler interface {
+	ServeWorkerWS(conn *websocket.Conn)
+}
+
 type Server struct {
-	cfg     Config
-	handler RPCHandler
+	cfg           Config
+	handler       RPCHandler
+	workerHandler WorkerHandler
 }
 
 func New(cfg Config, handler RPCHandler) *Server {
-	return &Server{cfg: cfg, handler: handler}
+	return NewWithWorker(cfg, handler, nil)
+}
+
+func NewWithWorker(cfg Config, handler RPCHandler, workerHandler WorkerHandler) *Server {
+	return &Server{cfg: cfg, handler: handler, workerHandler: workerHandler}
 }
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", s.handleWS)
+	mux.HandleFunc("/worker", s.handleWorkerWS)
 	mux.HandleFunc("/", s.serveStatic)
 	return mux
 }
@@ -52,7 +62,7 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
-	token, ok := tokenFromSubprotocols(r.Header.Values("Sec-Websocket-Protocol"), s.cfg.AccessToken)
+	token, ok := tokenFromSubprotocols(r.Header.Values("Sec-Websocket-Protocol"), "jcgo-jsonrpc", s.cfg.AccessToken)
 	if !ok {
 		http.Error(w, "websocket token rejected", http.StatusUnauthorized)
 		return
@@ -72,22 +82,43 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	s.handler.ServeWS(token, conn)
 }
 
-func tokenFromSubprotocols(values []string, expectedToken string) (string, bool) {
+func (s *Server) handleWorkerWS(w http.ResponseWriter, r *http.Request) {
+	_, ok := tokenFromSubprotocols(r.Header.Values("Sec-Websocket-Protocol"), "jcgo-worker", s.cfg.AccessToken)
+	if !ok {
+		http.Error(w, "worker websocket token rejected", http.StatusUnauthorized)
+		return
+	}
+	upgrader := websocket.Upgrader{
+		Subprotocols: []string{"jcgo-worker"},
+		CheckOrigin:  func(*http.Request) bool { return true },
+	}
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	if s.workerHandler == nil {
+		_ = conn.Close()
+		return
+	}
+	s.workerHandler.ServeWorkerWS(conn)
+}
+
+func tokenFromSubprotocols(values []string, protocol string, expectedToken string) (string, bool) {
 	wantToken := "token." + expectedToken
-	foundRPC := false
+	foundProtocol := false
 	foundToken := false
 	for _, value := range values {
 		for _, part := range strings.Split(value, ",") {
 			item := strings.TrimSpace(part)
-			if item == "jcgo-jsonrpc" {
-				foundRPC = true
+			if item == protocol {
+				foundProtocol = true
 			}
 			if item == wantToken {
 				foundToken = true
 			}
 		}
 	}
-	if !foundRPC || !foundToken {
+	if !foundProtocol || !foundToken {
 		return "", false
 	}
 	return expectedToken, true

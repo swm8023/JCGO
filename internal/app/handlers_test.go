@@ -29,7 +29,7 @@ func TestImportListRenameDeleteGame(t *testing.T) {
 	files := store.NewFileStore(filepath.Join(dir, "games"))
 	handler := NewHandler(repo, files, NewWorkspaceStore(), nil)
 
-	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","originalFilename":"demo.sgf","sgfText":"(;GM[1]FF[4]SZ[19]RE[B+R]DT[2026-06-24];B[pd])"}`))
+	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","originalFilename":"demo.sgf","sgfText":"(;GM[1]FF[4]SZ[19]PB[Lee]PW[Cho]RE[B+R]DT[2026-06-24];B[pd])"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,6 +39,9 @@ func TestImportListRenameDeleteGame(t *testing.T) {
 	}
 	if imported.Game.GameDate != "2026-06-24" {
 		t.Fatalf("game date = %q", imported.Game.GameDate)
+	}
+	if imported.Game.BlackName != "Lee" || imported.Game.WhiteName != "Cho" {
+		t.Fatalf("player names = %#v", imported.Game)
 	}
 	if imported.Game.SGFFilename != imported.Game.ID+".sgf" {
 		t.Fatalf("sgf filename = %q, id = %q", imported.Game.SGFFilename, imported.Game.ID)
@@ -60,7 +63,7 @@ func TestImportListRenameDeleteGame(t *testing.T) {
 	if listResult.(ListResult).Games[0].DisplayName != "Renamed" {
 		t.Fatalf("list = %#v", listResult)
 	}
-	if listResult.(ListResult).Games[0].GameDate != "2026-06-24" || listResult.(ListResult).Games[0].AnalysisStatus != string(AnalysisComplete) {
+	if listResult.(ListResult).Games[0].GameDate != "2026-06-24" || listResult.(ListResult).Games[0].BlackName != "Lee" || listResult.(ListResult).Games[0].WhiteName != "Cho" || listResult.(ListResult).Games[0].AnalysisStatus != string(AnalysisComplete) {
 		t.Fatalf("list metadata = %#v", listResult)
 	}
 
@@ -140,6 +143,45 @@ func TestGameListBackfillsMissingGameDateFromStoredSGF(t *testing.T) {
 	}
 	if stored.GameDate != "2026-06-26" {
 		t.Fatalf("stored game date = %q", stored.GameDate)
+	}
+}
+
+func TestGameListBackfillsPlayerNamesFromStoredSGF(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	files := store.NewFileStore(filepath.Join(dir, "games"))
+	record, err := repo.CreateGame(ctx, store.CreateGameInput{
+		DisplayName: "Legacy",
+		Result:      "B+R",
+		SGFFilename: "legacy.sgf",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := files.WriteSGF(record.SGFFilename, "(;GM[1]FF[4]SZ[19]PB[Lee]PW[Cho]RE[B+R];B[pd])"); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewHandler(repo, files, NewWorkspaceStore(), nil)
+
+	listResult, err := handler.Call(ctx, "secret", "game.list", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed := listResult.(ListResult).Games[0]
+	if listed.BlackName != "Lee" || listed.WhiteName != "Cho" {
+		t.Fatalf("listed names = %#v", listed)
+	}
+	stored, err := repo.GetGame(ctx, record.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.BlackName != "Lee" || stored.WhiteName != "Cho" {
+		t.Fatalf("stored names = %#v", stored)
 	}
 }
 

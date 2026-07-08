@@ -3,11 +3,13 @@ package app
 import (
 	"context"
 	"errors"
+	"log"
 	"path/filepath"
 
 	"jcgo/internal/config"
 	"jcgo/internal/katago"
 	"jcgo/internal/store"
+	"jcgo/internal/worker"
 )
 
 type App struct {
@@ -15,6 +17,7 @@ type App struct {
 	Files      store.FileStore
 	Workspaces *WorkspaceStore
 	Engine     katago.Analyzer
+	Workers    *worker.Pool
 	Scheduler  *Scheduler
 	RPC        *Handler
 }
@@ -25,10 +28,12 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, err
 	}
 	files := store.NewFileStore(cfg.GamesDir)
-	engine, err := startEngine(ctx, cfg)
+	localEngine, err := startEngine(ctx, cfg)
 	if err != nil {
-		engine = katago.NewUnavailable(err.Error())
+		localEngine = katago.NewUnavailable(err.Error())
 	}
+	workers := worker.NewPool(localEngine, log.Default())
+	engine := katago.Analyzer(workers)
 	workspaces := NewWorkspaceStore()
 	scheduler := NewScheduler(engine, cfg.MaxVisits)
 	handler := NewHandlerWithOptions(repo, files, workspaces, scheduler, HandlerOptions{
@@ -39,6 +44,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Files:      files,
 		Workspaces: workspaces,
 		Engine:     engine,
+		Workers:    workers,
 		Scheduler:  scheduler,
 		RPC:        handler,
 	}, nil

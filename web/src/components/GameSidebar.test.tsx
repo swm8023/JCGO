@@ -57,6 +57,40 @@ describe('GameSidebar', () => {
     expect(onImport).toHaveBeenCalledTimes(1)
   })
 
+  it('renders the local game list as a titlebar-below library surface', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[
+          { gameId: '2', displayName: 'New', result: 'W+R', sgfFilename: '2.sgf', createdAt: '2026-06-24T02:00:00Z' },
+          { gameId: '1', displayName: 'Old', result: 'B+R', sgfFilename: '1.sgf', createdAt: '2026-06-24T01:00:00Z' },
+        ]}
+        listOpen
+        selectedGameId="2"
+        analysisAvailable
+        analysisState="idle"
+        toolbarSlot={<div data-testid="overlay-slot">荐势弱</div>}
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const header = container.querySelector('.sidebar-header')
+    const list = container.querySelector<HTMLElement>('[aria-label="本地棋局列表"]')
+    expect(header).toContainElement(within(container).getByLabelText('Show game list'))
+    expect(list).not.toBeNull()
+    expect(list).toHaveClass('game-list')
+    expect(list).toHaveAttribute('aria-hidden', 'false')
+    expect(list?.querySelector('.game-list-shell')).toBeInTheDocument()
+    expect(within(list as HTMLElement).getByText('本地棋局')).toBeInTheDocument()
+    expect(within(list as HTMLElement).getByText('共 2 局')).toBeInTheDocument()
+  })
+
   it('places the analysis action in the left sidebar', () => {
     const onStartAnalysis = vi.fn()
     const { container } = render(
@@ -203,9 +237,211 @@ describe('GameSidebar', () => {
     const remove = screen.getByLabelText('Delete Demo')
     expect(rename).toHaveClass('game-row-action')
     expect(remove).toHaveClass('game-row-action', 'danger')
-    expect(rename).toHaveTextContent('✎')
-    expect(remove).toHaveTextContent('×')
+    expect(rename.querySelector('svg')).toBeInTheDocument()
+    expect(remove.querySelector('svg')).toBeInTheDocument()
     expect(container.querySelector('.game-row')).toBeInTheDocument()
+  })
+
+  it('uses the yuanluobo record row structure for local game rows', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'Lee vs Cho',
+          result: 'B+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+          gameDate: '2026-06-24',
+          blackName: 'Lee',
+          whiteName: 'Cho',
+          analysisStatus: 'complete',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = container.querySelector('.game-row')
+    expect(row).toHaveClass('yuanluobo-record-row')
+    expect(row).not.toHaveAttribute('data-outcome')
+    expect(row).toHaveAttribute('data-winner', 'black')
+    expect(row?.querySelector('.yuanluobo-record-main')).toBeInTheDocument()
+    expect(row?.querySelector('.yuanluobo-record-title')).toHaveTextContent('LeevsCho')
+    expect(row?.querySelector('.yuanluobo-vs')).toHaveTextContent('vs')
+    expect(row?.querySelectorAll('.yuanluobo-stone')).toHaveLength(2)
+    expect(row?.querySelector('.local-game-result-marker')).toHaveAttribute('data-winner', 'black')
+    expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('2026-06-24')
+    expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('黑中盘胜')
+    expect(row?.querySelector('.yuanluobo-result-watermark')).not.toBeInTheDocument()
+    expect(row?.querySelector('.game-row-actions')).toBeInTheDocument()
+  })
+
+  it('normalizes legacy matchup display names to the yuanluobo title structure', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'Lee VS Cho',
+          result: 'B+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = container.querySelector('.game-row')
+    expect(row?.querySelector('.yuanluobo-record-title')).toHaveTextContent('LeevsCho')
+    expect(row?.querySelector('.yuanluobo-vs')).toHaveTextContent('vs')
+    expect(row?.querySelectorAll('.yuanluobo-stone')).toHaveLength(2)
+    expect(row?.querySelector('.game-title-name')).not.toBeInTheDocument()
+  })
+
+  it('uses the left result stripe instead of a result watermark for local game rows', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'White wins',
+          result: 'W+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    expect(container.querySelector('.yuanluobo-result-watermark')).not.toBeInTheDocument()
+    expect(container.querySelector('.game-row')).not.toHaveAttribute('data-outcome')
+    expect(container.querySelector('.game-row')).toHaveAttribute('data-winner', 'white')
+  })
+
+  it('places the local result marker before the winning player name', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'Lee vs Cho',
+          result: 'W+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+          blackName: 'Lee',
+          whiteName: 'Cho',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = container.querySelector('.game-row')
+    const players = row?.querySelectorAll('.yuanluobo-player-name')
+    expect(row).not.toHaveAttribute('data-outcome')
+    expect(row).toHaveAttribute('data-winner', 'white')
+    expect(players?.[0].querySelector('.local-game-result-marker')).not.toBeInTheDocument()
+    expect(players?.[1].querySelector('.local-game-result-marker')).toHaveAttribute('data-winner', 'white')
+  })
+
+  it('keeps analysis status in the metadata row so names keep the full title line', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'AlphaGo Zero vs FineArt Master',
+          result: 'B+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+          gameDate: '2026-06-24',
+          blackName: 'AlphaGo Zero',
+          whiteName: 'FineArt Master',
+          analysisStatus: 'complete',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = container.querySelector('.game-row')
+    const main = row?.querySelector('.yuanluobo-record-main')
+    const meta = row?.querySelector('.yuanluobo-record-meta')
+    expect(main).toHaveTextContent('AlphaGo ZerovsFineArt Master')
+    expect(main).not.toHaveTextContent('已分析')
+    expect(meta).toHaveTextContent('2026-06-24黑中盘胜已分析')
+    expect(meta?.querySelector('.game-analysis-badge')).toHaveTextContent('已分析')
+  })
+
+  it('shows an empty library state when no games have been imported', () => {
+    render(
+      <GameSidebar
+        games={[]}
+        listOpen
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const list = document.querySelector<HTMLElement>('[aria-label="本地棋局列表"][aria-hidden="false"]')
+    expect(list).not.toBeNull()
+    expect(within(list as HTMLElement).getByText('还没有本地棋局')).toBeInTheDocument()
   })
 
   it('shows game metadata without hiding dates or analysis status', () => {
@@ -239,8 +475,8 @@ describe('GameSidebar', () => {
     expect(row).not.toBeNull()
     const gameRow = within(row as HTMLElement)
     expect(gameRow.getByText('黑中盘胜')).toBeInTheDocument()
-    expect(gameRow.getByText('棋局 2026-06-24')).toBeInTheDocument()
-    expect(gameRow.getByText('上传 2026-06-25')).toBeInTheDocument()
+    expect(gameRow.getByText('2026-06-24')).toBeInTheDocument()
+    expect(gameRow.queryByText('上传 2026-06-25')).not.toBeInTheDocument()
     expect(gameRow.getByText('已分析')).toBeInTheDocument()
   })
 

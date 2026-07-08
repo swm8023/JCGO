@@ -1,0 +1,31 @@
+package worker
+
+import "jcgo/internal/katago"
+
+const (
+	Subprotocol = "jcgo-worker"
+
+	MessageRegister = "register"
+	MessageAnalyze  = "analyze"
+	MessageResult   = "result"
+	MessageError    = "error"
+)
+
+type Info struct {
+	Name               string `json:"name"`
+	Platform           string `json:"platform"`
+	KatagoPath         string `json:"katagoPath"`
+	ModelPath          string `json:"modelPath"`
+	AnalysisConfigPath string `json:"analysisConfigPath"`
+	Available          bool   `json:"available"`
+	Error              string `json:"error,omitempty"`
+}
+
+type Envelope struct {
+	Type   string         `json:"type"`
+	ID     string         `json:"id,omitempty"`
+	Worker *Info          `json:"worker,omitempty"`
+	Query  *katago.Query  `json:"query,omitempty"`
+	Result *katago.Result `json:"result,omitempty"`
+	Error  string         `json:"error,omitempty"`
+}

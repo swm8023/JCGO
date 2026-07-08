@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StatePayload } from './api/types'
@@ -296,6 +296,59 @@ describe('App variation navigation', () => {
 
     expect(screen.getByLabelText('Move 5, white to play')).toBeInTheDocument()
   })
+
+  it('closes the local game list with Escape while keeping the titlebar available', async () => {
+    const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.state = gameLibraryState('game-1')
+
+    const { container } = render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    const list = container.querySelector<HTMLElement>('[aria-label="本地棋局列表"]')
+    expect(list).not.toBeNull()
+    expect(list).toHaveAttribute('aria-hidden', 'true')
+
+    await userEvent.click(screen.getByLabelText('Show game list'))
+    expect(list).toHaveAttribute('aria-hidden', 'false')
+    expect(screen.getByLabelText('Import SGF')).toBeInTheDocument()
+
+    await userEvent.keyboard('{Escape}')
+    expect(list).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('closes the local game list after selecting a game', async () => {
+    const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+      clear: () => storage.clear(),
+    })
+    rpc.state = gameLibraryState('game-1')
+
+    const { container } = render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    const list = container.querySelector<HTMLElement>('[aria-label="本地棋局列表"]')
+    expect(list).not.toBeNull()
+    await userEvent.click(screen.getByLabelText('Show game list'))
+    expect(list).toHaveAttribute('aria-hidden', 'false')
+
+    rpc.responses = [gameLibraryState('game-2')]
+    await userEvent.click(within(list as HTMLElement).getByRole('button', { name: /^Second study/ }))
+
+    expect(rpc.calls.at(-1)).toEqual({
+      method: 'game.select',
+      params: { gameId: 'game-2' },
+    })
+    expect(list).toHaveAttribute('aria-hidden', 'true')
+  })
 })
 
 function emptyWorkspaceState(): StatePayload {
@@ -349,6 +402,35 @@ function mainlineState(moveNumber: number, totalMoves: number): StatePayload {
       nodeId: `main:${moveNumber}`,
       candidates: { moves: [], orders: [], visits: [], winrates: [], scoreLeads: [], pvs: [] },
     },
+  }
+}
+
+function gameLibraryState(gameId: string): StatePayload {
+  const state = mainlineState(5, 12)
+  return {
+    ...state,
+    gameId,
+    games: [
+      {
+        gameId: 'game-1',
+        displayName: 'First study',
+        result: 'B+R',
+        sgfFilename: 'first.sgf',
+        createdAt: '2026-06-26T00:00:00Z',
+        gameDate: '2026-06-25',
+        analysisStatus: 'complete',
+      },
+      {
+        gameId: 'game-2',
+        displayName: 'Second study',
+        result: 'W+3.50',
+        sgfFilename: 'second.sgf',
+        createdAt: '2026-06-27T00:00:00Z',
+        gameDate: '2026-06-26',
+        analysisStatus: 'idle',
+      },
+    ],
+    snapshot: state.snapshot ? { ...state.snapshot, gameId } : undefined,
   }
 }
 

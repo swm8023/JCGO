@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -35,6 +36,49 @@ func TestWebSocketAcceptsTokenSubprotocol(t *testing.T) {
 	defer conn.Close()
 	if resp.Header.Get("Sec-Websocket-Protocol") != "jcgo-jsonrpc" {
 		t.Fatalf("protocol = %q", resp.Header.Get("Sec-Websocket-Protocol"))
+	}
+}
+
+type recordingWorkerHandler struct {
+	served chan struct{}
+}
+
+func (h *recordingWorkerHandler) ServeWorkerWS(conn *websocket.Conn) {
+	close(h.served)
+	_ = conn.Close()
+}
+
+func TestWorkerWebSocketRejectsMissingToken(t *testing.T) {
+	workerHandler := &recordingWorkerHandler{served: make(chan struct{})}
+	srv := httptest.NewServer(NewWithWorker(Config{AccessToken: "secret"}, nil, workerHandler).Handler())
+	defer srv.Close()
+
+	url := "ws" + srv.URL[len("http"):] + "/worker"
+	_, _, err := websocket.DefaultDialer.Dial(url, nil)
+	if err == nil {
+		t.Fatal("Dial succeeded without token")
+	}
+}
+
+func TestWorkerWebSocketAcceptsTokenSubprotocol(t *testing.T) {
+	workerHandler := &recordingWorkerHandler{served: make(chan struct{})}
+	srv := httptest.NewServer(NewWithWorker(Config{AccessToken: "secret"}, nil, workerHandler).Handler())
+	defer srv.Close()
+
+	dialer := websocket.Dialer{Subprotocols: []string{"jcgo-worker", "token.secret"}}
+	url := "ws" + srv.URL[len("http"):] + "/worker"
+	conn, resp, err := dialer.Dial(url, nil)
+	if err != nil {
+		t.Fatalf("Dial failed: %v", err)
+	}
+	defer conn.Close()
+	if resp.Header.Get("Sec-Websocket-Protocol") != "jcgo-worker" {
+		t.Fatalf("protocol = %q", resp.Header.Get("Sec-Websocket-Protocol"))
+	}
+	select {
+	case <-workerHandler.served:
+	case <-time.After(time.Second):
+		t.Fatal("worker handler was not called")
 	}
 }
 
