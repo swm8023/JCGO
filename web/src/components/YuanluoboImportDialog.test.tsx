@@ -40,7 +40,10 @@ describe('YuanluoboImportDialog', () => {
   it('loads categories, records, and marks imported games', async () => {
     const testAPI = api({
       status: vi.fn(() => Promise.resolve({ loggedIn: true })),
-      players: vi.fn(() => Promise.resolve([{ playerId: 'player-1', name: '棋手一' }])),
+      players: vi.fn(() => Promise.resolve([
+        { playerId: 'player-1', name: '棋手一' },
+        { playerId: 'player-2', name: '棋手二' },
+      ])),
       records: vi.fn(() => Promise.resolve({
         total: 3,
         page: 1,
@@ -133,22 +136,29 @@ describe('YuanluoboImportDialog', () => {
     await userEvent.click(playerTrigger)
     const playerDialog = await screen.findByRole('dialog', { name: '选择棋手' })
     expect(playerDialog).toHaveClass('yuanluobo-picker-sheet')
-    expect(within(playerDialog).getByPlaceholderText('搜索棋手')).toBeInTheDocument()
-    expect(within(playerDialog).getByRole('button', { name: /棋手一/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(playerDialog).queryByPlaceholderText('搜索棋手')).not.toBeInTheDocument()
+    expect(within(playerDialog).queryByRole('searchbox')).not.toBeInTheDocument()
+    expect(playerDialog.querySelector('.yuanluobo-picker-check')).not.toBeInTheDocument()
+    expect(within(playerDialog).getByRole('button', { name: /棋手一/ })).toHaveAttribute('data-selected', 'true')
+    expect(within(playerDialog).getByRole('button', { name: /棋手二/ })).toBeInTheDocument()
 
-    await userEvent.keyboard('{Escape}')
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择棋手' })).not.toBeInTheDocument())
+    await userEvent.click(within(playerDialog).getByRole('button', { name: /棋手二/ }))
+    await waitFor(() => expect(testAPI.records).toHaveBeenCalledWith({ playerId: 'player-2', gameMode: 1, page: 1 }))
+    expect(screen.queryByRole('dialog', { name: '选择棋手' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /棋手 棋手二/ })).toBeInTheDocument()
 
-    await userEvent.click(platformTrigger)
+    await userEvent.click(screen.getByRole('button', { name: /平台 元萝卜AI/ }))
     const platformDialog = await screen.findByRole('dialog', { name: '选择平台' })
     expect(platformDialog).toHaveClass('yuanluobo-picker-sheet')
-    expect(within(platformDialog).getByPlaceholderText('搜索平台')).toBeInTheDocument()
-    expect(within(platformDialog).getByRole('button', { name: /元萝卜AI/ })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(platformDialog).queryByPlaceholderText('搜索平台')).not.toBeInTheDocument()
+    expect(within(platformDialog).queryByRole('searchbox')).not.toBeInTheDocument()
+    expect(platformDialog.querySelector('.yuanluobo-picker-check')).not.toBeInTheDocument()
+    expect(within(platformDialog).getByRole('button', { name: /元萝卜AI/ })).toHaveAttribute('data-selected', 'true')
     expect(within(platformDialog).getByRole('button', { name: /星阵AI/ })).toBeInTheDocument()
     expect(within(platformDialog).queryByText('全部')).not.toBeInTheDocument()
 
     await userEvent.click(within(platformDialog).getByRole('button', { name: /星阵AI/ }))
-    await waitFor(() => expect(testAPI.records).toHaveBeenCalledWith({ playerId: 'player-1', gameMode: 15, page: 1 }))
+    await waitFor(() => expect(testAPI.records).toHaveBeenCalledWith({ playerId: 'player-2', gameMode: 15, page: 1 }))
     expect(screen.queryByRole('dialog', { name: '选择平台' })).not.toBeInTheDocument()
   })
 

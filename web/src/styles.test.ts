@@ -193,7 +193,11 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.yuanluobo-pager {\n  min-height: 40px;')
     expect(styles).toContain('.yuanluobo-picker-backdrop {')
     expect(styles).toContain('.yuanluobo-picker-sheet {\n  position: fixed;')
-    expect(styles).toContain('.yuanluobo-picker-option[aria-pressed=\'true\'] {')
+    expect(styles).toContain('grid-template-rows: auto auto minmax(0, 1fr);')
+    expect(styles).not.toContain('.yuanluobo-picker-search')
+    expect(styles).toContain('.yuanluobo-panel .yuanluobo-picker-option {\n  width: 100%;\n  min-height: 54px;\n  display: grid;\n  grid-template-columns: 34px minmax(0, 1fr);')
+    expect(styles).toContain('.yuanluobo-panel .yuanluobo-picker-option[data-selected=\'true\'] {')
+    expect(styles).not.toContain('.yuanluobo-picker-check')
   })
 
   it('keeps the portrait workspace ordered as toolbar, game info, board, controls, then analysis', () => {

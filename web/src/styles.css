@@ -2154,9 +2154,9 @@ textarea:focus-visible {
   width: min(900px, calc(100dvw - 40px));
   max-height: min(76dvh, 1040px);
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
-  gap: 14px;
-  padding: 18px 34px 34px;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 18px 28px 28px;
   box-sizing: border-box;
   border: 1px solid rgb(184 168 152 / 0.72);
   border-radius: 24px;
@@ -2199,65 +2199,41 @@ textarea:focus-visible {
   justify-self: start;
 }
 
-.yuanluobo-picker-search {
-  min-height: 42px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  padding: 0 16px;
-  border: 1px solid rgb(184 168 152 / 0.6);
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.56);
-  color: #7c6b5b;
-}
-
-.yuanluobo-picker-search input {
-  min-width: 0;
-  height: 36px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: 15px;
-  font-weight: 650;
-  outline: none;
-}
-
-.yuanluobo-picker-search input::placeholder {
-  color: #9b8d7d;
-}
-
 .yuanluobo-picker-options {
   min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 6px;
   overflow: auto;
-  padding: 2px 8px 2px 0;
+  padding: 2px;
 }
 
-.yuanluobo-picker-option {
+.yuanluobo-panel .yuanluobo-picker-option {
   width: 100%;
-  min-height: 62px;
+  min-height: 54px;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 32px;
+  grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
-  padding: 0 10px;
-  border: 0;
-  border-bottom: 1px solid rgb(184 168 152 / 0.42);
-  border-radius: 0;
-  background: transparent;
+  gap: 12px;
+  padding: 0 12px;
+  border: 1px solid rgb(184 168 152 / 0.32);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.42);
   color: var(--ink);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
   text-align: left;
 }
 
-.yuanluobo-picker-option:hover:not(:disabled) {
-  background: rgb(26 71 42 / 0.04);
+.yuanluobo-panel .yuanluobo-picker-option:hover:not(:disabled) {
+  border-color: rgb(126 96 58 / 0.32);
+  background: rgb(255 255 255 / 0.68);
   transform: none;
 }
 
-.yuanluobo-picker-option[aria-pressed='true'] {
-  border: 1px solid rgb(5 150 105 / 0.34);
-  border-radius: 8px;
-  background: rgb(5 150 105 / 0.08);
+.yuanluobo-panel .yuanluobo-picker-option[data-selected='true'] {
+  border-color: rgb(47 143 88 / 0.42);
+  background: linear-gradient(90deg, rgb(47 143 88 / 0.14), rgb(255 255 255 / 0.52));
+  box-shadow: inset 4px 0 0 #2f8f58, inset 0 1px 0 rgb(255 255 255 / 0.72);
 }
 
 .yuanluobo-picker-option strong {
@@ -2314,23 +2290,6 @@ textarea:focus-visible {
 
 .yuanluobo-picker-mark[data-tone='brown'] {
   background: #8c7053;
-}
-
-.yuanluobo-picker-check {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  justify-self: end;
-  border: 2px solid rgb(124 107 91 / 0.5);
-  border-radius: 999px;
-  color: transparent;
-}
-
-.yuanluobo-picker-option[aria-pressed='true'] .yuanluobo-picker-check {
-  border-color: #2f8f58;
-  background: #2f8f58;
-  color: var(--surface-raised);
 }
 
 .yuanluobo-picker-empty {
@@ -2925,7 +2884,7 @@ textarea:focus-visible {
     border-radius: 22px 22px 0 0;
   }
 
-  .yuanluobo-picker-option {
+  .yuanluobo-panel .yuanluobo-picker-option {
     min-height: 56px;
   }
 

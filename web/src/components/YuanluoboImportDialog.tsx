@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Grid3X3, LogOut, RefreshCw, Search, UserRound } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, Grid3X3, LogOut, RefreshCw, UserRound } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type {
   ImportResult,
@@ -153,7 +153,6 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
   const [total, setTotal] = useState(0)
   const [records, setRecords] = useState<YuanluoboRecord[]>([])
   const [pickerKind, setPickerKind] = useState<YuanluoboPickerKind>()
-  const [pickerSearch, setPickerSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
 
@@ -204,7 +203,6 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
   }, [pickerKind])
 
   const openPicker = (kind: YuanluoboPickerKind) => {
-    setPickerSearch('')
     setPickerKind(kind)
   }
 
@@ -231,13 +229,6 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
 
   const selectedPlayer = players.find((player) => player.playerId === playerId)
   const selectedCategory = categories.find((category) => category.gameMode === gameMode) ?? defaultYuanluoboCategory
-  const normalizedPickerSearch = pickerSearch.trim().toLowerCase()
-  const visiblePlayers = normalizedPickerSearch
-    ? players.filter((player) => player.name.toLowerCase().includes(normalizedPickerSearch))
-    : players
-  const visibleCategories = normalizedPickerSearch
-    ? categories.filter((category) => category.title.toLowerCase().includes(normalizedPickerSearch))
-    : categories
 
   return (
     <section className="yuanluobo-panel yuanluobo-fullscreen-page yuanluobo-browser" role="region" aria-label="元萝卜棋局浏览">
@@ -366,56 +357,43 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
               <h3>{pickerKind === 'player' ? '选择棋手' : '选择平台'}</h3>
               <span aria-hidden="true">◆</span>
             </header>
-            <label className="yuanluobo-picker-search">
-              <Search size={18} aria-hidden="true" />
-              <input
-                value={pickerSearch}
-                onChange={(event) => setPickerSearch(event.target.value)}
-                placeholder={pickerKind === 'player' ? '搜索棋手' : '搜索平台'}
-                autoFocus
-              />
-            </label>
             <div className="yuanluobo-picker-options">
               {pickerKind === 'player' ? (
-                visiblePlayers.length === 0 ? (
-                  <p className="yuanluobo-picker-empty">没有匹配的棋手</p>
+                players.length === 0 ? (
+                  <p className="yuanluobo-picker-empty">暂无棋手</p>
                 ) : (
-                  visiblePlayers.map((player) => (
+                  players.map((player) => (
                     <button
                       key={player.playerId}
                       className="yuanluobo-picker-option"
                       type="button"
-                      aria-pressed={player.playerId === playerId}
+                      data-selected={player.playerId === playerId ? 'true' : undefined}
+                      aria-current={player.playerId === playerId ? 'true' : undefined}
                       onClick={() => choosePlayer(player.playerId)}
                     >
                       <span className="yuanluobo-picker-mark" data-tone="person" aria-hidden="true">
                         {player.name.slice(0, 1) || '棋'}
                       </span>
                       <strong>{player.name}</strong>
-                      <span className="yuanluobo-picker-check" aria-hidden="true">
-                        {player.playerId === playerId && <Check size={18} />}
-                      </span>
                     </button>
                   ))
                 )
-              ) : visibleCategories.length === 0 ? (
-                <p className="yuanluobo-picker-empty">没有匹配的平台</p>
+              ) : categories.length === 0 ? (
+                <p className="yuanluobo-picker-empty">暂无平台</p>
               ) : (
-                visibleCategories.map((category) => (
+                categories.map((category) => (
                   <button
                     key={category.gameMode}
                     className="yuanluobo-picker-option"
                     type="button"
-                    aria-pressed={category.gameMode === gameMode}
+                    data-selected={category.gameMode === gameMode ? 'true' : undefined}
+                    aria-current={category.gameMode === gameMode ? 'true' : undefined}
                     onClick={() => choosePlatform(category.gameMode)}
                   >
                     <span className="yuanluobo-picker-mark" data-tone={categoryTone(category.gameMode)} aria-hidden="true">
                       {categoryShortName(category)}
                     </span>
                     <strong>{category.title}</strong>
-                    <span className="yuanluobo-picker-check" aria-hidden="true">
-                      {category.gameMode === gameMode && <Check size={18} />}
-                    </span>
                   </button>
                 ))
               )}
