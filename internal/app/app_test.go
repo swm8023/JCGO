@@ -25,6 +25,9 @@ func TestNewAppStartsWithUnavailableEngineWhenPathsMissing(t *testing.T) {
 	if app.EngineStatus().Available {
 		t.Fatal("engine should be unavailable without configured paths")
 	}
+	if app.Workers == nil {
+		t.Fatal("workers should be configured")
+	}
 	if app.RPC == nil || app.Scheduler == nil {
 		t.Fatalf("app = %#v", app)
 	}

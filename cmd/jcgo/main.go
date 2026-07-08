@@ -23,7 +23,7 @@ func main() {
 		log.Fatal(err)
 	}
 	defer application.Close()
-	srv := server.New(server.Config{AccessToken: cfg.AccessToken, StaticDir: "web/dist"}, application.RPC)
+	srv := server.NewWithWorker(server.Config{AccessToken: cfg.AccessToken, StaticDir: "web/dist"}, application.RPC, application.Workers)
 	log.Printf("jcgo listening on %s", cfg.ListenAddr)
 	log.Fatal(http.ListenAndServe(cfg.ListenAddr, srv.Handler()))
 }
