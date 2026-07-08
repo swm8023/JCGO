@@ -77,13 +77,13 @@ export function GameSidebar({
               <p className="game-list-empty">还没有本地棋局</p>
             ) : games.map((game) => {
               const selected = game.gameId === selectedGameId
-              const outcome = localGameOutcome(game.result)
+              const winner = localGameWinner(game.result)
               const dateLabel = formatDateLabel(game.gameDate || game.createdAt)
               const title = localGameTitle(game)
               return (
                 <div
                   className={selected ? 'game-row yuanluobo-record-row selected' : 'game-row yuanluobo-record-row'}
-                  data-outcome={outcome}
+                  data-winner={winner}
                   key={game.gameId}
                 >
                   <button className="game-row-open" onClick={() => onSelect(game.gameId)}>
@@ -91,18 +91,23 @@ export function GameSidebar({
                       <span className="yuanluobo-record-title">
                         {title.kind === 'matchup' ? (
                           <>
-                            <span className="yuanluobo-player-name">
+                            <span className="yuanluobo-player-name" title={title.blackName}>
+                              {localGameResultMarker(winner, 'black')}
                               <span className="yuanluobo-stone black" aria-hidden="true" />
-                              {title.blackName}
+                              <span className="yuanluobo-player-label">{title.blackName}</span>
                             </span>
                             <span className="yuanluobo-vs">vs</span>
-                            <span className="yuanluobo-player-name">
+                            <span className="yuanluobo-player-name" title={title.whiteName}>
+                              {localGameResultMarker(winner, 'white')}
                               <span className="yuanluobo-stone white" aria-hidden="true" />
-                              {title.whiteName}
+                              <span className="yuanluobo-player-label">{title.whiteName}</span>
                             </span>
                           </>
                         ) : (
-                          <span className="game-title-name">{title.displayName}</span>
+                          <span className="game-title-name" title={title.displayName}>
+                            {localGameResultMarker(winner)}
+                            <span className="local-game-title-label">{title.displayName}</span>
+                          </span>
                         )}
                       </span>
                       {selected && <span className="yuanluobo-imported-badge">当前</span>}
@@ -145,6 +150,12 @@ export function GameSidebar({
       </section>
     </aside>
   )
+}
+
+function localGameResultMarker(winner: LocalGameWinner, player?: 'black' | 'white') {
+  if (player && winner !== player) return null
+  if (winner !== 'black' && winner !== 'white' && winner !== 'draw') return null
+  return <span className="local-game-result-marker" data-winner={winner} aria-hidden="true" />
 }
 
 type LocalGameTitle =
@@ -211,13 +222,13 @@ function analysisStatusLabel(status?: AnalysisState) {
   }
 }
 
-type LocalGameOutcome = 'win' | 'loss' | 'draw' | 'unknown'
+type LocalGameWinner = 'black' | 'white' | 'draw' | 'unknown'
 
-function localGameOutcome(result: string): LocalGameOutcome {
+function localGameWinner(result: string): LocalGameWinner {
   const normalized = result.trim().toUpperCase()
   const formatted = formatGameResult(result)
-  if (normalized.startsWith('B+') || formatted.startsWith('黑')) return 'win'
-  if (normalized.startsWith('W+') || formatted.startsWith('白')) return 'loss'
+  if (normalized.startsWith('B+') || formatted.startsWith('黑')) return 'black'
+  if (normalized.startsWith('W+') || formatted.startsWith('白')) return 'white'
   if (normalized === 'DRAW' || normalized === 'JIGO' || formatted.includes('和')) return 'draw'
   return 'unknown'
 }

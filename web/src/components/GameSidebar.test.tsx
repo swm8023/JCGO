@@ -273,11 +273,13 @@ describe('GameSidebar', () => {
 
     const row = container.querySelector('.game-row')
     expect(row).toHaveClass('yuanluobo-record-row')
-    expect(row).toHaveAttribute('data-outcome', 'win')
+    expect(row).not.toHaveAttribute('data-outcome')
+    expect(row).toHaveAttribute('data-winner', 'black')
     expect(row?.querySelector('.yuanluobo-record-main')).toBeInTheDocument()
     expect(row?.querySelector('.yuanluobo-record-title')).toHaveTextContent('LeevsCho')
     expect(row?.querySelector('.yuanluobo-vs')).toHaveTextContent('vs')
     expect(row?.querySelectorAll('.yuanluobo-stone')).toHaveLength(2)
+    expect(row?.querySelector('.local-game-result-marker')).toHaveAttribute('data-winner', 'black')
     expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('2026-06-24')
     expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('黑中盘胜')
     expect(row?.querySelector('.yuanluobo-result-watermark')).not.toBeInTheDocument()
@@ -342,7 +344,43 @@ describe('GameSidebar', () => {
     )
 
     expect(container.querySelector('.yuanluobo-result-watermark')).not.toBeInTheDocument()
-    expect(container.querySelector('.game-row')).toHaveAttribute('data-outcome', 'loss')
+    expect(container.querySelector('.game-row')).not.toHaveAttribute('data-outcome')
+    expect(container.querySelector('.game-row')).toHaveAttribute('data-winner', 'white')
+  })
+
+  it('places the local result marker before the winning player name', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'Lee vs Cho',
+          result: 'W+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+          blackName: 'Lee',
+          whiteName: 'Cho',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const row = container.querySelector('.game-row')
+    const players = row?.querySelectorAll('.yuanluobo-player-name')
+    expect(row).not.toHaveAttribute('data-outcome')
+    expect(row).toHaveAttribute('data-winner', 'white')
+    expect(players?.[0].querySelector('.local-game-result-marker')).not.toBeInTheDocument()
+    expect(players?.[1].querySelector('.local-game-result-marker')).toHaveAttribute('data-winner', 'white')
   })
 
   it('shows an empty library state when no games have been imported', () => {

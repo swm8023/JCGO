@@ -517,7 +517,7 @@ textarea:focus-visible {
   align-content: center;
   column-gap: 16px;
   row-gap: 7px;
-  padding: 16px 20px 16px 58px;
+  padding: 16px 18px 16px 22px;
   box-sizing: border-box;
   border: 1px solid rgb(212 201 184 / 0.72);
   border-radius: 10px;
@@ -530,15 +530,17 @@ textarea:focus-visible {
   transition: box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-.game-row.yuanluobo-record-row::before {
-  content: "";
-  position: absolute;
-  left: 20px;
-  top: 18px;
-  bottom: 18px;
-  width: 5px;
-  border-radius: 999px;
-  background: #94a3b8;
+.game-list .game-row.yuanluobo-record-row::before {
+  content: none;
+}
+
+.game-list .game-row.yuanluobo-record-row[data-winner="black"],
+.game-list .game-row.yuanluobo-record-row[data-winner="white"] {
+  border-color: rgb(63 143 102 / 0.2);
+}
+
+.game-list .game-row.yuanluobo-record-row[data-winner="draw"] {
+  border-color: rgb(100 116 139 / 0.22);
 }
 
 .game-list .game-row.yuanluobo-record-row:hover {
@@ -571,6 +573,7 @@ textarea:focus-visible {
   color: inherit;
   text-align: left;
   cursor: pointer;
+  width: 100%;
 }
 
 .game-row-open:hover {
@@ -587,6 +590,7 @@ textarea:focus-visible {
 
 .game-row-open .yuanluobo-record-main {
   align-self: end;
+  width: 100%;
 }
 
 .game-row-open .yuanluobo-record-meta {
@@ -598,6 +602,42 @@ textarea:focus-visible {
   color: inherit;
   font: inherit;
   line-height: inherit;
+}
+
+.game-list .yuanluobo-record-title {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+}
+
+.game-list .yuanluobo-record-title .yuanluobo-vs {
+  flex: 0 0 auto;
+}
+
+.game-list .yuanluobo-player-name {
+  flex: 0 1 auto;
+}
+
+.game-list .yuanluobo-player-label,
+.game-list .local-game-title-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-list .local-game-result-marker {
+  width: 5px;
+  height: 21px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #58a87a;
+  box-shadow: 0 0 0 1px rgb(63 143 102 / 0.1);
+}
+
+.game-list .local-game-result-marker[data-winner="draw"] {
+  background: #94a3b8;
+  box-shadow: 0 0 0 1px rgb(100 116 139 / 0.1);
 }
 
 .game-row {
@@ -2592,7 +2632,7 @@ textarea:focus-visible {
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: 14px;
     row-gap: 4px;
-    padding: 12px 16px 12px 50px;
+    padding: 12px 14px 12px 18px;
     border-radius: 9px;
   }
 
@@ -2858,7 +2898,7 @@ textarea:focus-visible {
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: 8px;
     row-gap: 3px;
-    padding: 10px 12px 10px 38px;
+    padding: 10px 10px 10px 14px;
     border-radius: 8px;
   }
 
@@ -2901,6 +2941,11 @@ textarea:focus-visible {
     width: 30px;
     height: 30px;
     border-radius: 7px;
+  }
+
+  .game-list .local-game-result-marker {
+    width: 4px;
+    height: 17px;
   }
 
   .action-rail {
