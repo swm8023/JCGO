@@ -538,11 +538,6 @@ textarea:focus-visible {
   container-name: board-stage;
 }
 
-.app-layout:not(.side-action-layout) .board-stage {
-  align-content: start;
-  align-items: start;
-}
-
 .board-layout {
   display: grid;
   width: 100%;
@@ -553,11 +548,6 @@ textarea:focus-visible {
   gap: 8px;
   min-width: 0;
   min-height: 0;
-}
-
-.app-layout:not(.side-action-layout) .board-layout {
-  height: auto;
-  align-content: start;
 }
 
 .board-info {
@@ -655,12 +645,6 @@ textarea:focus-visible {
   justify-self: stretch;
   container-type: size;
   container-name: board-frame;
-}
-
-.app-layout:not(.side-action-layout) .board-frame {
-  height: auto;
-  aspect-ratio: 1;
-  align-self: start;
 }
 
 .side-action-layout .board-frame {
@@ -1987,6 +1971,25 @@ textarea:focus-visible {
     padding: 0 6px;
     font-size: 11px;
   }
+}
+
+.app-layout:not(.side-action-layout) .board-stage {
+  container-type: inline-size;
+  grid-template-rows: auto;
+  align-content: start;
+  align-items: start;
+}
+
+.app-layout:not(.side-action-layout) .board-layout {
+  height: auto;
+  align-content: start;
+  grid-template-rows: min-content auto;
+}
+
+.app-layout:not(.side-action-layout) .board-frame {
+  height: 100cqw;
+  aspect-ratio: 1;
+  align-self: start;
 }
 
 /* ─── Reduced motion ─── */
