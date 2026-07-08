@@ -137,8 +137,14 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.import-dialog {\n  position: fixed;\n  inset: 0;\n  z-index: 40;')
     expect(styles).toContain('.import-dialog-body {\n  width: min(680px, 100%);')
     expect(styles).toContain('.import-source-grid {\n  display: grid;')
-    expect(styles).toContain('.yuanluobo-login-layout {\n  width: min(760px, 100%);')
-    expect(styles).toContain('.yuanluobo-browser {\n  width: min(860px, 100%);')
+    expect(styles).toContain('.yuanluobo-fullscreen-dialog {\n  place-items: stretch;')
+    expect(styles).toContain('.yuanluobo-fullscreen-page {\n  width: 100%;')
+    expect(styles).toContain('.yuanluobo-login-layout {\n  grid-template-columns: 1fr;')
+    expect(styles).toContain('.yuanluobo-browser {\n  grid-template-rows: auto auto auto minmax(0, 1fr) auto;')
+    expect(styles).toContain('.yuanluobo-record-row {\n  position: relative;')
+    expect(styles).toContain('.yuanluobo-result-watermark.win')
+    expect(styles).toContain('.yuanluobo-result-watermark.loss')
+    expect(styles).toContain('.yuanluobo-result-watermark.draw')
   })
 
   it('keeps the portrait workspace ordered as toolbar, game info, board, controls, then analysis', () => {

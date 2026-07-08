@@ -89,7 +89,7 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImpo
 
   if (loginState === 'checking') {
     return (
-      <section className="yuanluobo-panel yuanluobo-login-layout" role="region" aria-label="元萝卜登录">
+      <section className="yuanluobo-panel yuanluobo-fullscreen-page yuanluobo-login-layout" role="region" aria-label="元萝卜登录">
         <p className="yuanluobo-muted">正在检查元萝卜登录...</p>
       </section>
     )
@@ -97,7 +97,7 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImpo
 
   if (loginState !== 'logged-in') {
     return (
-      <section className="yuanluobo-panel yuanluobo-login-layout" role="region" aria-label="元萝卜登录">
+      <section className="yuanluobo-panel yuanluobo-fullscreen-page yuanluobo-login-layout" role="region" aria-label="元萝卜登录">
         <div className="yuanluobo-login-copy">
           <button className="yuanluobo-back-button" onClick={onBack}>
             <ArrowLeft size={16} aria-hidden="true" />
@@ -197,8 +197,10 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
     await onOpenGame(result.game.gameId)
   }
 
+  const selectedPlayer = players.find((player) => player.playerId === playerId)
+
   return (
-    <section className="yuanluobo-panel yuanluobo-browser" role="region" aria-label="元萝卜棋局浏览">
+    <section className="yuanluobo-panel yuanluobo-fullscreen-page yuanluobo-browser" role="region" aria-label="元萝卜棋局浏览">
       <header className="yuanluobo-header">
         <button className="yuanluobo-back-button" onClick={onBack}>
           <ArrowLeft size={16} aria-hidden="true" />
@@ -244,13 +246,28 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
         <p className="yuanluobo-empty">当前分类暂无棋局</p>
       ) : (
         <div className="yuanluobo-record-list">
-          {records.map((record) => (
-            <button key={record.sessionId} className="yuanluobo-record-row" onClick={() => void chooseRecord(record)}>
-              <span className="yuanluobo-record-title">{record.blackPlayerName} vs {record.whitePlayerName}</span>
-              <span className="yuanluobo-record-meta">{record.startDate} · {record.category} · {record.result}</span>
-              {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
-            </button>
-          ))}
+          {records.map((record) => {
+            const outcome = viewerOutcome(record, selectedPlayer?.name)
+            return (
+              <button
+                key={record.sessionId}
+                className="yuanluobo-record-row"
+                data-outcome={outcome}
+                onClick={() => void chooseRecord(record)}
+              >
+                <span className="yuanluobo-record-main">
+                  <span className="yuanluobo-record-title">{record.blackPlayerName} vs {record.whitePlayerName}</span>
+                  {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
+                </span>
+                <span className="yuanluobo-record-meta">{record.startDate} · {record.totalRound}手 · {record.resultLabel}</span>
+                {outcome !== 'unknown' && (
+                  <span className={`yuanluobo-result-watermark ${outcome}`} aria-hidden="true">
+                    {outcomeLabel(outcome)}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -261,6 +278,28 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
       </footer>
     </section>
   )
+}
+
+type ViewerOutcome = 'win' | 'loss' | 'draw' | 'unknown'
+
+function viewerOutcome(record: YuanluoboRecord, playerName = ''): ViewerOutcome {
+  if (record.resultWinner === 'draw') return 'draw'
+  const selectedName = playerName.trim()
+  if (!selectedName) return 'unknown'
+
+  const isBlack = record.blackPlayerName.trim() === selectedName
+  const isWhite = record.whitePlayerName.trim() === selectedName
+  if (!isBlack && !isWhite) return 'unknown'
+
+  if (record.resultWinner === 'B') return isBlack ? 'win' : 'loss'
+  return isWhite ? 'win' : 'loss'
+}
+
+function outcomeLabel(outcome: ViewerOutcome) {
+  if (outcome === 'win') return '胜'
+  if (outcome === 'loss') return '负'
+  if (outcome === 'draw') return '平'
+  return ''
 }
 
 function qrStatusLabel(status: number) {

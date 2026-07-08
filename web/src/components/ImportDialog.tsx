@@ -128,7 +128,7 @@ export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, on
 
   if (mode === 'yuanluobo') {
     return (
-      <div className="import-dialog" role="dialog" aria-label="Import from YuanluoBo">
+      <div className="import-dialog yuanluobo-fullscreen-dialog" role="dialog" aria-label="元萝卜导入">
         <YuanluoboImportDialog api={yuanluoboApi} onOpenGame={onOpenGame} onBack={() => setMode('choose')} />
       </div>
     )

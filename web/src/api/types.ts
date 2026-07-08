@@ -231,6 +231,8 @@ export interface YuanluoboRecord {
   whitePlayerName: string
   title: string
   result: string
+  resultLabel: string
+  resultWinner: 'B' | 'W' | 'draw'
   totalRound: number
   imported: boolean
   gameId?: string

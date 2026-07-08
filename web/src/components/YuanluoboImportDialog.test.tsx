@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { YuanluoboImportDialog, type YuanluoboImportAPI } from './YuanluoboImportDialog'
@@ -29,7 +29,7 @@ describe('YuanluoboImportDialog', () => {
     render(<YuanluoboImportDialog api={api()} onOpenGame={vi.fn()} onBack={vi.fn()} />)
 
     const panel = await screen.findByRole('region', { name: '元萝卜登录' })
-    expect(panel).toHaveClass('yuanluobo-login-layout')
+    expect(panel).toHaveClass('yuanluobo-login-layout', 'yuanluobo-fullscreen-page')
     expect(screen.getByRole('heading', { name: '元萝卜账号' })).toBeInTheDocument()
     expect(screen.getByText('扫码后读取账号棋局，选择后导入到本地棋盘。')).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: '元萝卜登录二维码' })).toHaveAttribute('data-qr-value', scanUrl)
@@ -54,13 +54,30 @@ describe('YuanluoboImportDialog', () => {
             category: '星阵AI',
             startDate: '2026-07-08',
             startTime: 1783500000,
-            blackPlayerName: 'Black',
-            whitePlayerName: 'White',
+            blackPlayerName: '棋手一',
+            whitePlayerName: 'Opponent',
             title: '星阵AI',
-            result: 'B+3.50',
-            totalRound: 120,
+            result: 'B+20.25',
+            resultLabel: '黑胜 20.25子',
+            resultWinner: 'B',
+            totalRound: 128,
             imported: true,
             gameId: 'game-1',
+          },
+          {
+            sessionId: 'session-2',
+            gameMode: 15,
+            category: '星阵AI',
+            startDate: '2026-07-07',
+            startTime: 1783400000,
+            blackPlayerName: 'Opponent',
+            whitePlayerName: '棋手一',
+            title: '星阵AI',
+            result: 'B+3.50',
+            resultLabel: '黑胜 3.5子',
+            resultWinner: 'B',
+            totalRound: 88,
+            imported: false,
           },
         ],
       })),
@@ -68,12 +85,20 @@ describe('YuanluoboImportDialog', () => {
 
     render(<YuanluoboImportDialog api={testAPI} onOpenGame={vi.fn()} onBack={vi.fn()} />)
 
-    expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toHaveClass('yuanluobo-fullscreen-page')
     expect(await screen.findByText('棋手一')).toBeInTheDocument()
     expect(await screen.findByRole('tab', { name: '星阵AI' })).toBeInTheDocument()
     expect(screen.getByText('共 2 局')).toBeInTheDocument()
-    expect(screen.getByText('Black vs White')).toBeInTheDocument()
-    expect(screen.getByText('已导入')).toBeInTheDocument()
+    expect(screen.getByText('2026-07-08 · 128手 · 黑胜 20.25子')).toBeInTheDocument()
+    expect(screen.queryByText('2026-07-08 · 星阵AI · B+20.25')).not.toBeInTheDocument()
+
+    const winRow = screen.getByRole('button', { name: /棋手一 vs Opponent/ })
+    expect(winRow).toHaveClass('yuanluobo-record-row')
+    expect(within(winRow).getByText('已导入')).toBeInTheDocument()
+    expect(within(winRow).getByText('胜')).toHaveClass('yuanluobo-result-watermark', 'win')
+
+    const lossRow = screen.getByRole('button', { name: /Opponent vs 棋手一/ })
+    expect(within(lossRow).getByText('负')).toHaveClass('yuanluobo-result-watermark', 'loss')
   })
 
   it('opens imported games and imports new games', async () => {
@@ -98,6 +123,8 @@ describe('YuanluoboImportDialog', () => {
             whitePlayerName: 'Opponent',
             title: '全部',
             result: 'B+R',
+            resultLabel: '黑中盘胜',
+            resultWinner: 'B',
             totalRound: 90,
             imported: true,
             gameId: 'game-imported',
@@ -112,6 +139,8 @@ describe('YuanluoboImportDialog', () => {
             whitePlayerName: 'Opponent',
             title: '全部',
             result: 'W+2.50',
+            resultLabel: '白胜 2.5子',
+            resultWinner: 'W',
             totalRound: 100,
             imported: false,
           },

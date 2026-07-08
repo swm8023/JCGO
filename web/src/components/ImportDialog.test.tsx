@@ -76,6 +76,8 @@ describe('ImportDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
 
+    const dialog = await screen.findByRole('dialog', { name: '元萝卜导入' })
+    expect(dialog).toHaveClass('yuanluobo-fullscreen-dialog')
     expect(await screen.findByRole('region', { name: '元萝卜登录' })).toBeInTheDocument()
   })
 })

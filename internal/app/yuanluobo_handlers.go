@@ -28,6 +28,8 @@ type YuanluoboRecordView struct {
 	WhitePlayerName string `json:"whitePlayerName"`
 	Title           string `json:"title"`
 	Result          string `json:"result"`
+	ResultLabel     string `json:"resultLabel"`
+	ResultWinner    string `json:"resultWinner"`
 	TotalRound      int    `json:"totalRound"`
 	Imported        bool   `json:"imported"`
 	GameID          string `json:"gameId,omitempty"`
@@ -134,6 +136,7 @@ func yuanluoboRecordView(item YuanluoboRemoteRecord) YuanluoboRecordView {
 	if title == "" {
 		title = YuanluoboCategoryName(item.GameMode)
 	}
+	resultData := yuanluoboGameData{WinPieces: item.WinPieces}
 	return YuanluoboRecordView{
 		SessionID:       item.SessionID,
 		GameMode:        item.GameMode,
@@ -143,7 +146,9 @@ func yuanluoboRecordView(item YuanluoboRemoteRecord) YuanluoboRecordView {
 		BlackPlayerName: item.BlackPlayerName,
 		WhitePlayerName: item.WhitePlayerName,
 		Title:           title,
-		Result:          formatYuanluoboResult(yuanluoboGameData{WinPieces: item.WinPieces}),
+		Result:          formatYuanluoboResult(resultData),
+		ResultLabel:     formatYuanluoboResultLabel(resultData),
+		ResultWinner:    yuanluoboResultWinner(resultData),
 		TotalRound:      item.TotalRound,
 	}
 }

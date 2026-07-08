@@ -158,3 +158,27 @@ func TestFormatYuanluoboResult(t *testing.T) {
 		})
 	}
 }
+
+func TestFormatYuanluoboResultDisplay(t *testing.T) {
+	tests := []struct {
+		name       string
+		winPieces  float64
+		wantLabel  string
+		wantWinner string
+	}{
+		{"white wins", 20.25, "白胜 20.25子", "W"},
+		{"black wins trims zeroes", -15.5, "黑胜 15.5子", "B"},
+		{"draw", 0, "和棋", "draw"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := yuanluoboGameData{WinPieces: tt.winPieces}
+			if got := formatYuanluoboResultLabel(data); got != tt.wantLabel {
+				t.Errorf("formatYuanluoboResultLabel() = %q, want %q", got, tt.wantLabel)
+			}
+			if got := yuanluoboResultWinner(data); got != tt.wantWinner {
+				t.Errorf("yuanluoboResultWinner() = %q, want %q", got, tt.wantWinner)
+			}
+		})
+	}
+}

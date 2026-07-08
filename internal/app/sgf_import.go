@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -157,6 +158,34 @@ func formatYuanluoboResult(data yuanluoboGameData) string {
 		return fmt.Sprintf("B+%.2f", -data.WinPieces)
 	}
 	return "Draw"
+}
+
+func formatYuanluoboResultLabel(data yuanluoboGameData) string {
+	switch yuanluoboResultWinner(data) {
+	case "W":
+		return "白胜 " + formatYuanluoboScore(data.WinPieces) + "子"
+	case "B":
+		return "黑胜 " + formatYuanluoboScore(data.WinPieces) + "子"
+	default:
+		return "和棋"
+	}
+}
+
+func yuanluoboResultWinner(data yuanluoboGameData) string {
+	if data.WinPieces > 0 {
+		return "W"
+	}
+	if data.WinPieces < 0 {
+		return "B"
+	}
+	return "draw"
+}
+
+func formatYuanluoboScore(winPieces float64) string {
+	if winPieces < 0 {
+		winPieces = -winPieces
+	}
+	return strconv.FormatFloat(winPieces, 'f', -1, 64)
 }
 
 func yuanluoboDisplayName(data yuanluoboGameData) string {

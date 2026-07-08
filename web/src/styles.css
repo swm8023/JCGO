@@ -1307,6 +1307,13 @@ textarea:focus-visible {
   backdrop-filter: blur(4px);
 }
 
+.yuanluobo-fullscreen-dialog {
+  place-items: stretch;
+  padding: 0;
+  background: var(--paper);
+  backdrop-filter: none;
+}
+
 .import-dialog-body {
   width: min(680px, 100%);
   display: grid;
@@ -1495,7 +1502,6 @@ textarea:focus-visible {
 }
 
 .yuanluobo-panel {
-  max-height: min(82dvh, 720px);
   display: grid;
   gap: 12px;
   box-sizing: border-box;
@@ -1507,19 +1513,34 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+.yuanluobo-fullscreen-page {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  padding: clamp(16px, 3vw, 32px);
+  border: 0;
+  border-radius: 0;
+  background: var(--paper);
+  box-shadow: none;
+}
+
 .yuanluobo-login-layout {
-  width: min(760px, 100%);
-  grid-template-columns: minmax(0, 0.9fr) minmax(260px, 1fr);
-  align-items: stretch;
-  gap: 16px;
+  grid-template-columns: 1fr;
+  position: relative;
+  align-content: center;
+  justify-items: center;
+  gap: 20px;
 }
 
 .yuanluobo-browser {
-  width: min(860px, 100%);
-  grid-template-rows: auto auto auto minmax(220px, 1fr) auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  justify-items: center;
+  gap: 14px;
 }
 
 .yuanluobo-header {
+  width: min(1120px, 100%);
   min-height: 44px;
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -1595,11 +1616,19 @@ textarea:focus-visible {
 }
 
 .yuanluobo-login-copy {
+  width: min(480px, 100%);
   display: grid;
-  align-content: space-between;
-  gap: 18px;
+  justify-items: center;
+  gap: 16px;
   min-width: 0;
-  padding: 4px 0;
+  padding: 0;
+  text-align: center;
+}
+
+.yuanluobo-login-copy > .yuanluobo-back-button {
+  position: absolute;
+  top: clamp(14px, 2.5vw, 26px);
+  left: clamp(14px, 2.5vw, 26px);
 }
 
 .yuanluobo-login-copy > div {
@@ -1639,12 +1668,13 @@ textarea:focus-visible {
 }
 
 .yuanluobo-qr-card {
+  width: min(360px, 100%);
   display: grid;
   justify-items: center;
   align-content: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
-  padding: 18px;
+  padding: 20px;
   border: 1px solid rgb(212 201 184 / 0.78);
   border-radius: 10px;
   background:
@@ -1653,8 +1683,8 @@ textarea:focus-visible {
 }
 
 .yuanluobo-qr {
-  width: min(260px, 72vw);
-  height: min(260px, 72vw);
+  width: min(282px, 74vw);
+  height: min(282px, 74vw);
   aspect-ratio: 1;
   justify-self: center;
   border: 1px solid var(--line);
@@ -1670,8 +1700,10 @@ textarea:focus-visible {
 }
 
 .yuanluobo-filter-bar {
+  width: min(1120px, 100%);
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 320px);
+  justify-content: start;
   gap: 10px;
 }
 
@@ -1691,6 +1723,7 @@ textarea:focus-visible {
 }
 
 .yuanluobo-tabs {
+  width: min(1120px, 100%);
   display: flex;
   gap: 6px;
   overflow-x: auto;
@@ -1712,53 +1745,60 @@ textarea:focus-visible {
 }
 
 .yuanluobo-record-list {
+  width: min(1120px, 100%);
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: 8px;
   overflow: auto;
-  padding-right: 2px;
+  padding: 2px;
 }
 
 .yuanluobo-record-row {
+  position: relative;
   width: 100%;
-  min-height: 56px;
+  min-height: 72px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "title badge"
-    "meta badge";
-  align-items: center;
-  gap: 3px 10px;
-  padding: 8px 11px;
+  grid-template-rows: auto auto;
+  align-content: center;
+  gap: 6px;
+  padding: 14px 82px 14px 16px;
   text-align: left;
   background: var(--surface-raised);
+  overflow: hidden;
+}
+
+.yuanluobo-record-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .yuanluobo-record-title {
-  grid-area: title;
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.15;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .yuanluobo-record-meta {
-  grid-area: meta;
   min-width: 0;
   overflow: hidden;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 650;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .yuanluobo-imported-badge {
-  grid-area: badge;
+  flex: 0 0 auto;
   min-width: 48px;
   padding: 3px 7px;
   border-radius: 999px;
@@ -1769,7 +1809,34 @@ textarea:focus-visible {
   text-align: center;
 }
 
+.yuanluobo-result-watermark {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 52px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0.12;
+  pointer-events: none;
+  user-select: none;
+}
+
+.yuanluobo-result-watermark.win {
+  color: #047857;
+}
+
+.yuanluobo-result-watermark.loss {
+  color: #b91c1c;
+}
+
+.yuanluobo-result-watermark.draw {
+  color: #64748b;
+}
+
 .yuanluobo-empty {
+  width: min(1120px, 100%);
   min-height: 160px;
   display: grid;
   place-items: center;
@@ -1781,6 +1848,7 @@ textarea:focus-visible {
 }
 
 .yuanluobo-pager {
+  width: min(1120px, 100%);
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
@@ -2136,14 +2204,18 @@ textarea:focus-visible {
     gap: 12px;
   }
 
+  .yuanluobo-fullscreen-page {
+    padding: 12px;
+  }
+
   .yuanluobo-login-layout {
     grid-template-columns: 1fr;
-    max-height: calc(100dvh - 24px);
     overflow: auto;
   }
 
   .yuanluobo-browser {
-    max-height: calc(100dvh - 24px);
+    gap: 10px;
+    overflow: hidden;
   }
 
   .yuanluobo-header {
@@ -2154,6 +2226,24 @@ textarea:focus-visible {
   .yuanluobo-title-block h2,
   .yuanluobo-login-copy h2 {
     font-size: 18px;
+  }
+
+  .yuanluobo-filter-bar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yuanluobo-record-row {
+    min-height: 68px;
+    padding: 12px 58px 12px 12px;
+  }
+
+  .yuanluobo-record-title {
+    font-size: 13px;
+  }
+
+  .yuanluobo-result-watermark {
+    right: 8px;
+    font-size: 42px;
   }
 }
 
