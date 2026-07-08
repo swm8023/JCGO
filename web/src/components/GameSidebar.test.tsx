@@ -275,8 +275,39 @@ describe('GameSidebar', () => {
     expect(row?.querySelector('.yuanluobo-record-main')).toBeInTheDocument()
     expect(row?.querySelector('.yuanluobo-record-title')).toHaveTextContent('Honinbo final')
     expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('棋局 2026-06-24')
-    expect(row?.querySelector('.yuanluobo-result-watermark')).toHaveTextContent('黑')
+    expect(row?.querySelector('.yuanluobo-result-watermark')).toHaveTextContent('胜')
     expect(row?.querySelector('.game-row-actions')).toBeInTheDocument()
+  })
+
+  it('uses yuanluobo-style outcome labels instead of winner colors for local game rows', () => {
+    const { container } = render(
+      <GameSidebar
+        games={[{
+          gameId: '1',
+          displayName: 'White win',
+          result: 'W+R',
+          sgfFilename: '1.sgf',
+          createdAt: '2026-06-25T13:45:00Z',
+        }]}
+        listOpen
+        selectedGameId="1"
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    const watermark = container.querySelector('.yuanluobo-result-watermark')
+    expect(watermark).toHaveTextContent('胜')
+    expect(watermark).not.toHaveTextContent('白')
+    expect(container.querySelector('.game-row')).toHaveAttribute('data-outcome', 'win')
   })
 
   it('shows an empty library state when no games have been imported', () => {

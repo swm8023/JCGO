@@ -106,9 +106,11 @@ export function GameSidebar({
                       <span>{`上传 ${formatDateLabel(game.createdAt)}`}</span>
                     </span>
                   </button>
-                  <span className={`yuanluobo-result-watermark ${outcome.tone}`} aria-hidden="true">
-                    {outcome.label}
-                  </span>
+                  {outcome.tone !== 'unknown' && (
+                    <span className={`yuanluobo-result-watermark ${outcome.tone}`} aria-hidden="true">
+                      {outcome.label}
+                    </span>
+                  )}
                   <span className="game-row-actions">
                     <button
                       className="game-row-action"
@@ -186,15 +188,16 @@ function analysisStatusLabel(status?: AnalysisState) {
 }
 
 type LocalGameOutcome = {
-  tone: 'win' | 'loss' | 'draw'
+  tone: 'win' | 'draw' | 'unknown'
   label: string
 }
 
 function localGameOutcome(result: string): LocalGameOutcome {
   const normalized = result.trim().toUpperCase()
   const formatted = formatGameResult(result)
-  if (normalized.startsWith('B+') || formatted.startsWith('黑')) return { tone: 'win', label: '黑' }
-  if (normalized.startsWith('W+') || formatted.startsWith('白')) return { tone: 'loss', label: '白' }
+  if (normalized.startsWith('B+') || normalized.startsWith('W+') || formatted.startsWith('黑') || formatted.startsWith('白')) {
+    return { tone: 'win', label: '胜' }
+  }
   if (normalized === 'DRAW' || normalized === 'JIGO' || formatted.includes('和')) return { tone: 'draw', label: '和' }
-  return { tone: 'draw', label: '?' }
+  return { tone: 'unknown', label: '' }
 }
