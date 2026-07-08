@@ -37,7 +37,8 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	workspaces := NewWorkspaceStore()
 	scheduler := NewScheduler(engine, cfg.MaxVisits)
 	handler := NewHandlerWithOptions(repo, files, workspaces, scheduler, HandlerOptions{
-		YuanluoboAuthStore: NewYuanluoboFileAuthStore(filepath.Join(cfg.DataDir, "yuanluobo_auth.json")),
+		YuanluoboAuthStore:   NewYuanluoboFileAuthStore(filepath.Join(cfg.DataDir, "yuanluobo_auth.json")),
+		WorkerStatusProvider: workers,
 	})
 	return &App{
 		Repo:       repo,

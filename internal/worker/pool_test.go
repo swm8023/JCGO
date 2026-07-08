@@ -164,6 +164,40 @@ func TestPoolReturnsErrorWhenWorkerAndFallbackFail(t *testing.T) {
 	}
 }
 
+func TestPoolStatusSnapshotCountsWorkersAndLocalFallback(t *testing.T) {
+	local := &fakeAnalyzer{err: errors.New("local missing")}
+	pool := NewPool(local, log.New(io.Discard, "", 0))
+	pool.addWorker(&remoteWorker{
+		id:        "worker-2",
+		info:      Info{Name: "offline-gpu", Platform: "linux/amd64", Available: false, Error: "katago missing"},
+		responses: map[string]chan Envelope{},
+	})
+	pool.addWorker(&remoteWorker{
+		id:        "worker-1",
+		info:      Info{Name: "busy-gpu", Platform: "windows/amd64", Available: true},
+		busy:      true,
+		responses: map[string]chan Envelope{},
+	})
+
+	status := pool.StatusSnapshot()
+
+	if status.Connected != 2 || status.Available != 1 || status.Busy != 1 {
+		t.Fatalf("counts = %#v", status)
+	}
+	if status.Local.Available || status.Local.Error != "local missing" {
+		t.Fatalf("local = %#v", status.Local)
+	}
+	if len(status.Workers) != 2 {
+		t.Fatalf("workers = %#v", status.Workers)
+	}
+	if status.Workers[0].ID != "worker-1" || !status.Workers[0].Busy || !status.Workers[0].Available {
+		t.Fatalf("first worker = %#v", status.Workers[0])
+	}
+	if status.Workers[1].ID != "worker-2" || status.Workers[1].Available || status.Workers[1].Error != "katago missing" {
+		t.Fatalf("second worker = %#v", status.Workers[1])
+	}
+}
+
 func servePool(t *testing.T, pool *Pool) (string, func()) {
 	t.Helper()
 	upgrader := websocket.Upgrader{Subprotocols: []string{Subprotocol}, CheckOrigin: func(*http.Request) bool { return true }}

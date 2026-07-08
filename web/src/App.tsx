@@ -10,6 +10,7 @@ import { GameSidebar } from './components/GameSidebar'
 import { ImportDialog, type ImportDialogMode } from './components/ImportDialog'
 import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
+import { SettingsPage } from './components/SettingsPage'
 import { TokenGate } from './components/TokenGate'
 import type { YuanluoboImportAPI, YuanluoboPickerKind } from './components/YuanluoboImportDialog'
 import { playCaptureSound, playStoneSound } from './board/stoneSound'
@@ -24,6 +25,7 @@ type RememberedView = { gameId?: string; nodeId?: string }
 type AppHistoryLayer =
   | 'home'
   | 'game-list'
+  | 'settings'
   | 'import-choose'
   | 'import-url'
   | 'import-yuanluobo'
@@ -44,6 +46,7 @@ const shareTargetRedirectPath = '/?share-target=sgf'
 const appHistoryLayers = new Set<AppHistoryLayer>([
   'home',
   'game-list',
+  'settings',
   'import-choose',
   'import-url',
   'import-yuanluobo',
@@ -82,6 +85,7 @@ export default function App() {
   const [importMode, setImportMode] = useState<ImportDialogMode>('choose')
   const [yuanluoboPickerKind, setYuanluoboPickerKind] = useState<YuanluoboPickerKind>()
   const [gameListOpen, setGameListOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [error, setError] = useState<string>()
   const [connectionAttempt, setConnectionAttempt] = useState(0)
   const wasConnected = useRef(false)
@@ -118,6 +122,7 @@ export default function App() {
   const applyAppHistoryLayer = useCallback((layer: AppHistoryLayer) => {
     appHistoryLayerRef.current = layer
     setGameListOpen(layer === 'game-list')
+    setSettingsOpen(layer === 'settings')
     setShowImport(isImportLayer(layer))
     setImportMode(importModeForLayer(layer))
     setYuanluoboPickerKind(yuanluoboPickerForLayer(layer))
@@ -500,6 +505,10 @@ export default function App() {
         analysisProgress={analysisProgressForState(workspace)}
         onToggleList={() => (gameListOpen ? closeCurrentAppHistoryLayer() : pushAppHistoryLayer('game-list'))}
         onImport={() => pushAppHistoryLayer('import-choose')}
+        onSettings={() => {
+          pushAppHistoryLayer('settings')
+          void refreshWorkspaceState()
+        }}
         onSelect={selectGame}
         onRename={renameGame}
         onDelete={deleteGame}
@@ -573,6 +582,9 @@ export default function App() {
           onOpenYuanluoboPicker={(kind) => pushAppHistoryLayer(kind === 'player' ? 'yuanluobo-player-picker' : 'yuanluobo-platform-picker')}
           onCloseYuanluoboPicker={closeCurrentAppHistoryLayer}
         />
+      )}
+      {settingsOpen && (
+        <SettingsPage workerStatus={workspace?.workerStatus} onBack={closeCurrentAppHistoryLayer} />
       )}
     </>
   )

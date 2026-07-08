@@ -1,6 +1,6 @@
 import type { AnalysisProgress, AnalysisState, GameRecord } from '../api/types'
 import type { ReactNode } from 'react'
-import { Menu, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Menu, Pencil, Plus, Settings, Trash2 } from 'lucide-react'
 import { formatGameResult } from './gameResult'
 
 interface GameSidebarProps {
@@ -13,6 +13,7 @@ interface GameSidebarProps {
   analysisProgress?: AnalysisProgress
   onToggleList(): void
   onImport(): void
+  onSettings?(): void
   onSelect(gameId: string): void
   onRename(gameId: string, displayName: string): void
   onDelete(gameId: string): void
@@ -32,6 +33,7 @@ export function GameSidebar({
   analysisProgress,
   onToggleList,
   onImport,
+  onSettings = noop,
   onSelect,
   onRename,
   onDelete,
@@ -52,6 +54,9 @@ export function GameSidebar({
           </button>
           <button className="icon-button" onClick={onImport} aria-label="Import SGF">
             <Plus size={18} aria-hidden="true" />
+          </button>
+          <button className="icon-button" onClick={onSettings} aria-label="Open settings">
+            <Settings size={17} aria-hidden="true" />
           </button>
         </div>
         <div className="sidebar-toggle-actions">{toolbarSlot}</div>

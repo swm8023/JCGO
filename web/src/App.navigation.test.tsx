@@ -445,6 +445,40 @@ describe('App variation navigation', () => {
     window.dispatchEvent(new PopStateEvent('popstate', { state: chooseState }))
     await waitFor(() => expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument())
   })
+
+  it('opens settings from the titlebar and closes it on browser back', async () => {
+    stubAuthenticatedStorage()
+    rpc.state = {
+      ...mainlineState(5, 12),
+      workerStatus: {
+        connected: 1,
+        available: 1,
+        busy: 0,
+        local: { available: true },
+        workers: [{
+          id: 'worker-1',
+          name: 'gpu-worker',
+          platform: 'windows/amd64',
+          available: true,
+          busy: false,
+        }],
+      },
+    }
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    const homeState = window.history.state
+
+    await userEvent.click(screen.getByLabelText('Open settings'))
+
+    expect(screen.getByRole('dialog', { name: '设置' })).toBeInTheDocument()
+    expect(screen.getByText('gpu-worker')).toBeInTheDocument()
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '设置' })).not.toBeInTheDocument())
+  })
 })
 
 function stubAuthenticatedStorage(entries: [string, string][] = []) {

@@ -131,6 +131,7 @@ export interface StatePayload {
   currentNodeId?: string
   analysisState: AnalysisState
   analysisError?: string
+  workerStatus?: WorkerStatus
   snapshot?: Snapshot
   timeline?: TimelineColumns
   badMoves?: BadMoveColumns
@@ -183,6 +184,28 @@ export interface CandidateColumns {
 export interface EncodedOwnership {
   encoding: 'q8-base64'
   data: string
+}
+
+export interface EngineStatus {
+  available: boolean
+  error?: string
+}
+
+export interface WorkerRuntimeStatus {
+  id: string
+  name: string
+  platform: string
+  available: boolean
+  busy: boolean
+  error?: string
+}
+
+export interface WorkerStatus {
+  connected: number
+  available: number
+  busy: number
+  local: EngineStatus
+  workers: WorkerRuntimeStatus[]
 }
 
 export interface YuanluoboQRCode {

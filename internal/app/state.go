@@ -4,7 +4,9 @@ import (
 	"context"
 
 	"jcgo/internal/game"
+	"jcgo/internal/katago"
 	"jcgo/internal/store"
+	"jcgo/internal/worker"
 )
 
 type AnalysisState string
@@ -18,11 +20,12 @@ const (
 )
 
 type EmptyWorkspaceState struct {
-	Type          string             `json:"type"`
-	Schema        int                `json:"schema"`
-	Games         []store.GameRecord `json:"games"`
-	AnalysisState AnalysisState      `json:"analysisState"`
-	AnalysisError string             `json:"analysisError,omitempty"`
+	Type          string                `json:"type"`
+	Schema        int                   `json:"schema"`
+	Games         []store.GameRecord    `json:"games"`
+	AnalysisState AnalysisState         `json:"analysisState"`
+	AnalysisError string                `json:"analysisError,omitempty"`
+	WorkerStatus  worker.StatusSnapshot `json:"workerStatus"`
 }
 
 func (h *Handler) workspaceState(ctx context.Context, token string) (any, error) {
@@ -33,7 +36,7 @@ func (h *Handler) workspaceState(ctx context.Context, token string) (any, error)
 	ws := h.workspaces.ForToken(token)
 	selectedGameID := ws.SelectedGameID()
 	if selectedGameID == "" {
-		return EmptyWorkspaceState{Type: "state", Schema: 1, Games: games, AnalysisState: AnalysisIdle}, nil
+		return EmptyWorkspaceState{Type: "state", Schema: 1, Games: games, AnalysisState: AnalysisIdle, WorkerStatus: h.currentWorkerStatus()}, nil
 	}
 	if _, err := h.ensureWorkspaceGame(ctx, token, selectedGameID); err != nil {
 		return nil, err
@@ -43,7 +46,22 @@ func (h *Handler) workspaceState(ctx context.Context, token string) (any, error)
 		return nil, err
 	}
 	payload.Games = games
+	payload.WorkerStatus = h.currentWorkerStatus()
 	return payload, nil
+}
+
+func (h *Handler) currentWorkerStatus() worker.StatusSnapshot {
+	if h.workerStatus == nil {
+		return worker.StatusSnapshot{
+			Local:   katago.Status{Available: false, Error: "worker status unavailable"},
+			Workers: []worker.RuntimeStatus{},
+		}
+	}
+	status := h.workerStatus.StatusSnapshot()
+	if status.Workers == nil {
+		status.Workers = []worker.RuntimeStatus{}
+	}
+	return status
 }
 
 func (h *Handler) listGames(ctx context.Context, token string) ([]store.GameRecord, error) {

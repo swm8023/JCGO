@@ -29,9 +29,10 @@ describe('GameSidebar', () => {
     expect(screen.getByText('Old')).toBeInTheDocument()
   })
 
-  it('exposes separate list and import actions for the mobile rail', () => {
+  it('exposes separate list, import, and settings actions for the mobile rail', () => {
     const onToggleList = vi.fn()
     const onImport = vi.fn()
+    const onSettings = vi.fn()
     const { container } = render(
       <GameSidebar
         games={[]}
@@ -40,6 +41,7 @@ describe('GameSidebar', () => {
         analysisState="idle"
         onToggleList={onToggleList}
         onImport={onImport}
+        onSettings={onSettings}
         onSelect={vi.fn()}
         onRename={vi.fn()}
         onDelete={vi.fn()}
@@ -53,8 +55,10 @@ describe('GameSidebar', () => {
     const sidebar = within(container)
     sidebar.getByLabelText('Show game list').click()
     sidebar.getByLabelText('Import SGF').click()
+    sidebar.getByLabelText('Open settings').click()
     expect(onToggleList).toHaveBeenCalledTimes(1)
     expect(onImport).toHaveBeenCalledTimes(1)
+    expect(onSettings).toHaveBeenCalledTimes(1)
   })
 
   it('renders the local game list as a titlebar-below library surface', () => {
@@ -144,6 +148,7 @@ describe('GameSidebar', () => {
     const sidebar = within(container)
     expect(fileActions).toContainElement(sidebar.getByLabelText('Show game list'))
     expect(fileActions).toContainElement(sidebar.getByLabelText('Import SGF'))
+    expect(fileActions).toContainElement(sidebar.getByLabelText('Open settings'))
     expect(toggleActions).toContainElement(sidebar.getByTestId('overlay-slot'))
     expect(analysisActions).toContainElement(sidebar.getByRole('button', { name: 'Start analysis' }))
     expect(Array.from(container.querySelectorAll('.sidebar-file-actions, .sidebar-toggle-actions, .sidebar-analysis'))).toEqual([

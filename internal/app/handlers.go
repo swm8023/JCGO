@@ -14,6 +14,7 @@ import (
 	"jcgo/internal/katago"
 	"jcgo/internal/server"
 	"jcgo/internal/store"
+	"jcgo/internal/worker"
 )
 
 type AnalysisController interface {
@@ -25,18 +26,24 @@ type AnalysisController interface {
 	Status() katago.Status
 }
 
+type WorkerStatusProvider interface {
+	StatusSnapshot() worker.StatusSnapshot
+}
+
 type Handler struct {
-	repo       *store.Repository
-	files      store.FileStore
-	workspaces *WorkspaceStore
-	analysis   AnalysisController
-	yuanluobo  YuanluoboBackend
+	repo         *store.Repository
+	files        store.FileStore
+	workspaces   *WorkspaceStore
+	analysis     AnalysisController
+	workerStatus WorkerStatusProvider
+	yuanluobo    YuanluoboBackend
 }
 
 type HandlerOptions struct {
-	YuanluoboAuthStore  YuanluoboAuthStore
-	YuanluoboHTTPClient *http.Client
-	YuanluoboBaseURL    string
+	YuanluoboAuthStore   YuanluoboAuthStore
+	YuanluoboHTTPClient  *http.Client
+	YuanluoboBaseURL     string
+	WorkerStatusProvider WorkerStatusProvider
 }
 
 type ImportResult struct {
@@ -78,7 +85,7 @@ func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, worksp
 		HTTPClient: opts.YuanluoboHTTPClient,
 		BaseURL:    opts.YuanluoboBaseURL,
 	})
-	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis, yuanluobo: ylb}
+	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis, workerStatus: opts.WorkerStatusProvider, yuanluobo: ylb}
 	if analysis != nil {
 		analysis.Subscribe(func(event Event) {
 			ws := h.workspaces.ForToken(event.Token)

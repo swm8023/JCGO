@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -30,6 +31,23 @@ type remoteWorker struct {
 	busy      bool
 	closed    bool
 	responses map[string]chan Envelope
+}
+
+type RuntimeStatus struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Platform  string `json:"platform"`
+	Available bool   `json:"available"`
+	Busy      bool   `json:"busy"`
+	Error     string `json:"error,omitempty"`
+}
+
+type StatusSnapshot struct {
+	Connected int             `json:"connected"`
+	Available int             `json:"available"`
+	Busy      int             `json:"busy"`
+	Local     katago.Status   `json:"local"`
+	Workers   []RuntimeStatus `json:"workers"`
 }
 
 func NewPool(fallback katago.Analyzer, logger *log.Logger) *Pool {
@@ -80,6 +98,43 @@ func (p *Pool) Status() katago.Status {
 		return katago.Status{Available: true}
 	}
 	return p.fallback.Status()
+}
+
+func (p *Pool) StatusSnapshot() StatusSnapshot {
+	p.mu.Lock()
+	workers := make([]RuntimeStatus, 0, len(p.ws))
+	status := StatusSnapshot{
+		Connected: len(p.ws),
+		Workers:   []RuntimeStatus{},
+	}
+	for id, worker := range p.ws {
+		if worker.closed {
+			continue
+		}
+		runtime := RuntimeStatus{
+			ID:        id,
+			Name:      worker.info.Name,
+			Platform:  worker.info.Platform,
+			Available: worker.info.Available,
+			Busy:      worker.busy,
+			Error:     worker.info.Error,
+		}
+		if runtime.Available {
+			status.Available++
+		}
+		if runtime.Busy {
+			status.Busy++
+		}
+		workers = append(workers, runtime)
+	}
+	p.mu.Unlock()
+
+	sort.Slice(workers, func(i, j int) bool {
+		return workers[i].ID < workers[j].ID
+	})
+	status.Workers = workers
+	status.Local = p.fallback.Status()
+	return status
 }
 
 func (p *Pool) Close() error {

@@ -16,6 +16,7 @@ import (
 	"jcgo/internal/katago"
 	"jcgo/internal/server"
 	"jcgo/internal/store"
+	"jcgo/internal/worker"
 )
 
 func TestImportListRenameDeleteGame(t *testing.T) {
@@ -638,6 +639,42 @@ func TestWorkspaceStateReturnsColumnarPayload(t *testing.T) {
 	}
 }
 
+func TestWorkspaceStateIncludesWorkerStatus(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	status := worker.StatusSnapshot{
+		Connected: 1,
+		Available: 1,
+		Busy:      0,
+		Local:     katago.Status{Available: true},
+		Workers: []worker.RuntimeStatus{{
+			ID:        "worker-1",
+			Name:      "gpu-worker",
+			Platform:  "windows/amd64",
+			Available: true,
+		}},
+	}
+	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil, HandlerOptions{
+		WorkerStatusProvider: fakeWorkerStatusProvider{status: status},
+	})
+
+	state := callResult[struct {
+		WorkerStatus worker.StatusSnapshot `json:"workerStatus"`
+	}](t, handler, "secret", "workspace.state", nil)
+
+	if state.WorkerStatus.Connected != 1 || state.WorkerStatus.Available != 1 || len(state.WorkerStatus.Workers) != 1 {
+		t.Fatalf("worker status = %#v", state.WorkerStatus)
+	}
+	if state.WorkerStatus.Workers[0].Name != "gpu-worker" {
+		t.Fatalf("worker details = %#v", state.WorkerStatus.Workers)
+	}
+}
+
 func TestAnalysisUpdateNotificationContainsFullState(t *testing.T) {
 	h, token := newTestHandler(t)
 	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
@@ -790,6 +827,14 @@ type recordingAnalysisController struct {
 	started   []StartInput
 	restarted []StartInput
 	stopped   []string
+}
+
+type fakeWorkerStatusProvider struct {
+	status worker.StatusSnapshot
+}
+
+func (f fakeWorkerStatusProvider) StatusSnapshot() worker.StatusSnapshot {
+	return f.status
 }
 
 func (r *recordingAnalysisController) StartGame(input StartInput) {

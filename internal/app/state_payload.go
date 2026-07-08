@@ -7,21 +7,23 @@ import (
 
 	"jcgo/internal/game"
 	"jcgo/internal/store"
+	"jcgo/internal/worker"
 )
 
 type StatePayload struct {
-	Type          string             `json:"type"`
-	Schema        int                `json:"schema"`
-	Games         []store.GameRecord `json:"games"`
-	GameID        string             `json:"gameId"`
-	CurrentNodeID string             `json:"currentNodeId"`
-	AnalysisState AnalysisState      `json:"analysisState"`
-	AnalysisError string             `json:"analysisError,omitempty"`
-	Snapshot      game.Snapshot      `json:"snapshot"`
-	Timeline      TimelineColumns    `json:"timeline"`
-	BadMoves      BadMoveColumns     `json:"badMoves"`
-	Variation     *VariationState    `json:"variation,omitempty"`
-	Current       CurrentNodeState   `json:"current"`
+	Type          string                `json:"type"`
+	Schema        int                   `json:"schema"`
+	Games         []store.GameRecord    `json:"games"`
+	GameID        string                `json:"gameId"`
+	CurrentNodeID string                `json:"currentNodeId"`
+	AnalysisState AnalysisState         `json:"analysisState"`
+	AnalysisError string                `json:"analysisError,omitempty"`
+	WorkerStatus  worker.StatusSnapshot `json:"workerStatus"`
+	Snapshot      game.Snapshot         `json:"snapshot"`
+	Timeline      TimelineColumns       `json:"timeline"`
+	BadMoves      BadMoveColumns        `json:"badMoves"`
+	Variation     *VariationState       `json:"variation,omitempty"`
+	Current       CurrentNodeState      `json:"current"`
 }
 
 type TimelineColumns struct {
