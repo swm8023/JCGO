@@ -44,8 +44,9 @@
   --portrait-overview-padding-top: 2px;
   --portrait-overview-padding-bottom: 4px;
   --analysis-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-top) + var(--portrait-overview-padding-bottom));
-  --analysis-bottom-height: clamp(188px, 28cqh, 280px);
-  --wide-analysis-bottom-height: clamp(188px, 24cqh, 260px);
+  --analysis-detail-preview-height: 34px;
+  --analysis-bottom-height: calc(var(--analysis-overview-height) + var(--analysis-detail-preview-height));
+  --wide-analysis-bottom-height: var(--analysis-overview-height);
 
   --ui-btn-size: 32px;
   --ui-btn-radius: 7px;
@@ -216,6 +217,11 @@ textarea:focus-visible {
   padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
   box-sizing: border-box;
   overflow: hidden;
+}
+
+.app-layout.side-action-layout {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr) var(--analysis-bottom-height);
 }
 
 .game-sidebar,
@@ -641,6 +647,10 @@ textarea:focus-visible {
   container-name: board-frame;
 }
 
+.side-action-layout .board-frame {
+  --board-frame-clearance: calc(var(--side-action-width, 42px) + 16px);
+}
+
 .go-board {
   position: relative;
   z-index: 1;
@@ -675,7 +685,7 @@ textarea:focus-visible {
 }
 
 .side-action-layout .action-rail {
-  grid-row: 1 / -1;
+  grid-row: 2;
   grid-column: 1 / -1;
   position: absolute;
   left: var(--side-action-left, 0px);
@@ -1339,7 +1349,7 @@ textarea:focus-visible {
     --portrait-overview-gap: 2px;
     --portrait-overview-padding-top: 2px;
     --portrait-overview-padding-bottom: 4px;
-    --portrait-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-top) + var(--portrait-overview-padding-bottom));
+    --analysis-overview-height: calc(var(--portrait-summary-height) + var(--portrait-overview-gap) + var(--portrait-chart-height) + var(--portrait-overview-padding-top) + var(--portrait-overview-padding-bottom));
 
     height: var(--app-height);
     min-height: 0;
@@ -1543,11 +1553,15 @@ textarea:focus-visible {
     grid-row: 4;
     min-height: 0;
     max-height: none;
-    grid-template-rows: var(--portrait-overview-height) minmax(0, 1fr);
+    grid-template-rows: var(--analysis-overview-height) minmax(var(--analysis-detail-preview-height), 1fr);
     gap: 4px;
     padding: 4px 6px 6px;
     background: var(--board-zone);
     overflow: hidden;
+  }
+
+  .side-action-layout .analysis-rail {
+    grid-row: 3;
   }
 
   .analysis-overview,
