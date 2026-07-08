@@ -42,7 +42,6 @@ type YuanluoboRecordCategory struct {
 }
 
 var yuanluoboCategories = []YuanluoboRecordCategory{
-	{Title: "全部", GameMode: 0},
 	{Title: "元萝卜AI", GameMode: 1},
 	{Title: "星阵AI", GameMode: 15},
 	{Title: "巅峰对决", GameMode: 2},

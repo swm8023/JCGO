@@ -28,6 +28,9 @@ interface YuanluoboImportDialogProps {
 }
 
 type LoginState = 'checking' | 'logged-out' | 'polling' | 'logged-in'
+type YuanluoboRecordCategory = { title: string; gameMode: number }
+const defaultYuanluoboCategory: YuanluoboRecordCategory = { title: '元萝卜AI', gameMode: 1 }
+const defaultYuanluoboGameMode = defaultYuanluoboCategory.gameMode
 
 export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImportDialogProps) {
   const [loginState, setLoginState] = useState<LoginState>('checking')
@@ -142,8 +145,8 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImpo
 function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDialogProps) {
   const [players, setPlayers] = useState<YuanluoboPlayer[]>([])
   const [playerId, setPlayerId] = useState('')
-  const [categories, setCategories] = useState<{ title: string; gameMode: number }[]>([])
-  const [gameMode, setGameMode] = useState(0)
+  const [categories, setCategories] = useState<YuanluoboRecordCategory[]>([defaultYuanluoboCategory])
+  const [gameMode, setGameMode] = useState(defaultYuanluoboGameMode)
   const [page, setPage] = useState(1)
   const [pageTotal, setPageTotal] = useState(0)
   const [total, setTotal] = useState(0)
@@ -224,52 +227,47 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
             {players.map((player) => <option key={player.playerId} value={player.playerId}>{player.name}</option>)}
           </select>
         </label>
+        <label className="yuanluobo-platform-select">
+          <span>平台</span>
+          <select value={gameMode} onChange={(event) => { setGameMode(Number(event.target.value)); setPage(1) }}>
+            {categories.map((category) => <option key={category.gameMode} value={category.gameMode}>{category.title}</option>)}
+          </select>
+        </label>
       </div>
 
-      <div className="yuanluobo-tabs" role="tablist" aria-label="元萝卜分类">
-        {categories.map((category) => (
-          <button
-            key={category.gameMode}
-            role="tab"
-            aria-selected={gameMode === category.gameMode}
-            onClick={() => { setGameMode(category.gameMode); setPage(1) }}
-          >
-            {category.title}
-          </button>
-        ))}
-      </div>
+      <div className="yuanluobo-browser-body">
+        {error && <p className="import-error">{error}</p>}
+        {loading && <p className="yuanluobo-muted">加载中...</p>}
 
-      {error && <p className="import-error">{error}</p>}
-      {loading && <p className="yuanluobo-muted">加载中...</p>}
-
-      {records.length === 0 && !loading ? (
-        <p className="yuanluobo-empty">当前分类暂无棋局</p>
-      ) : (
-        <div className="yuanluobo-record-list">
-          {records.map((record) => {
-            const outcome = viewerOutcome(record, selectedPlayer?.name)
-            return (
-              <button
-                key={record.sessionId}
-                className="yuanluobo-record-row"
-                data-outcome={outcome}
-                onClick={() => void chooseRecord(record)}
-              >
-                <span className="yuanluobo-record-main">
-                  <span className="yuanluobo-record-title">{record.blackPlayerName} vs {record.whitePlayerName}</span>
-                  {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
-                </span>
-                <span className="yuanluobo-record-meta">{record.startDate} · {record.totalRound}手 · {record.resultLabel}</span>
-                {outcome !== 'unknown' && (
-                  <span className={`yuanluobo-result-watermark ${outcome}`} aria-hidden="true">
-                    {outcomeLabel(outcome)}
+        {records.length === 0 && !loading ? (
+          <p className="yuanluobo-empty">当前分类暂无棋局</p>
+        ) : (
+          <div className="yuanluobo-record-list">
+            {records.map((record) => {
+              const outcome = viewerOutcome(record, selectedPlayer?.name)
+              return (
+                <button
+                  key={record.sessionId}
+                  className="yuanluobo-record-row"
+                  data-outcome={outcome}
+                  onClick={() => void chooseRecord(record)}
+                >
+                  <span className="yuanluobo-record-main">
+                    <span className="yuanluobo-record-title">{record.blackPlayerName} vs {record.whitePlayerName}</span>
+                    {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
                   </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
+                  <span className="yuanluobo-record-meta">{record.startDate} · {record.totalRound}手 · {record.resultLabel}</span>
+                  {outcome !== 'unknown' && (
+                    <span className={`yuanluobo-result-watermark ${outcome}`} aria-hidden="true">
+                      {outcomeLabel(outcome)}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
       <footer className="yuanluobo-pager">
         <button disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>

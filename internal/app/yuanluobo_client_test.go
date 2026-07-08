@@ -151,7 +151,6 @@ func TestYuanluoboClientReturnsAuthInvalid(t *testing.T) {
 
 func TestYuanluoboRecordCategoryName(t *testing.T) {
 	cases := map[int]string{
-		0:  "全部",
 		1:  "元萝卜AI",
 		15: "星阵AI",
 		2:  "巅峰对决",
@@ -173,5 +172,23 @@ func TestYuanluoboRecordCategoryName(t *testing.T) {
 	}
 	if got := YuanluoboCategoryName(99); got != "其他" {
 		t.Fatalf("unknown category = %q", got)
+	}
+	if got := YuanluoboCategoryName(0); got != "其他" {
+		t.Fatalf("all category should not be exposed, got %q", got)
+	}
+}
+
+func TestYuanluoboCategoriesOmitAllOption(t *testing.T) {
+	categories := YuanluoboCategories()
+	if len(categories) == 0 {
+		t.Fatal("categories should not be empty")
+	}
+	if categories[0].GameMode != 1 || categories[0].Title != "元萝卜AI" {
+		t.Fatalf("first category = %#v, want 元萝卜AI", categories[0])
+	}
+	for _, category := range categories {
+		if category.GameMode == 0 || category.Title == "全部" {
+			t.Fatalf("unexpected all category: %#v", category)
+		}
 	}
 }

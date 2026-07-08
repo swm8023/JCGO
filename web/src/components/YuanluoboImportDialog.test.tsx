@@ -46,7 +46,7 @@ describe('YuanluoboImportDialog', () => {
         page: 1,
         size: 10,
         pageTotal: 1,
-        categories: [{ title: '全部', gameMode: 0 }, { title: '星阵AI', gameMode: 15 }],
+        categories: [{ title: '元萝卜AI', gameMode: 1 }, { title: '星阵AI', gameMode: 15 }],
         records: [
           {
             sessionId: 'session-1',
@@ -102,7 +102,12 @@ describe('YuanluoboImportDialog', () => {
 
     expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toHaveClass('yuanluobo-fullscreen-page')
     expect(await screen.findByText('棋手一')).toBeInTheDocument()
-    expect(await screen.findByRole('tab', { name: '星阵AI' })).toBeInTheDocument()
+    const platformSelect = screen.getByLabelText('平台')
+    expect(platformSelect).toHaveDisplayValue('元萝卜AI')
+    expect(screen.getByRole('option', { name: '星阵AI' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: '全部' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tablist', { name: '元萝卜分类' })).not.toBeInTheDocument()
+    await waitFor(() => expect(testAPI.records).toHaveBeenCalledWith({ playerId: 'player-1', gameMode: 1, page: 1 }))
     expect(screen.getByText('共 3 局')).toBeInTheDocument()
     expect(screen.getByText('2026-07-08 · 128手 · 黑胜 20.25子')).toBeInTheDocument()
     expect(screen.queryByText('2026-07-08 · 星阵AI · B+20.25')).not.toBeInTheDocument()
@@ -118,6 +123,9 @@ describe('YuanluoboImportDialog', () => {
     const drawRow = screen.getByRole('button', { name: /棋手一 vs Draw Opponent/ })
     expect(within(drawRow).getByText('和')).toHaveClass('yuanluobo-result-watermark', 'draw')
     expect(screen.queryByText('平')).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(platformSelect, '15')
+    await waitFor(() => expect(testAPI.records).toHaveBeenCalledWith({ playerId: 'player-1', gameMode: 15, page: 1 }))
   })
 
   it('opens imported games and imports new games', async () => {
@@ -130,17 +138,17 @@ describe('YuanluoboImportDialog', () => {
         page: 1,
         size: 10,
         pageTotal: 1,
-        categories: [{ title: '全部', gameMode: 0 }],
+        categories: [{ title: '元萝卜AI', gameMode: 1 }],
         records: [
           {
             sessionId: 'session-imported',
-            gameMode: 0,
-            category: '全部',
+            gameMode: 1,
+            category: '元萝卜AI',
             startDate: '2026-07-08',
             startTime: 1783500000,
             blackPlayerName: 'Imported',
             whitePlayerName: 'Opponent',
-            title: '全部',
+            title: '元萝卜AI',
             result: 'B+R',
             resultLabel: '黑中盘胜',
             resultWinner: 'B',
@@ -150,13 +158,13 @@ describe('YuanluoboImportDialog', () => {
           },
           {
             sessionId: 'session-new',
-            gameMode: 0,
-            category: '全部',
+            gameMode: 1,
+            category: '元萝卜AI',
             startDate: '2026-07-07',
             startTime: 1783400000,
             blackPlayerName: 'New',
             whitePlayerName: 'Opponent',
-            title: '全部',
+            title: '元萝卜AI',
             result: 'W+2.50',
             resultLabel: '白胜 2.5子',
             resultWinner: 'W',
