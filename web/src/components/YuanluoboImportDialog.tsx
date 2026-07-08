@@ -32,7 +32,7 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImpo
   const [qr, setQR] = useState<YuanluoboQRCode>()
   const [pollDesc, setPollDesc] = useState('未扫码')
   const [error, setError] = useState<string>()
-  const pollTimer = useRef<number>()
+  const pollTimer = useRef<number | undefined>(undefined)
 
   const pollLogin = async (key: string) => {
     try {

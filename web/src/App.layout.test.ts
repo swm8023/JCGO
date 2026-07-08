@@ -36,7 +36,7 @@ describe('right rail layout', () => {
 
   it('renders the import dialog outside the main layout', () => {
     const mainClose = app.indexOf('</main>')
-    const importDialog = app.indexOf('{showImport && <ImportDialog')
+    const importDialog = app.indexOf('{showImport && client && (')
 
     expect(mainClose).toBeGreaterThan(0)
     expect(importDialog).toBeGreaterThan(mainClose)

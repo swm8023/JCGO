@@ -1,9 +1,12 @@
 import { type ChangeEvent, useRef, useState } from 'react'
+import { YuanluoboImportDialog, type YuanluoboImportAPI } from './YuanluoboImportDialog'
 
 interface ImportDialogProps {
   onImport(displayName: string, originalFilename: string, sgfText: string): void
   onImportUrl(url: string): void
   onCancel(): void
+  yuanluoboApi: YuanluoboImportAPI
+  onOpenGame(gameId: string): void | Promise<void>
 }
 
 type SGFPickerOptions = {
@@ -36,9 +39,9 @@ const sgfPickerOptions: SGFPickerOptions = {
   ],
 }
 
-type DialogMode = 'choose' | 'url'
+type DialogMode = 'choose' | 'url' | 'yuanluobo'
 
-export function ImportDialog({ onImport, onImportUrl, onCancel }: ImportDialogProps) {
+export function ImportDialog({ onImport, onImportUrl, onCancel, yuanluoboApi, onOpenGame }: ImportDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [mode, setMode] = useState<DialogMode>('choose')
   const [url, setUrl] = useState('')
@@ -64,7 +67,7 @@ export function ImportDialog({ onImport, onImportUrl, onCancel }: ImportDialogPr
   }
 
   const cancel = () => {
-    if (mode === 'url') {
+    if (mode === 'url' || mode === 'yuanluobo') {
       setMode('choose')
       setUrl('')
       setError(null)
@@ -109,11 +112,20 @@ export function ImportDialog({ onImport, onImportUrl, onCancel }: ImportDialogPr
     )
   }
 
+  if (mode === 'yuanluobo') {
+    return (
+      <div className="import-dialog" role="dialog" aria-label="Import from YuanluoBo">
+        <YuanluoboImportDialog api={yuanluoboApi} onOpenGame={onOpenGame} onBack={() => setMode('choose')} />
+      </div>
+    )
+  }
+
   return (
     <div className="import-dialog" role="dialog" aria-label="Import SGF">
       <div className="import-dialog-body">
         <button onClick={choose}>选择 SGF 文件</button>
         <button onClick={() => setMode('url')}>从链接导入</button>
+        <button onClick={() => setMode('yuanluobo')}>元萝卜</button>
         <button onClick={cancel}>取消</button>
         <input ref={inputRef} type="file" accept=".sgf" hidden onChange={onFile} />
       </div>

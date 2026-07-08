@@ -11,6 +11,7 @@ import { ImportDialog } from './components/ImportDialog'
 import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
 import { TokenGate } from './components/TokenGate'
+import type { YuanluoboImportAPI } from './components/YuanluoboImportDialog'
 import { playCaptureSound, playStoneSound } from './board/stoneSound'
 import { computeSideActionPlacement, sideActionEdgeGap, sideActionGap, type SideActionPlacement } from './layout/sideActionRail'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
@@ -293,6 +294,28 @@ export default function App() {
     setGameListOpen(false)
   }
 
+  const requireClient = () => {
+    if (!client) throw new Error('未连接')
+    return client
+  }
+
+  const yuanluoboApi: YuanluoboImportAPI = {
+    status: () => requireClient().call('yuanluobo.status'),
+    loginStart: () => requireClient().call('yuanluobo.loginStart'),
+    loginPoll: (key) => requireClient().call('yuanluobo.loginPoll', { key }),
+    logout: () => requireClient().call('yuanluobo.logout'),
+    players: () => requireClient().call('yuanluobo.players'),
+    records: (params) => requireClient().call('yuanluobo.records', params),
+    importRecord: (sessionId) => requireClient().call('yuanluobo.importRecord', { sessionId }),
+  }
+
+  const openImportedGame = async (gameId: string) => {
+    await refreshWorkspaceState()
+    await selectGame(gameId)
+    setShowImport(false)
+    setGameListOpen(true)
+  }
+
   const renameGame = async (gameId: string, displayName: string) => {
     if (!client) return
     await client.call('game.rename', { gameId, displayName })
@@ -469,7 +492,15 @@ export default function App() {
         />
       </aside>
       </main>
-      {showImport && <ImportDialog onImport={importGame} onImportUrl={importFromUrl} onCancel={() => setShowImport(false)} />}
+      {showImport && client && (
+        <ImportDialog
+          onImport={importGame}
+          onImportUrl={importFromUrl}
+          onCancel={() => setShowImport(false)}
+          yuanluoboApi={yuanluoboApi}
+          onOpenGame={openImportedGame}
+        />
+      )}
     </>
   )
 }

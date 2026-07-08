@@ -1332,6 +1332,181 @@ textarea:focus-visible {
   background: var(--surface-soft);
 }
 
+.yuanluobo-panel {
+  width: min(760px, 100%);
+  max-height: min(82dvh, 720px);
+  display: grid;
+  grid-template-rows: auto auto auto 1fr auto;
+  gap: 12px;
+  box-sizing: border-box;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  overflow: hidden;
+}
+
+.yuanluobo-header {
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.yuanluobo-header strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.yuanluobo-panel button,
+.yuanluobo-player-select select {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.yuanluobo-panel button {
+  padding: 0 12px;
+  font-weight: 600;
+}
+
+.yuanluobo-panel button:hover:not(:disabled) {
+  background: var(--surface-soft);
+}
+
+.yuanluobo-panel button:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.62;
+}
+
+.yuanluobo-qr {
+  width: min(260px, 72vw);
+  aspect-ratio: 1;
+  justify-self: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+}
+
+.yuanluobo-muted {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.yuanluobo-player-select {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.yuanluobo-player-select select {
+  min-width: 0;
+  padding: 0 10px;
+}
+
+.yuanluobo-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.yuanluobo-tabs button {
+  flex: 0 0 auto;
+  min-width: 64px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.yuanluobo-tabs button[aria-selected="true"] {
+  border-color: var(--table);
+  background: var(--table);
+  color: var(--surface-raised);
+}
+
+.yuanluobo-record-list {
+  min-height: 220px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.yuanluobo-record-row {
+  width: 100%;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title badge"
+    "meta badge";
+  align-items: center;
+  gap: 3px 10px;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.yuanluobo-record-title {
+  grid-area: title;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yuanluobo-record-meta {
+  grid-area: meta;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yuanluobo-imported-badge {
+  grid-area: badge;
+  min-width: 48px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgb(5 150 105 / 0.1);
+  color: var(--candidate-best);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.yuanluobo-pager {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.yuanluobo-pager span {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
 .portrait-import-button {
   min-height: 42px;
   padding: 0 18px;
