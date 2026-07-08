@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Check, ChevronDown, ChevronRight, Grid3X3, List, LogOut, RefreshCw, Search, UserRound } from 'lucide-react'
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Grid3X3, LogOut, RefreshCw, Search, UserRound } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type {
   ImportResult,
@@ -291,12 +291,7 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDial
       <div className="yuanluobo-record-toolbar">
         <div>
           <strong>棋局记录</strong>
-          <span aria-hidden="true" />
-          <small>按时间倒序</small>
         </div>
-        <button type="button" aria-label="列表视图">
-          <List size={18} aria-hidden="true" />
-        </button>
       </div>
 
       <div className="yuanluobo-browser-body">

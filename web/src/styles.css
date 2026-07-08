@@ -1779,8 +1779,6 @@ textarea:focus-visible {
   height: 42px;
   display: grid;
   place-items: center;
-  border-radius: 999px;
-  background: rgb(194 141 64 / 0.12);
   color: #9a6a2e;
 }
 
@@ -1824,11 +1822,9 @@ textarea:focus-visible {
 
 .yuanluobo-record-toolbar {
   width: min(1040px, 100%);
-  min-height: 34px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 28px;
+  display: flex;
   align-items: center;
-  gap: 12px;
   padding: 0 4px;
   box-sizing: border-box;
 }
@@ -1837,46 +1833,12 @@ textarea:focus-visible {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
 }
 
 .yuanluobo-record-toolbar strong {
   color: var(--ink);
   font-size: 16px;
   font-weight: 850;
-}
-
-.yuanluobo-record-toolbar small {
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.yuanluobo-record-toolbar > div > span {
-  width: 1px;
-  height: 20px;
-  background: rgb(184 168 152 / 0.7);
-}
-
-.yuanluobo-record-toolbar button {
-  width: 40px;
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: end;
-  padding: 0;
-  border-color: transparent;
-  background: transparent;
-  color: #7c6b5b;
-  box-shadow: none;
-}
-
-.yuanluobo-record-toolbar button::before {
-  content: "";
-  width: 1px;
-  height: 20px;
-  margin-right: 10px;
-  background: rgb(184 168 152 / 0.72);
 }
 
 .yuanluobo-browser-body {
@@ -1892,7 +1854,7 @@ textarea:focus-visible {
   flex: 1 1 auto;
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 5px;
   overflow: auto;
   padding: 2px 2px 4px;
   overscroll-behavior: contain;
@@ -1901,12 +1863,12 @@ textarea:focus-visible {
 .yuanluobo-record-row {
   position: relative;
   width: 100%;
-  min-height: 74px;
+  min-height: 88px;
   display: grid;
   grid-template-rows: auto auto;
   align-content: center;
   gap: 6px;
-  padding: 14px 92px 14px 48px;
+  padding: 18px 92px 18px 54px;
   border: 1px solid rgb(212 201 184 / 0.72);
   border-radius: 10px;
   text-align: left;
@@ -1921,20 +1883,20 @@ textarea:focus-visible {
 .yuanluobo-record-row::before {
   content: "";
   position: absolute;
-  left: 22px;
-  top: 16px;
-  bottom: 16px;
+  left: 18px;
+  top: 22px;
+  bottom: 22px;
   width: 5px;
   border-radius: 999px;
   background: #94a3b8;
 }
 
 .yuanluobo-record-row[data-outcome="win"] {
-  border-color: rgb(5 150 105 / 0.24);
+  border-color: rgb(63 143 102 / 0.2);
 }
 
 .yuanluobo-record-row[data-outcome="loss"] {
-  border-color: rgb(220 38 38 / 0.2);
+  border-color: rgb(200 106 96 / 0.18);
 }
 
 .yuanluobo-record-row[data-outcome="draw"] {
@@ -1942,11 +1904,11 @@ textarea:focus-visible {
 }
 
 .yuanluobo-record-row[data-outcome="win"]::before {
-  background: #3b9d6d;
+  background: #58a87a;
 }
 
 .yuanluobo-record-row[data-outcome="loss"]::before {
-  background: #e1645c;
+  background: #df7770;
 }
 
 .yuanluobo-record-row[data-outcome="draw"]::before {
@@ -2069,21 +2031,21 @@ textarea:focus-visible {
 }
 
 .yuanluobo-result-watermark.win {
-  color: #047857;
-  border-color: rgb(5 150 105 / 0.34);
-  background: rgb(5 150 105 / 0.08);
+  color: #3f8f66;
+  border-color: rgb(63 143 102 / 0.22);
+  background: rgb(63 143 102 / 0.05);
 }
 
 .yuanluobo-result-watermark.loss {
-  color: #dc2626;
-  border-color: rgb(220 38 38 / 0.34);
-  background: rgb(220 38 38 / 0.06);
+  color: #c86a60;
+  border-color: rgb(200 106 96 / 0.22);
+  background: rgb(200 106 96 / 0.05);
 }
 
 .yuanluobo-result-watermark.draw {
-  color: #64748b;
-  border-color: rgb(100 116 139 / 0.3);
-  background: rgb(100 116 139 / 0.06);
+  color: #7f8792;
+  border-color: rgb(100 116 139 / 0.22);
+  background: rgb(100 116 139 / 0.05);
 }
 
 .yuanluobo-row-chevron {
@@ -2745,15 +2707,15 @@ textarea:focus-visible {
   }
 
   .yuanluobo-record-row {
-    min-height: 70px;
-    padding: 12px 84px 12px 36px;
+    min-height: 82px;
+    padding: 15px 84px 15px 40px;
     border-radius: 8px;
   }
 
   .yuanluobo-record-row::before {
     left: 16px;
-    top: 14px;
-    bottom: 14px;
+    top: 18px;
+    bottom: 18px;
     width: 4px;
   }
 
