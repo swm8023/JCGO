@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { StatePayload } from './api/types'
 import App from './App'
 
@@ -29,9 +29,14 @@ vi.mock('./api/jsonrpc', () => ({
 }))
 
 describe('App variation navigation', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
+  })
+
   afterEach(() => {
     cleanup()
     window.sessionStorage.clear()
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
     rpc.calls.length = 0
     rpc.state = undefined

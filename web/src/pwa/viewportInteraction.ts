@@ -7,6 +7,7 @@ const viewportDebugSampleLimit = 5
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
   let stableHeight = windowTarget.innerHeight
+  let appWidth: number | undefined
   const debugOverlay = viewportDebugEnabled(windowTarget) ? createViewportDebugOverlay(documentTarget) : undefined
   const debugSamples: string[] = []
 
@@ -17,7 +18,11 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     if (event.touches.length > 1) event.preventDefault()
   }
   const applyViewport = () => {
-    documentTarget.documentElement.style.removeProperty(appWidthVariable)
+    if (appWidth === undefined) {
+      documentTarget.documentElement.style.removeProperty(appWidthVariable)
+    } else {
+      documentTarget.documentElement.style.setProperty(appWidthVariable, `${appWidth}px`)
+    }
     documentTarget.documentElement.style.setProperty(appHeightVariable, `${stableHeight}px`)
   }
   const writeDebug = (source: string) => {
@@ -28,10 +33,12 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   }
   const handleResize = () => {
     const viewport = currentViewportSize(windowTarget)
+    const portraitViewport = portraitViewportSize(viewport, hasCoarsePointer(windowTarget))
+    appWidth = portraitViewport.width
     if (!hasCoarsePointer(windowTarget)) {
-      stableHeight = viewport.height
+      stableHeight = portraitViewport.height
     } else {
-      stableHeight = Math.max(stableHeight, viewport.height)
+      stableHeight = Math.max(stableHeight, portraitViewport.height)
     }
     applyViewport()
     writeDebug('resize')
@@ -40,10 +47,12 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     const viewport = windowTarget.visualViewport
     if (!viewport) return
     const windowSize = currentViewportSize(windowTarget)
+    const portraitViewport = portraitViewportSize(windowSize, hasCoarsePointer(windowTarget))
+    appWidth = portraitViewport.width
     if (!hasCoarsePointer(windowTarget)) {
-      stableHeight = windowSize.height
+      stableHeight = portraitViewport.height
     } else {
-      stableHeight = Math.max(stableHeight, windowSize.height)
+      stableHeight = Math.max(stableHeight, portraitViewport.height)
     }
     applyViewport()
     writeDebug('vv')
@@ -75,6 +84,11 @@ interface ViewportSize {
   height: number
 }
 
+interface AppViewportSize {
+  width?: number
+  height: number
+}
+
 function windowViewportSize(windowTarget: Window): ViewportSize {
   return { width: windowTarget.innerWidth, height: windowTarget.innerHeight }
 }
@@ -89,6 +103,12 @@ function currentViewportSize(windowTarget: Window): ViewportSize {
     width: viewport.width,
     height: Math.max(viewport.height, visualViewport.height),
   }
+}
+
+function portraitViewportSize(viewport: ViewportSize, coarsePointer: boolean): AppViewportSize {
+  if (!coarsePointer) return { height: viewport.height }
+  if (viewport.width <= viewport.height) return { height: viewport.height }
+  return { width: viewport.height, height: viewport.width }
 }
 
 function hasCoarsePointer(windowTarget: Window) {

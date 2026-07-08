@@ -6,7 +6,11 @@ captureAudio.preload = 'auto'
 
 function play(audio: HTMLAudioElement): void {
   audio.currentTime = 0
-  audio.play().catch(() => {})
+  try {
+    audio.play()?.catch(() => {})
+  } catch {
+    // Audio playback is best-effort and may be unavailable in tests or locked browsers.
+  }
 }
 
 export function playStoneSound(): void {

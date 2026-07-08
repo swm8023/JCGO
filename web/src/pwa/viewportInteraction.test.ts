@@ -263,6 +263,34 @@ describe('viewport interaction guards', () => {
     expect(windowTarget.listeners.get('resize')).toEqual([])
   })
 
+  it('uses a centered portrait canvas when a coarse-pointer viewport opens in landscape', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+    windowTarget.innerWidth = 932
+    windowTarget.innerHeight = 430
+    windowTarget.visualViewport.width = 932
+    windowTarget.visualViewport.height = 430
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('430px')
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('932px')
+
+    windowTarget.innerWidth = 844
+    windowTarget.innerHeight = 390
+    windowTarget.visualViewport.width = 844
+    windowTarget.visualViewport.height = 390
+    windowTarget.dispatch('resize', new Event('resize'))
+
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBe('390px')
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('932px')
+  })
+
   it('updates app dimensions when portrait visual viewport resize settles', async () => {
     const moduleName = './viewportInteraction'
     const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
