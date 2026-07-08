@@ -181,3 +181,65 @@ export interface EncodedOwnership {
   encoding: 'q8-base64'
   data: string
 }
+
+export interface YuanluoboQRCode {
+  key: string
+  image: string
+}
+
+export type YuanluoboQRStatusCode = 0 | 1 | 2 | 3 | 4
+
+export interface YuanluoboLoginPoll {
+  status: YuanluoboQRStatusCode
+  desc: string
+}
+
+export interface YuanluoboUser {
+  id: number
+  playerId: string
+  name: string
+  groupId: string
+  userId: string
+  avatarUrl?: string
+}
+
+export interface YuanluoboStatusResult {
+  loggedIn: boolean
+  user?: YuanluoboUser
+}
+
+export interface YuanluoboPlayer {
+  playerId: string
+  name: string
+  avatarUrl?: string
+  groupId?: string
+}
+
+export interface YuanluoboCategory {
+  title: string
+  gameMode: number
+}
+
+export interface YuanluoboRecord {
+  sessionId: string
+  gameMode: number
+  category: string
+  startDate: string
+  startTime: number
+  blackPlayerName: string
+  whitePlayerName: string
+  title: string
+  result: string
+  totalRound: number
+  imported: boolean
+  gameId?: string
+}
+
+export interface YuanluoboRecordsResult {
+  total: number
+  page: number
+  size: number
+  pageTotal: number
+  categories: YuanluoboCategory[]
+  records: YuanluoboRecord[]
+}
