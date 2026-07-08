@@ -2,7 +2,7 @@ export const sideActionRailWidth = 42
 export const sideActionRailHeight = 267
 export const sideActionRowHeight = 0
 export const sideActionEdgeGap = 12
-export const sideActionGap = 8
+export const sideActionGap = 18
 
 const viewportEdgeGap = 4
 const fullWidthEnterTolerance = 2
@@ -41,9 +41,7 @@ export function computeSideActionPlacement(measurement: SideActionMeasurement, c
   const boardSize = Math.min(measurement.boardHeight, Math.max(0, measurement.boardStageWidth - railSpace))
   if (boardSize <= 0) return disabled
 
-  const groupWidth = boardSize + railSpace
-  const groupLeft = measurement.boardStageLeft + Math.max(0, (measurement.boardStageWidth - groupWidth) / 2)
-  const preferredLeft = groupLeft + boardSize + sideActionGap
+  const preferredLeft = measurement.boardRight + sideActionGap
   const preferredTop = measurement.boardTop + measurement.boardHeight / 2
   const minTop = sideActionRailHeight / 2 + viewportEdgeGap
   const maxTop = measurement.layoutHeight - sideActionRailHeight / 2 - viewportEdgeGap

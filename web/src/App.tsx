@@ -12,7 +12,7 @@ import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
 import { TokenGate } from './components/TokenGate'
 import { playCaptureSound, playStoneSound } from './board/stoneSound'
-import { computeSideActionPlacement, type SideActionPlacement } from './layout/sideActionRail'
+import { computeSideActionPlacement, sideActionEdgeGap, sideActionGap, type SideActionPlacement } from './layout/sideActionRail'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
@@ -479,6 +479,8 @@ type SideActionStyle = CSSProperties & {
   '--side-action-top': string
   '--side-action-width': string
   '--side-action-row-height': string
+  '--side-action-gap': string
+  '--side-action-edge-gap': string
 }
 
 function sideActionStyle(placement: SideActionPlacement): SideActionStyle {
@@ -487,6 +489,8 @@ function sideActionStyle(placement: SideActionPlacement): SideActionStyle {
     '--side-action-top': `${placement.top}px`,
     '--side-action-width': `${placement.width}px`,
     '--side-action-row-height': `${placement.rowHeight}px`,
+    '--side-action-gap': `${sideActionGap}px`,
+    '--side-action-edge-gap': `${sideActionEdgeGap}px`,
   }
 }
 

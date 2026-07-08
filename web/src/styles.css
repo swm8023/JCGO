@@ -47,6 +47,7 @@
   --analysis-detail-preview-height: 64px;
   --analysis-bottom-height: calc(var(--analysis-overview-height) + var(--analysis-detail-preview-height));
   --wide-analysis-bottom-height: var(--analysis-overview-height);
+  --side-analysis-height: max(var(--analysis-bottom-height), min(22dvh, 280px));
 
   --ui-btn-size: 32px;
   --ui-btn-radius: 7px;
@@ -221,7 +222,7 @@ textarea:focus-visible {
 
 .app-layout.side-action-layout {
   grid-template-columns: 1fr;
-  grid-template-rows: auto minmax(0, 1fr) var(--analysis-bottom-height);
+  grid-template-rows: auto minmax(0, 1fr) var(--side-analysis-height);
 }
 
 .game-sidebar,
@@ -634,7 +635,9 @@ textarea:focus-visible {
 }
 
 .board-frame {
-  --board-frame-clearance: 16px;
+  --board-frame-inline-clearance: 16px;
+  --board-frame-block-clearance: 16px;
+
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -648,14 +651,15 @@ textarea:focus-visible {
 }
 
 .side-action-layout .board-frame {
-  --board-frame-clearance: calc(var(--side-action-width, 42px) + 16px);
+  --board-frame-inline-clearance: calc((var(--side-action-width, 42px) + var(--side-action-gap, 18px) + var(--side-action-edge-gap, 12px)) * 2);
+  --board-frame-block-clearance: 16px;
 }
 
 .go-board {
   position: relative;
   z-index: 1;
-  width: min(calc(100cqw - var(--board-frame-clearance)), calc(100cqh - var(--board-frame-clearance)));
-  height: min(calc(100cqw - var(--board-frame-clearance)), calc(100cqh - var(--board-frame-clearance)));
+  width: min(calc(100cqw - var(--board-frame-inline-clearance)), calc(100cqh - var(--board-frame-block-clearance)));
+  height: min(calc(100cqw - var(--board-frame-inline-clearance)), calc(100cqh - var(--board-frame-block-clearance)));
   max-width: 100%;
   max-height: 100%;
   display: block;
@@ -685,7 +689,7 @@ textarea:focus-visible {
 }
 
 .side-action-layout .action-rail {
-  grid-row: 2;
+  grid-row: 1 / -1;
   grid-column: 1 / -1;
   position: absolute;
   left: var(--side-action-left, 0px);
@@ -932,6 +936,9 @@ textarea:focus-visible {
 .rail-section-body {
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   scrollbar-color: #b8a898 transparent;
   scrollbar-width: thin;
 }
@@ -1376,7 +1383,8 @@ textarea:focus-visible {
   }
 
   .board-frame {
-    --board-frame-clearance: 4px;
+    --board-frame-inline-clearance: 4px;
+    --board-frame-block-clearance: 4px;
     order: 2;
   }
 
@@ -1668,7 +1676,7 @@ textarea:focus-visible {
 
   .app-layout.side-action-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr) var(--wide-analysis-bottom-height);
+    grid-template-rows: auto minmax(0, 1fr) var(--side-analysis-height);
   }
 
   .game-sidebar {
@@ -1808,7 +1816,8 @@ textarea:focus-visible {
   }
 
   .board-frame {
-    --board-frame-clearance: 4px;
+    --board-frame-inline-clearance: 4px;
+    --board-frame-block-clearance: 4px;
     order: 2;
   }
 

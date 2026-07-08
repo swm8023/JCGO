@@ -37,15 +37,13 @@ describe('side action rail placement', () => {
       boardHeight: 316,
     }, false)
 
-    const expectedGroupWidth = 316 + sideActionGap + sideActionRailWidth
-    const expectedGroupLeft = (390 - expectedGroupWidth) / 2
     expect(placement.enabled).toBe(true)
     expect(placement.width).toBe(sideActionRailWidth)
-    expect(placement.left).toBe(expectedGroupLeft + 316 + sideActionGap)
+    expect(placement.left).toBe(316 + sideActionGap)
     expect(placement.top).toBe(52 + 316 / 2)
   })
 
-  it('centers the board and right-side action rail group inside the board stage', () => {
+  it('places the right-side action rail beside the measured board with a comfortable gap', () => {
     const placement = computeSideActionPlacement({
       layoutWidth: 700,
       layoutHeight: 1024,
@@ -58,10 +56,11 @@ describe('side action rail placement', () => {
       boardHeight: 440,
     }, false)
 
-    const expectedGroupWidth = 440 + sideActionGap + sideActionRailWidth
-    const expectedGroupLeft = (700 - expectedGroupWidth) / 2
     expect(placement.enabled).toBe(true)
-    expect(placement.left).toBe(expectedGroupLeft + 440 + sideActionGap)
+    expect(sideActionGap).toBeGreaterThanOrEqual(16)
+    expect(placement.left).toBe(528 + sideActionGap)
+    expect(placement.left - 528).toBe(sideActionGap)
+    expect(placement.top).toBe(72 + 440 / 2)
   })
 
   it('uses hysteresis so small viewport changes do not toggle the rail repeatedly', () => {
