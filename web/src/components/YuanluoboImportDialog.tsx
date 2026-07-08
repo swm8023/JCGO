@@ -4,6 +4,7 @@ import type {
   YuanluoboLoginPoll,
   YuanluoboPlayer,
   YuanluoboQRCode,
+  YuanluoboRecord,
   YuanluoboRecordsResult,
   YuanluoboStatusResult,
 } from '../api/types'
@@ -104,16 +105,111 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack }: YuanluoboImpo
     )
   }
 
-  return <YuanluoboRecordBrowser onBack={onBack} />
+  return <YuanluoboRecordBrowser api={api} onOpenGame={onOpenGame} onBack={onBack} />
 }
 
-function YuanluoboRecordBrowser({ onBack }: Pick<YuanluoboImportDialogProps, 'onBack'>) {
+function YuanluoboRecordBrowser({ api, onOpenGame, onBack }: YuanluoboImportDialogProps) {
+  const [players, setPlayers] = useState<YuanluoboPlayer[]>([])
+  const [playerId, setPlayerId] = useState('')
+  const [categories, setCategories] = useState<{ title: string; gameMode: number }[]>([])
+  const [gameMode, setGameMode] = useState(0)
+  const [page, setPage] = useState(1)
+  const [pageTotal, setPageTotal] = useState(0)
+  const [records, setRecords] = useState<YuanluoboRecord[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string>()
+
+  const loadRecords = async (nextPlayerId: string, nextGameMode: number, nextPage: number) => {
+    setLoading(true)
+    setError(undefined)
+    try {
+      const result = await api.records({ playerId: nextPlayerId, gameMode: nextGameMode, page: nextPage })
+      setCategories(result.categories)
+      setRecords(result.records)
+      setPageTotal(result.pageTotal)
+    } catch (reason) {
+      setError(errorMessage(reason))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    api.players()
+      .then((nextPlayers) => {
+        if (cancelled) return
+        setPlayers(nextPlayers)
+        setPlayerId(nextPlayers[0]?.playerId ?? '')
+      })
+      .catch((reason) => {
+        if (!cancelled) setError(errorMessage(reason))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!playerId) return
+    void loadRecords(playerId, gameMode, page)
+  }, [playerId, gameMode, page])
+
+  const chooseRecord = async (record: YuanluoboRecord) => {
+    if (record.imported && record.gameId) {
+      await onOpenGame(record.gameId)
+      return
+    }
+    const result = await api.importRecord(record.sessionId)
+    await onOpenGame(result.game.gameId)
+  }
+
   return (
     <div className="yuanluobo-panel">
       <header className="yuanluobo-header">
         <button onClick={onBack}>返回</button>
         <strong>元萝卜棋局</strong>
+        <button onClick={() => void api.logout().then(onBack)}>退出</button>
       </header>
+
+      <label className="yuanluobo-player-select">
+        <span>棋手</span>
+        <select value={playerId} onChange={(event) => { setPlayerId(event.target.value); setPage(1) }}>
+          {players.map((player) => <option key={player.playerId} value={player.playerId}>{player.name}</option>)}
+        </select>
+      </label>
+
+      <div className="yuanluobo-tabs" role="tablist" aria-label="元萝卜分类">
+        {categories.map((category) => (
+          <button
+            key={category.gameMode}
+            role="tab"
+            aria-selected={gameMode === category.gameMode}
+            onClick={() => { setGameMode(category.gameMode); setPage(1) }}
+          >
+            {category.title}
+          </button>
+        ))}
+      </div>
+
+      {error && <p className="import-error">{error}</p>}
+      {loading && <p className="yuanluobo-muted">加载中...</p>}
+
+      <div className="yuanluobo-record-list">
+        {records.map((record) => (
+          <button key={record.sessionId} className="yuanluobo-record-row" onClick={() => void chooseRecord(record)}>
+            <span className="yuanluobo-record-title">{record.blackPlayerName} vs {record.whitePlayerName}</span>
+            <span className="yuanluobo-record-meta">{record.startDate} · {record.category} · {record.result}</span>
+            {record.imported && <span className="yuanluobo-imported-badge">已导入</span>}
+          </button>
+        ))}
+      </div>
+
+      <footer className="yuanluobo-pager">
+        <button disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
+        <span>{page} / {Math.max(pageTotal, 1)}</span>
+        <button disabled={pageTotal > 0 && page >= pageTotal} onClick={() => setPage((value) => value + 1)}>下一页</button>
+      </footer>
     </div>
   )
 }
