@@ -128,6 +128,92 @@ func TestRepositoryMigratesExistingGamesTableWithGameDate(t *testing.T) {
 	}
 }
 
+func TestRepositoryStoresAndFindsGameSource(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+
+	game, err := repo.CreateGame(ctx, CreateGameInput{
+		DisplayName:    "YuanluoBo",
+		Result:         "B+R",
+		GameDate:       "2026-07-08",
+		SGFFilename:    "ylb.sgf",
+		SourcePlatform: "yuanluobo",
+		SourceID:       "session-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if game.SourcePlatform != "yuanluobo" || game.SourceID != "session-1" {
+		t.Fatalf("created source = %q/%q", game.SourcePlatform, game.SourceID)
+	}
+
+	found, ok, err := repo.FindGameBySource(ctx, "yuanluobo", "session-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || found.ID != game.ID {
+		t.Fatalf("found = %#v, ok = %v", found, ok)
+	}
+
+	listed, err := repo.ListGames(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].SourceID != "session-1" {
+		t.Fatalf("listed = %#v", listed)
+	}
+}
+
+func TestRepositoryMigratesExistingGamesTableWithSourceColumns(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "jcgo.sqlite")
+	db, err := sql.Open("sqlite", filepath.ToSlash(dbPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE games (
+			id TEXT PRIMARY KEY,
+			display_name TEXT NOT NULL,
+			result TEXT NOT NULL,
+			game_date TEXT NOT NULL DEFAULT '',
+			sgf_filename TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO games (id, display_name, result, game_date, sgf_filename, created_at)
+		VALUES ('old', 'Old', 'B+R', '2026-07-08', 'old.sgf', '2026-07-08T01:00:00Z')
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	repo, err := Open(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+
+	old, err := repo.GetGame(ctx, "old")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if old.SourcePlatform != "" || old.SourceID != "" {
+		t.Fatalf("legacy source = %q/%q", old.SourcePlatform, old.SourceID)
+	}
+}
+
 func TestFileStoreWritesReadsAndDeletesSGF(t *testing.T) {
 	dir := t.TempDir()
 	files := NewFileStore(dir)
