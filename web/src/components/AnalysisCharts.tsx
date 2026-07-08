@@ -6,6 +6,11 @@ interface AnalysisChartsProps {
   onJump(moveNumber: number): void
 }
 
+interface ChartVertex {
+  x: number
+  y: number
+}
+
 const chart = {
   width: 320,
   height: 112,
@@ -27,16 +32,25 @@ export function AnalysisCharts({ points, currentMoveNumber, onJump }: AnalysisCh
     <div className="analysis-charts" aria-label="胜率曲线">
       <div className="rail-section-body chart-body">
         <svg className="winrate-chart" viewBox={`0 0 ${chart.width} ${chart.height}`} preserveAspectRatio="none" role="img" aria-label="Winrate curve">
+          <defs>
+            <linearGradient id="winrateAreaGradient" x1="0" x2="0" y1={chart.top} y2={plotBottom} gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="var(--table)" stopOpacity="0.18" />
+              <stop offset="72%" stopColor="var(--table)" stopOpacity="0.06" />
+              <stop offset="100%" stopColor="var(--table)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
           <rect className="chart-plot-bg" x={chart.left} y={chart.top} width={plotWidth} height={plotHeight} />
+          {geometry.winrateAreaPath && <path aria-label="Black winrate area" className="winrate-area" d={geometry.winrateAreaPath} />}
           <line className="chart-grid-line" x1={chart.left} y1={chart.top} x2={chart.width - chart.right} y2={chart.top} />
           <line className="chart-grid-line chart-zero-line" x1={chart.left} y1={scoreMidY} x2={chart.width - chart.right} y2={scoreMidY} />
           <line className="chart-grid-line" x1={chart.left} y1={plotBottom} x2={chart.width - chart.right} y2={plotBottom} />
           <line className="chart-axis-line" x1={chart.left} y1={chart.top} x2={chart.left} y2={plotBottom} />
           <line className="chart-axis-line" x1={chart.width - chart.right} y1={chart.top} x2={chart.width - chart.right} y2={plotBottom} />
 
-          {geometry.winratePath && <polyline aria-label="Black winrate line" className="chart-line winrate-line" points={geometry.winratePath} />}
-          {geometry.scorePath && <polyline aria-label="Score lead line" className="chart-line score-line" points={geometry.scorePath} />}
+          {geometry.scorePath && <path aria-label="Score lead line" className="chart-line score-line" d={geometry.scorePath} />}
+          {geometry.winratePath && <path aria-label="Black winrate line" className="chart-line winrate-line" d={geometry.winratePath} />}
           {geometry.currentX !== undefined && <line aria-label="Current move marker" className="chart-current-marker" x1={geometry.currentX} y1={chart.top} x2={geometry.currentX} y2={plotBottom} />}
+          {geometry.currentPoint && <circle aria-label="Current move point" className="chart-current-point" cx={geometry.currentPoint.x} cy={geometry.currentPoint.y} r="3" />}
           {geometry.ticks.map((tick) => (
             <g key={tick.value}>
               <line className="chart-tick-line" x1={tick.x} y1={plotBottom} x2={tick.x} y2={plotBottom + 4} />
@@ -96,18 +110,60 @@ function percentY(y: number) {
 function buildChartGeometry(points: ChartPoint[], currentMoveNumber?: number) {
   const maxMove = Math.max(1, ...points.map((point) => point.moveNumber))
   const scoreLimit = niceScoreLimit(points)
-  const winratePoints = points.map((point) => `${xForMove(point.moveNumber, maxMove)},${yForWinrate(point.winrate)}`).join(' ')
-  const scorePoints = points.map((point) => `${xForMove(point.moveNumber, maxMove)},${yForScore(point.scoreLead, scoreLimit)}`).join(' ')
-  const currentX = points.length === 0 || currentMoveNumber === undefined ? undefined : xForMove(clamp(currentMoveNumber, 0, maxMove), maxMove)
+  const winrateVertices = points.map((point) => ({ x: xForMove(point.moveNumber, maxMove), y: yForWinrate(point.winrate) }))
+  const scoreVertices = points.map((point) => ({ x: xForMove(point.moveNumber, maxMove), y: yForScore(point.scoreLead, scoreLimit) }))
+  const winratePath = smoothPath(winrateVertices)
+  const currentMove = currentMoveNumber === undefined ? undefined : clamp(currentMoveNumber, 0, maxMove)
+  const currentX = points.length === 0 || currentMove === undefined ? undefined : xForMove(currentMove, maxMove)
+  const currentPointSource = currentMove === undefined ? undefined : points.find((point) => point.moveNumber === currentMove)
   const hitWidth = Math.max(12, plotWidth / Math.max(points.length, 1))
   return {
     scoreLimit,
-    winratePath: points.length > 1 ? winratePoints : '',
-    scorePath: points.length > 1 ? scorePoints : '',
+    winratePath,
+    winrateAreaPath: areaPath(winratePath, winrateVertices),
+    scorePath: smoothPath(scoreVertices),
     currentX,
+    currentPoint: currentPointSource ? { x: xForMove(currentPointSource.moveNumber, maxMove), y: yForWinrate(currentPointSource.winrate) } : undefined,
     ticks: buildMoveTicks(maxMove).map((value) => ({ value, x: xForMove(value, maxMove) })),
     hitTargets: points.map((point) => ({ moveNumber: point.moveNumber, x: xForMove(point.moveNumber, maxMove), width: hitWidth })),
   }
+}
+
+function smoothPath(vertices: ChartVertex[]) {
+  if (vertices.length < 2) return ''
+
+  const commands = [`M${formatCoord(vertices[0].x)},${formatCoord(vertices[0].y)}`]
+  for (let index = 0; index < vertices.length - 1; index += 1) {
+    const previous = vertices[index - 1] ?? vertices[index]
+    const current = vertices[index]
+    const next = vertices[index + 1]
+    const following = vertices[index + 2] ?? next
+    const controlStart = {
+      x: current.x + (next.x - previous.x) / 6,
+      y: clamp(current.y + (next.y - previous.y) / 6, chart.top, plotBottom),
+    }
+    const controlEnd = {
+      x: next.x - (following.x - current.x) / 6,
+      y: clamp(next.y - (following.y - current.y) / 6, chart.top, plotBottom),
+    }
+
+    commands.push(
+      `C${formatCoord(controlStart.x)},${formatCoord(controlStart.y)} ${formatCoord(controlEnd.x)},${formatCoord(controlEnd.y)} ${formatCoord(next.x)},${formatCoord(next.y)}`,
+    )
+  }
+
+  return commands.join(' ')
+}
+
+function areaPath(linePath: string, vertices: ChartVertex[]) {
+  if (!linePath || vertices.length < 2) return ''
+  const first = vertices[0]
+  const last = vertices[vertices.length - 1]
+  return `${linePath} L${formatCoord(last.x)},${formatCoord(plotBottom)} L${formatCoord(first.x)},${formatCoord(plotBottom)} Z`
+}
+
+function formatCoord(value: number) {
+  return Number(value.toFixed(2)).toString()
 }
 
 function xForMove(moveNumber: number, maxMove: number) {

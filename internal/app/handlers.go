@@ -233,6 +233,8 @@ func (h *Handler) importSGFText(ctx context.Context, token string, sgfText strin
 	create.DisplayName = displayName
 	create.Result = doc.Result
 	create.GameDate = doc.GameDate
+	create.BlackName = doc.BlackName
+	create.WhiteName = doc.WhiteName
 	record, err := h.repo.CreateGame(ctx, create)
 	if err != nil {
 		return ImportResult{}, err

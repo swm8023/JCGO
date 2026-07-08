@@ -78,16 +78,31 @@ export function GameSidebar({
             ) : games.map((game) => {
               const selected = game.gameId === selectedGameId
               const outcome = localGameOutcome(game.result)
+              const dateLabel = formatDateLabel(game.gameDate || game.createdAt)
               return (
                 <div
                   className={selected ? 'game-row yuanluobo-record-row selected' : 'game-row yuanluobo-record-row'}
-                  data-outcome={outcome.tone}
+                  data-outcome={outcome}
                   key={game.gameId}
                 >
                   <button className="game-row-open" onClick={() => onSelect(game.gameId)}>
                     <span className="yuanluobo-record-main">
                       <span className="yuanluobo-record-title">
-                        <span className="game-title-name">{game.displayName}</span>
+                        {game.blackName && game.whiteName ? (
+                          <>
+                            <span className="yuanluobo-player-name">
+                              <span className="yuanluobo-stone black" aria-hidden="true" />
+                              {game.blackName}
+                            </span>
+                            <span className="yuanluobo-vs">vs</span>
+                            <span className="yuanluobo-player-name">
+                              <span className="yuanluobo-stone white" aria-hidden="true" />
+                              {game.whiteName}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="game-title-name">{game.displayName}</span>
+                        )}
                       </span>
                       {selected && <span className="yuanluobo-imported-badge">当前</span>}
                       <span className={analysisBadgeClass(game.analysisStatus)}>
@@ -95,22 +110,11 @@ export function GameSidebar({
                       </span>
                     </span>
                     <span className="yuanluobo-record-meta">
-                      <span>{formatGameResult(game.result)}</span>
-                      {game.gameDate && (
-                        <>
-                          <span className="yuanluobo-meta-sep" aria-hidden="true" />
-                          <span>{`棋局 ${formatDateLabel(game.gameDate)}`}</span>
-                        </>
-                      )}
+                      <span>{dateLabel}</span>
                       <span className="yuanluobo-meta-sep" aria-hidden="true" />
-                      <span>{`上传 ${formatDateLabel(game.createdAt)}`}</span>
+                      <span>{formatGameResult(game.result)}</span>
                     </span>
                   </button>
-                  {outcome.tone !== 'unknown' && (
-                    <span className={`yuanluobo-result-watermark ${outcome.tone}`} aria-hidden="true">
-                      {outcome.label}
-                    </span>
-                  )}
                   <span className="game-row-actions">
                     <button
                       className="game-row-action"
@@ -187,17 +191,13 @@ function analysisStatusLabel(status?: AnalysisState) {
   }
 }
 
-type LocalGameOutcome = {
-  tone: 'win' | 'draw' | 'unknown'
-  label: string
-}
+type LocalGameOutcome = 'win' | 'loss' | 'draw' | 'unknown'
 
 function localGameOutcome(result: string): LocalGameOutcome {
   const normalized = result.trim().toUpperCase()
   const formatted = formatGameResult(result)
-  if (normalized.startsWith('B+') || normalized.startsWith('W+') || formatted.startsWith('黑') || formatted.startsWith('白')) {
-    return { tone: 'win', label: '胜' }
-  }
-  if (normalized === 'DRAW' || normalized === 'JIGO' || formatted.includes('和')) return { tone: 'draw', label: '和' }
-  return { tone: 'unknown', label: '' }
+  if (normalized.startsWith('B+') || formatted.startsWith('黑')) return 'win'
+  if (normalized.startsWith('W+') || formatted.startsWith('白')) return 'loss'
+  if (normalized === 'DRAW' || normalized === 'JIGO' || formatted.includes('和')) return 'draw'
+  return 'unknown'
 }

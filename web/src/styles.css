@@ -507,7 +507,7 @@ textarea:focus-visible {
 }
 
 .game-list .game-row.yuanluobo-record-row {
-  grid-template-columns: minmax(0, 1fr) 38px auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   position: relative;
   width: 100%;
   min-height: 88px;
@@ -598,14 +598,6 @@ textarea:focus-visible {
   color: inherit;
   font: inherit;
   line-height: inherit;
-}
-
-.game-row .yuanluobo-result-watermark {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  min-width: 38px;
-  width: 38px;
-  height: 38px;
 }
 
 .game-row {
@@ -719,7 +711,7 @@ textarea:focus-visible {
 
 .game-row-actions {
   display: flex;
-  grid-column: 3;
+  grid-column: 2;
   grid-row: 1 / span 2;
   align-items: center;
   justify-self: end;
@@ -1365,25 +1357,25 @@ textarea:focus-visible {
 }
 
 .chart-plot-bg {
-  fill: #faf8f4;
-  rx: 2;
+  fill: transparent;
+  rx: 3;
 }
 
 .chart-grid-line {
-  stroke: #e8e0d4;
+  stroke: rgb(184 168 152 / 0.26);
   stroke-width: 0.5;
 }
 
 .chart-zero-line {
-  stroke: #c8bfb0;
-  stroke-dasharray: 3 3;
+  stroke: rgb(26 71 42 / 0.18);
+  stroke-dasharray: 4 5;
   stroke-width: 0.8;
 }
 
 .chart-axis-line,
 .chart-tick-line {
-  stroke: #c8bfb0;
-  stroke-width: 0.8;
+  stroke: rgb(184 168 152 / 0.3);
+  stroke-width: 0.7;
 }
 
 .chart-axis-label,
@@ -1397,7 +1389,7 @@ textarea:focus-visible {
   line-height: 1;
   letter-spacing: 0;
   pointer-events: none;
-  opacity: 0.7;
+  opacity: 0.58;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1428,24 +1420,38 @@ textarea:focus-visible {
   stroke-linejoin: round;
 }
 
+.winrate-area {
+  fill: url(#winrateAreaGradient);
+  pointer-events: none;
+}
+
 .winrate-line {
   stroke: var(--table);
-  stroke-width: 2.5;
+  stroke-width: 2.8;
   stroke-linecap: round;
+  filter: drop-shadow(0 1px 1px rgb(15 45 26 / 0.16));
 }
 
 .score-line {
   stroke: var(--signal);
-  stroke-width: 1.8;
+  stroke-width: 1.1;
   stroke-linecap: round;
-  opacity: 0.8;
+  stroke-dasharray: 4 5;
+  opacity: 0.42;
 }
 
 .chart-current-marker {
-  stroke: var(--ink);
-  stroke-width: 1;
-  stroke-dasharray: 2 2;
-  opacity: 0.6;
+  stroke: rgb(26 26 46 / 0.42);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 4;
+}
+
+.chart-current-point {
+  fill: var(--surface-raised);
+  stroke: var(--table);
+  stroke-width: 1.8;
+  filter: drop-shadow(0 1px 2px rgb(15 45 26 / 0.22));
+  pointer-events: none;
 }
 
 .chart-hit-target {
@@ -2597,7 +2603,7 @@ textarea:focus-visible {
 
   .game-list .game-row.yuanluobo-record-row {
     min-height: 72px;
-    grid-template-columns: minmax(0, 1fr) 34px auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     column-gap: 14px;
     row-gap: 4px;
     padding: 12px 16px 12px 50px;
@@ -2635,14 +2641,6 @@ textarea:focus-visible {
   .yuanluobo-vs,
   .yuanluobo-record-meta {
     font-size: 13px;
-  }
-
-  .game-row .yuanluobo-result-watermark {
-    min-width: 34px;
-    width: 34px;
-    height: 34px;
-    border-radius: 8px;
-    font-size: 17px;
   }
 
   .yuanluobo-result-watermark {
@@ -2871,7 +2869,7 @@ textarea:focus-visible {
 
   .game-list .game-row.yuanluobo-record-row {
     min-height: 64px;
-    grid-template-columns: minmax(0, 1fr) 28px auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     column-gap: 8px;
     row-gap: 3px;
     padding: 10px 12px 10px 38px;
@@ -2887,14 +2885,6 @@ textarea:focus-visible {
 
   .game-row-open {
     row-gap: 3px;
-  }
-
-  .game-row .yuanluobo-result-watermark {
-    min-width: 28px;
-    width: 28px;
-    height: 28px;
-    border-radius: 7px;
-    font-size: 15px;
   }
 
   .game-title {

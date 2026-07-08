@@ -5,6 +5,8 @@ export interface GameRecord {
   displayName: string
   result: string
   gameDate?: string
+  blackName?: string
+  whiteName?: string
   sgfFilename: string
   createdAt: string
   analysisStatus?: AnalysisState

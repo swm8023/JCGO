@@ -247,11 +247,13 @@ describe('GameSidebar', () => {
       <GameSidebar
         games={[{
           gameId: '1',
-          displayName: 'Honinbo final',
+          displayName: 'Lee vs Cho',
           result: 'B+R',
           sgfFilename: '1.sgf',
           createdAt: '2026-06-25T13:45:00Z',
           gameDate: '2026-06-24',
+          blackName: 'Lee',
+          whiteName: 'Cho',
           analysisStatus: 'complete',
         }]}
         listOpen
@@ -273,18 +275,21 @@ describe('GameSidebar', () => {
     expect(row).toHaveClass('yuanluobo-record-row')
     expect(row).toHaveAttribute('data-outcome', 'win')
     expect(row?.querySelector('.yuanluobo-record-main')).toBeInTheDocument()
-    expect(row?.querySelector('.yuanluobo-record-title')).toHaveTextContent('Honinbo final')
-    expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('棋局 2026-06-24')
-    expect(row?.querySelector('.yuanluobo-result-watermark')).toHaveTextContent('胜')
+    expect(row?.querySelector('.yuanluobo-record-title')).toHaveTextContent('LeevsCho')
+    expect(row?.querySelector('.yuanluobo-vs')).toHaveTextContent('vs')
+    expect(row?.querySelectorAll('.yuanluobo-stone')).toHaveLength(2)
+    expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('2026-06-24')
+    expect(row?.querySelector('.yuanluobo-record-meta')).toHaveTextContent('黑中盘胜')
+    expect(row?.querySelector('.yuanluobo-result-watermark')).not.toBeInTheDocument()
     expect(row?.querySelector('.game-row-actions')).toBeInTheDocument()
   })
 
-  it('uses yuanluobo-style outcome labels instead of winner colors for local game rows', () => {
+  it('uses the left result stripe instead of a result watermark for local game rows', () => {
     const { container } = render(
       <GameSidebar
         games={[{
           gameId: '1',
-          displayName: 'White win',
+          displayName: 'White wins',
           result: 'W+R',
           sgfFilename: '1.sgf',
           createdAt: '2026-06-25T13:45:00Z',
@@ -304,10 +309,8 @@ describe('GameSidebar', () => {
       />,
     )
 
-    const watermark = container.querySelector('.yuanluobo-result-watermark')
-    expect(watermark).toHaveTextContent('胜')
-    expect(watermark).not.toHaveTextContent('白')
-    expect(container.querySelector('.game-row')).toHaveAttribute('data-outcome', 'win')
+    expect(container.querySelector('.yuanluobo-result-watermark')).not.toBeInTheDocument()
+    expect(container.querySelector('.game-row')).toHaveAttribute('data-outcome', 'loss')
   })
 
   it('shows an empty library state when no games have been imported', () => {
@@ -364,8 +367,8 @@ describe('GameSidebar', () => {
     expect(row).not.toBeNull()
     const gameRow = within(row as HTMLElement)
     expect(gameRow.getByText('黑中盘胜')).toBeInTheDocument()
-    expect(gameRow.getByText('棋局 2026-06-24')).toBeInTheDocument()
-    expect(gameRow.getByText('上传 2026-06-25')).toBeInTheDocument()
+    expect(gameRow.getByText('2026-06-24')).toBeInTheDocument()
+    expect(gameRow.queryByText('上传 2026-06-25')).not.toBeInTheDocument()
     expect(gameRow.getByText('已分析')).toBeInTheDocument()
   })
 
