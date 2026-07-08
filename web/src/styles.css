@@ -1537,15 +1537,40 @@ textarea:focus-visible {
   align-content: stretch;
   justify-items: center;
   gap: 14px;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.7), rgb(248 245 236 / 0.94)),
+    var(--paper);
+}
+
+.yuanluobo-browser::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(26 71 42 / 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(26 71 42 / 0.055) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.78), transparent 66%);
+  pointer-events: none;
+}
+
+.yuanluobo-browser > * {
+  position: relative;
+  z-index: 1;
 }
 
 .yuanluobo-header {
-  width: min(1120px, 100%);
+  width: min(1040px, 100%);
   min-height: 44px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 14px;
+  padding: 0 2px 10px;
+  box-sizing: border-box;
+  border-bottom: 1px solid rgb(184 168 152 / 0.58);
 }
 
 .yuanluobo-title-block {
@@ -1566,6 +1591,13 @@ textarea:focus-visible {
 }
 
 .yuanluobo-title-block span {
+  min-height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 8px;
+  border: 1px solid rgb(26 71 42 / 0.14);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.62);
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
@@ -1573,10 +1605,10 @@ textarea:focus-visible {
 
 .yuanluobo-eyebrow {
   margin: 0;
-  color: var(--table);
+  color: var(--muted);
   font-size: 10px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -1699,12 +1731,24 @@ textarea:focus-visible {
   text-align: center;
 }
 
+.yuanluobo-filter-bar,
+.yuanluobo-tabs,
+.yuanluobo-record-list,
+.yuanluobo-pager {
+  width: min(1040px, 100%);
+}
+
 .yuanluobo-filter-bar {
-  width: min(1120px, 100%);
   display: grid;
   grid-template-columns: minmax(0, 320px);
   justify-content: start;
   gap: 10px;
+  padding: 5px;
+  box-sizing: border-box;
+  border: 1px solid rgb(184 168 152 / 0.52);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.66);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
 }
 
 .yuanluobo-player-select {
@@ -1712,28 +1756,39 @@ textarea:focus-visible {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 10px;
+  min-height: 32px;
+  padding: 0 4px 0 9px;
   color: var(--muted);
   font-size: 13px;
+  font-weight: 750;
 }
 
 .yuanluobo-player-select select {
   min-width: 0;
+  height: 28px;
   padding: 0 10px;
+  border-color: transparent;
+  background: var(--surface-raised);
   font-weight: 700;
 }
 
 .yuanluobo-tabs {
-  width: min(1120px, 100%);
   display: flex;
-  gap: 6px;
+  gap: 4px;
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding: 3px;
+  box-sizing: border-box;
+  border: 1px solid rgb(184 168 152 / 0.52);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.66);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.72);
 }
 
 .yuanluobo-tabs button {
   flex: 0 0 auto;
   min-width: 64px;
   padding: 0 10px;
+  border-color: transparent;
   white-space: nowrap;
   font-size: 12px;
 }
@@ -1742,30 +1797,54 @@ textarea:focus-visible {
   border-color: var(--table);
   background: var(--table);
   color: var(--surface-raised);
+  box-shadow: 0 1px 4px rgb(26 71 42 / 0.2);
 }
 
 .yuanluobo-record-list {
-  width: min(1120px, 100%);
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 7px;
   overflow: auto;
-  padding: 2px;
+  padding: 1px 2px 2px;
+  overscroll-behavior: contain;
 }
 
 .yuanluobo-record-row {
   position: relative;
   width: 100%;
-  min-height: 72px;
+  min-height: 68px;
   display: grid;
   grid-template-rows: auto auto;
   align-content: center;
-  gap: 6px;
-  padding: 14px 82px 14px 16px;
+  gap: 5px;
+  padding: 12px 76px 12px 14px;
+  border-color: rgb(212 201 184 / 0.86);
+  border-left-width: 4px;
   text-align: left;
-  background: var(--surface-raised);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.96), rgb(250 248 244 / 0.9)),
+    var(--surface-raised);
+  box-shadow: 0 1px 3px rgb(26 26 46 / 0.06);
   overflow: hidden;
+}
+
+.yuanluobo-record-row[data-outcome="win"] {
+  border-left-color: #059669;
+}
+
+.yuanluobo-record-row[data-outcome="loss"] {
+  border-left-color: #b91c1c;
+}
+
+.yuanluobo-record-row[data-outcome="draw"] {
+  border-left-color: #64748b;
+}
+
+.yuanluobo-record-row:hover:not(:disabled) {
+  border-color: rgb(26 71 42 / 0.3);
+  background: var(--surface-raised);
+  box-shadow: 0 6px 16px rgb(26 26 46 / 0.1);
 }
 
 .yuanluobo-record-main {
@@ -1779,7 +1858,7 @@ textarea:focus-visible {
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1.15;
   text-overflow: ellipsis;
@@ -1793,14 +1872,18 @@ textarea:focus-visible {
   font-size: 12px;
   font-weight: 650;
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .yuanluobo-imported-badge {
   flex: 0 0 auto;
+  min-height: 20px;
   min-width: 48px;
-  padding: 3px 7px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 7px;
   border-radius: 999px;
   background: rgb(5 150 105 / 0.1);
   color: var(--candidate-best);
@@ -1815,10 +1898,10 @@ textarea:focus-visible {
   top: 50%;
   transform: translateY(-50%);
   color: var(--muted);
-  font-size: 52px;
+  font-size: 46px;
   font-weight: 900;
   line-height: 1;
-  opacity: 0.12;
+  opacity: 0.1;
   pointer-events: none;
   user-select: none;
 }
@@ -1836,7 +1919,7 @@ textarea:focus-visible {
 }
 
 .yuanluobo-empty {
-  width: min(1120px, 100%);
+  width: min(1040px, 100%);
   min-height: 160px;
   display: grid;
   place-items: center;
@@ -1848,17 +1931,28 @@ textarea:focus-visible {
 }
 
 .yuanluobo-pager {
-  width: min(1120px, 100%);
+  min-height: 38px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 10px;
+  padding: 3px;
+  box-sizing: border-box;
+  border: 1px solid rgb(184 168 152 / 0.52);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 0.66);
 }
 
 .yuanluobo-pager span {
   color: var(--muted);
   font-size: 13px;
+  font-weight: 750;
   text-align: center;
+}
+
+.yuanluobo-pager button {
+  min-height: 30px;
+  border-color: transparent;
 }
 
 .portrait-import-button {

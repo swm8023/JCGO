@@ -147,6 +147,18 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.yuanluobo-result-watermark.draw')
   })
 
+  it('gives the yuanluobo browser a polished compact library treatment', () => {
+    expect(styles).toContain('.yuanluobo-browser::before {')
+    expect(styles).toContain('background-size: 28px 28px;')
+    expect(styles).toContain('.yuanluobo-filter-bar,\n.yuanluobo-tabs,\n.yuanluobo-record-list,\n.yuanluobo-pager {\n  width: min(1040px, 100%);')
+    expect(styles).toContain('.yuanluobo-tabs {\n  display: flex;\n  gap: 4px;\n  overflow-x: auto;\n  padding: 3px;')
+    expect(styles).toContain('.yuanluobo-record-row[data-outcome="win"] {')
+    expect(styles).toContain('.yuanluobo-record-row[data-outcome="loss"] {')
+    expect(styles).toContain('.yuanluobo-record-row[data-outcome="draw"] {')
+    expect(styles).toContain('.yuanluobo-record-row:hover:not(:disabled) {')
+    expect(styles).toContain('.yuanluobo-pager {\n  min-height: 38px;')
+  })
+
   it('keeps the portrait workspace ordered as toolbar, game info, board, controls, then analysis', () => {
     expect(styles).not.toContain('@media (orientation:')
     expect(styles).toContain('@container app-layout (max-width: 699px) {')
