@@ -1549,3 +1549,8 @@ If no fixes were needed after Task 7, do not create an empty commit.
 - No frontend worker UI is preserved by leaving `web/` untouched.
 - Build automation is covered by Task 7.
 - Verification is covered by Task 8.
+
+## Execution Notes
+
+- Implemented on branch `feature/remote-analysis-worker`.
+- Verification commands run during implementation: `go test ./...`, `.\scripts\build-worker.ps1`, worker package existence checks, and first-run worker config/log smoke test.
