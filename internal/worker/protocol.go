@@ -17,6 +17,10 @@ type Info struct {
 	KatagoPath         string `json:"katagoPath"`
 	ModelPath          string `json:"modelPath"`
 	AnalysisConfigPath string `json:"analysisConfigPath"`
+	Backend            string `json:"backend,omitempty"`
+	BackendLabel       string `json:"backendLabel,omitempty"`
+	Model              string `json:"model,omitempty"`
+	MaxVisits          int    `json:"maxVisits,omitempty"`
 	Available          bool   `json:"available"`
 	Error              string `json:"error,omitempty"`
 }

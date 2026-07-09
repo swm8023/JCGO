@@ -133,3 +133,29 @@ func TestEnsureDirsCreatesRuntimeDirectories(t *testing.T) {
 		}
 	}
 }
+
+func TestUpdateWorkerRuntimePreservesSharedConfig(t *testing.T) {
+	dir := t.TempDir()
+	raw := []byte(`{
+  "server": {"enabled": true, "port": 4380, "token": "server-token"},
+  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "worker-token", "model": "old.bin.gz", "maxVisits": 500},
+  "log": {"level": "debug"}
+}`)
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := UpdateWorkerRuntime(dir, "new.bin.gz", 1000); err != nil {
+		t.Fatalf("UpdateWorkerRuntime returned error: %v", err)
+	}
+	cfg, err := LoadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Server.Token != "server-token" || cfg.Worker.Token != "worker-token" {
+		t.Fatalf("config lost existing fields: %#v", cfg)
+	}
+	if cfg.Worker.Model != "new.bin.gz" || cfg.Worker.MaxVisits != 1000 {
+		t.Fatalf("worker runtime = %#v", cfg.Worker)
+	}
+}

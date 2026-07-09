@@ -47,6 +47,11 @@ type LogConfig struct {
 	Level string `json:"level"`
 }
 
+type KatagoBackendInfo struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
 type fileConfig struct {
 	Server ServerConfig `json:"server"`
 	Worker WorkerConfig `json:"worker"`
@@ -78,23 +83,12 @@ func LoadDir(dir string) (Config, error) {
 		dir = defaultDir
 	}
 	dir = filepath.Clean(dir)
-	path := filepath.Join(dir, "config.json")
-	data, err := os.ReadFile(path)
+	raw, err := readFileConfig(dir)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return Config{}, fmt.Errorf("config file not found at %s", path)
-		}
-		return Config{}, fmt.Errorf("read config %s: %w", path, err)
-	}
-
-	var raw fileConfig
-	dec := json.NewDecoder(bytes.NewReader(data))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&raw); err != nil {
-		return Config{}, fmt.Errorf("parse config %s: %w", path, err)
+		return Config{}, err
 	}
 	if err := validate(raw); err != nil {
-		return Config{}, fmt.Errorf("validate config %s: %w", path, err)
+		return Config{}, fmt.Errorf("validate config %s: %w", filepath.Join(dir, "config.json"), err)
 	}
 
 	cfg := Config{
@@ -114,6 +108,35 @@ func LoadDir(dir string) (Config, error) {
 		AnalysisConfigPath: filepath.Join(dir, "config", "analysis_config.cfg"),
 	}
 	return cfg, nil
+}
+
+func UpdateWorkerRuntime(dir string, model string, maxVisits int) error {
+	raw, err := readFileConfig(dir)
+	if err != nil {
+		return err
+	}
+	raw.Worker.Model = model
+	raw.Worker.MaxVisits = maxVisits
+	return writeFileConfig(dir, raw)
+}
+
+func LoadKatagoBackendInfo(dir string) KatagoBackendInfo {
+	path := filepath.Join(filepath.Clean(dir), "config", "katago_backend.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return KatagoBackendInfo{ID: "unknown", Label: "unknown"}
+	}
+	var info KatagoBackendInfo
+	if err := json.Unmarshal(data, &info); err != nil {
+		return KatagoBackendInfo{ID: "unknown", Label: "unknown"}
+	}
+	if strings.TrimSpace(info.ID) == "" {
+		info.ID = "unknown"
+	}
+	if strings.TrimSpace(info.Label) == "" {
+		info.Label = info.ID
+	}
+	return info
 }
 
 func EnsureDirs(cfg Config) error {
@@ -151,6 +174,32 @@ func DefaultFile(model string) []byte {
 		panic(err)
 	}
 	return append(data, '\n')
+}
+
+func readFileConfig(dir string) (fileConfig, error) {
+	path := filepath.Join(filepath.Clean(dir), "config.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fileConfig{}, fmt.Errorf("config file not found at %s", path)
+		}
+		return fileConfig{}, fmt.Errorf("read config %s: %w", path, err)
+	}
+	var raw fileConfig
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&raw); err != nil {
+		return fileConfig{}, fmt.Errorf("parse config %s: %w", path, err)
+	}
+	return raw, nil
+}
+
+func writeFileConfig(dir string, raw fileConfig) error {
+	data, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(filepath.Clean(dir), "config.json"), append(data, '\n'), 0o644)
 }
 
 func validate(raw fileConfig) error {
