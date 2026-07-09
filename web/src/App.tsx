@@ -380,17 +380,7 @@ export default function App() {
     importRecord: (sessionId) => requireClient().call('yuanluobo.importRecord', { sessionId }),
   }
 
-  const openImportedGame = async (gameId: string) => {
-    await refreshWorkspaceState()
-    await selectGame(gameId)
-    resetAppHistoryLayer('game-list')
-  }
 
-  const renameGame = async (gameId: string, displayName: string) => {
-    if (!client) return
-    await client.call('game.rename', { gameId, displayName })
-    await refreshWorkspaceState()
-  }
 
   const deleteGame = async (gameId: string) => {
     if (!client) return
@@ -510,7 +500,6 @@ export default function App() {
           void refreshWorkspaceState()
         }}
         onSelect={selectGame}
-        onRename={renameGame}
         onDelete={deleteGame}
         onStartAnalysis={startAnalysis}
         onStopAnalysis={stopAnalysis}
@@ -577,7 +566,6 @@ export default function App() {
           onOpenUrl={() => pushAppHistoryLayer('import-url')}
           onOpenYuanluobo={() => pushAppHistoryLayer('import-yuanluobo')}
           yuanluoboApi={yuanluoboApi}
-          onOpenGame={openImportedGame}
           yuanluoboPickerKind={yuanluoboPickerKind}
           onOpenYuanluoboPicker={(kind) => pushAppHistoryLayer(kind === 'player' ? 'yuanluobo-player-picker' : 'yuanluobo-platform-picker')}
           onCloseYuanluoboPicker={closeCurrentAppHistoryLayer}

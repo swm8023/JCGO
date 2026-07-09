@@ -109,8 +109,6 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return ListResult{Games: games}, err
 	case "game.importSgf":
 		return h.importSGF(ctx, token, params)
-	case "game.rename":
-		return h.rename(ctx, params)
 	case "game.delete":
 		return h.delete(ctx, token, params)
 	case "game.select":
@@ -262,25 +260,6 @@ func (h *Handler) importSGFText(ctx context.Context, token string, sgfText strin
 		return ImportResult{}, err
 	}
 	return ImportResult{Game: record, Snapshot: snapshot}, nil
-}
-
-func (h *Handler) rename(ctx context.Context, params json.RawMessage) (GameResult, error) {
-	var in renameParams
-	if err := decodeParams(params, &in); err != nil {
-		return GameResult{}, err
-	}
-	displayName := strings.TrimSpace(in.DisplayName)
-	if displayName == "" {
-		return GameResult{}, errors.New("displayName is required")
-	}
-	if err := h.repo.RenameGame(ctx, in.GameID, displayName); err != nil {
-		return GameResult{}, err
-	}
-	record, err := h.repo.GetGame(ctx, in.GameID)
-	if err != nil {
-		return GameResult{}, err
-	}
-	return GameResult{Game: record}, nil
 }
 
 func (h *Handler) delete(ctx context.Context, token string, params json.RawMessage) (DeleteResult, error) {
@@ -568,11 +547,6 @@ type importParams struct {
 	OriginalFilename string `json:"originalFilename,omitempty"`
 	SGFText          string `json:"sgfText,omitempty"`
 	URL              string `json:"url,omitempty"`
-}
-
-type renameParams struct {
-	GameID      string `json:"gameId"`
-	DisplayName string `json:"displayName"`
 }
 
 type gameIDParams struct {

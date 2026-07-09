@@ -90,7 +90,6 @@ function renderImportDialog(overrides: Partial<Parameters<typeof ImportDialog>[0
     onOpenUrl: vi.fn(),
     onOpenYuanluobo: vi.fn(),
     yuanluoboApi: yuanluoboApi(),
-    onOpenGame: vi.fn(),
     onOpenYuanluoboPicker: vi.fn(),
     onCloseYuanluoboPicker: vi.fn(),
     ...overrides,

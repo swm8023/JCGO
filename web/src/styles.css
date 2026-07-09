@@ -2359,7 +2359,7 @@ textarea:focus-visible {
   width: 100%;
   min-height: 88px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px 22px;
+  grid-template-columns: minmax(0, 1fr) 42px;
   grid-template-rows: auto auto;
   align-items: center;
   align-content: center;
@@ -2567,16 +2567,6 @@ textarea:focus-visible {
   color: #7f8792;
   border-color: rgb(100 116 139 / 0.22);
   background: rgb(100 116 139 / 0.05);
-}
-
-.yuanluobo-row-chevron {
-  grid-column: 3;
-  grid-row: 1 / span 2;
-  position: static;
-  justify-self: center;
-  align-self: center;
-  transform: none;
-  color: #7c6b5b;
 }
 
 .yuanluobo-empty {
@@ -2841,7 +2831,7 @@ textarea:focus-visible {
 
   .yuanluobo-panel .yuanluobo-record-row {
     min-height: 72px;
-    grid-template-columns: minmax(0, 1fr) 38px 20px;
+    grid-template-columns: minmax(0, 1fr) 38px;
     column-gap: 14px;
     row-gap: 4px;
     padding: 12px 16px 12px 50px;
@@ -3506,7 +3496,7 @@ textarea:focus-visible {
 
   .yuanluobo-panel .yuanluobo-record-row {
     min-height: 64px;
-    grid-template-columns: minmax(0, 1fr) 30px 16px;
+    grid-template-columns: minmax(0, 1fr) 30px;
     column-gap: 8px;
     row-gap: 3px;
     padding: 10px 12px 10px 38px;

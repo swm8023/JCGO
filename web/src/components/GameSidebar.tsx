@@ -1,6 +1,6 @@
 import type { AnalysisProgress, AnalysisState, GameRecord } from '../api/types'
 import type { ReactNode } from 'react'
-import { Menu, Pencil, Plus, Settings, Trash2 } from 'lucide-react'
+import { Menu, Plus, Settings, Trash2 } from 'lucide-react'
 import { formatGameResult } from './gameResult'
 
 interface GameSidebarProps {
@@ -15,7 +15,6 @@ interface GameSidebarProps {
   onImport(): void
   onSettings?(): void
   onSelect(gameId: string): void
-  onRename(gameId: string, displayName: string): void
   onDelete(gameId: string): void
   onStartAnalysis(): void
   onStopAnalysis(): void
@@ -35,7 +34,6 @@ export function GameSidebar({
   onImport,
   onSettings = noop,
   onSelect,
-  onRename,
   onDelete,
   onStartAnalysis,
   toolbarSlot,
@@ -128,16 +126,6 @@ export function GameSidebar({
                     </span>
                   </button>
                   <span className="game-row-actions">
-                    <button
-                      className="game-row-action"
-                      aria-label={`Rename ${game.displayName}`}
-                      onClick={() => {
-                        const name = window.prompt('Rename game', game.displayName)
-                        if (name && name.trim()) onRename(game.gameId, name.trim())
-                      }}
-                    >
-                      <Pencil size={15} aria-hidden="true" />
-                    </button>
                     <button
                       className="game-row-action danger"
                       aria-label={`Delete ${game.displayName}`}

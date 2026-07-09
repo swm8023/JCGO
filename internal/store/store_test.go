@@ -49,17 +49,6 @@ func TestRepositoryCreatesListsRenamesAndDeletesGames(t *testing.T) {
 		t.Fatalf("game dates = %#v", games)
 	}
 
-	if err := repo.RenameGame(ctx, oldGame.ID, "Renamed"); err != nil {
-		t.Fatal(err)
-	}
-	renamed, err := repo.GetGame(ctx, oldGame.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if renamed.DisplayName != "Renamed" {
-		t.Fatalf("DisplayName = %q", renamed.DisplayName)
-	}
-
 	if err := repo.DeleteGame(ctx, oldGame.ID); err != nil {
 		t.Fatal(err)
 	}

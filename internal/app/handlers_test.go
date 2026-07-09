@@ -54,24 +54,10 @@ func TestImportListRenameDeleteGame(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := handler.Call(ctx, "secret", "game.rename", json.RawMessage(`{"gameId":"`+imported.Game.ID+`","displayName":"Renamed"}`)); err != nil {
-		t.Fatal(err)
-	}
-	listResult, err := handler.Call(ctx, "secret", "game.list", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if listResult.(ListResult).Games[0].DisplayName != "Renamed" {
-		t.Fatalf("list = %#v", listResult)
-	}
-	if listResult.(ListResult).Games[0].GameDate != "2026-06-24" || listResult.(ListResult).Games[0].BlackName != "Lee" || listResult.(ListResult).Games[0].WhiteName != "Cho" || listResult.(ListResult).Games[0].AnalysisStatus != string(AnalysisComplete) {
-		t.Fatalf("list metadata = %#v", listResult)
-	}
-
 	if _, err := handler.Call(ctx, "secret", "game.delete", json.RawMessage(`{"gameId":"`+imported.Game.ID+`"}`)); err != nil {
 		t.Fatal(err)
 	}
-	listResult, err = handler.Call(ctx, "secret", "game.list", nil)
+	listResult, err := handler.Call(ctx, "secret", "game.list", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

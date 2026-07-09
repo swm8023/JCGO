@@ -163,8 +163,7 @@ describe('YuanluoboImportDialog', () => {
     expect(screen.queryByRole('dialog', { name: '选择平台' })).not.toBeInTheDocument()
   })
 
-  it('opens imported games and imports new games', async () => {
-    const onOpenGame = vi.fn()
+  it('imports games and stays on the list page', async () => {
     const testAPI = api({
       status: vi.fn(() => Promise.resolve({ loggedIn: true })),
       players: vi.fn(() => Promise.resolve([{ playerId: 'player-1', name: '棋手一' }])),
@@ -220,25 +219,23 @@ describe('YuanluoboImportDialog', () => {
       })),
     })
 
-    renderYuanluoboImportDialog({ testAPI, onOpenGame })
+    renderYuanluoboImportDialog({ testAPI })
 
     await screen.findByRole('button', { name: /Imported.*vs.*Opponent/ })
     await userEvent.click(screen.getByRole('button', { name: /Imported.*vs.*Opponent/ }))
-    expect(onOpenGame).toHaveBeenCalledWith('game-imported')
+    await waitFor(() => expect(testAPI.importRecord).toHaveBeenCalledWith('session-imported'))
 
     await userEvent.click(screen.getByRole('button', { name: /New.*vs.*Opponent/ }))
     await waitFor(() => expect(testAPI.importRecord).toHaveBeenCalledWith('session-new'))
-    expect(onOpenGame).toHaveBeenCalledWith('game-new')
+    expect(screen.getByRole('region', { name: '元萝卜棋局浏览' })).toBeInTheDocument()
   })
 })
 
 function renderYuanluoboImportDialog({
   testAPI,
-  onOpenGame = vi.fn(),
   onBack = vi.fn(),
 }: {
   testAPI: YuanluoboImportAPI
-  onOpenGame?: (gameId: string) => void | Promise<void>
   onBack?: () => void
 }) {
   function Harness() {
@@ -246,7 +243,6 @@ function renderYuanluoboImportDialog({
     return (
       <YuanluoboImportDialog
         api={testAPI}
-        onOpenGame={onOpenGame}
         onBack={onBack}
         pickerKind={pickerKind}
         onOpenPicker={setPickerKind}

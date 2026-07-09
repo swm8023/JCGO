@@ -10,7 +10,6 @@ interface ImportDialogProps {
   onOpenUrl(): void
   onOpenYuanluobo(): void
   yuanluoboApi: YuanluoboImportAPI
-  onOpenGame(gameId: string): void | Promise<void>
   yuanluoboPickerKind?: YuanluoboPickerKind
   onOpenYuanluoboPicker(kind: YuanluoboPickerKind): void
   onCloseYuanluoboPicker(): void
@@ -56,7 +55,6 @@ export function ImportDialog({
   onOpenUrl,
   onOpenYuanluobo,
   yuanluoboApi,
-  onOpenGame,
   yuanluoboPickerKind,
   onOpenYuanluoboPicker,
   onCloseYuanluoboPicker,
@@ -152,7 +150,6 @@ export function ImportDialog({
       <div className="import-dialog yuanluobo-fullscreen-dialog" role="dialog" aria-label="元萝卜导入">
         <YuanluoboImportDialog
           api={yuanluoboApi}
-          onOpenGame={onOpenGame}
           onBack={onBack}
           pickerKind={yuanluoboPickerKind}
           onOpenPicker={onOpenYuanluoboPicker}

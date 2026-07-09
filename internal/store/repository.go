@@ -148,21 +148,6 @@ func (r *Repository) FindGameBySource(ctx context.Context, platform, sourceID st
 	return game, true, nil
 }
 
-func (r *Repository) RenameGame(ctx context.Context, id, displayName string) error {
-	if displayName == "" {
-		return errors.New("display name is required")
-	}
-	result, err := r.db.ExecContext(ctx, `
-		UPDATE games
-		SET display_name = ?
-		WHERE id = ?
-	`, displayName, id)
-	if err != nil {
-		return err
-	}
-	return requireAffected(result)
-}
-
 func (r *Repository) UpdateGameDate(ctx context.Context, id, gameDate string) error {
 	result, err := r.db.ExecContext(ctx, `
 		UPDATE games

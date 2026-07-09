@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, Grid3X3, LogOut, RefreshCw, UserRound } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Grid3X3, LogOut, RefreshCw, UserRound } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type {
   ImportResult,
@@ -23,7 +23,6 @@ export interface YuanluoboImportAPI {
 
 interface YuanluoboImportDialogProps {
   api: YuanluoboImportAPI
-  onOpenGame(gameId: string): void | Promise<void>
   onBack(): void
   pickerKind?: YuanluoboPickerKind
   onOpenPicker(kind: YuanluoboPickerKind): void
@@ -36,7 +35,7 @@ export type YuanluoboPickerKind = 'player' | 'platform'
 const defaultYuanluoboCategory: YuanluoboRecordCategory = { title: '元萝卜AI', gameMode: 1 }
 const defaultYuanluoboGameMode = defaultYuanluoboCategory.gameMode
 
-export function YuanluoboImportDialog({ api, onOpenGame, onBack, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
+export function YuanluoboImportDialog({ api, onBack, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
   const [loginState, setLoginState] = useState<LoginState>('checking')
   const [qr, setQR] = useState<YuanluoboQRCode>()
   const [pollDesc, setPollDesc] = useState('未扫码')
@@ -146,7 +145,6 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack, pickerKind, onO
   return (
     <YuanluoboRecordBrowser
       api={api}
-      onOpenGame={onOpenGame}
       onBack={onBack}
       pickerKind={pickerKind}
       onOpenPicker={onOpenPicker}
@@ -155,11 +153,14 @@ export function YuanluoboImportDialog({ api, onOpenGame, onBack, pickerKind, onO
   )
 }
 
-function YuanluoboRecordBrowser({ api, onOpenGame, onBack, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
+function YuanluoboRecordBrowser({ api, onBack, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
   const [players, setPlayers] = useState<YuanluoboPlayer[]>([])
-  const [playerId, setPlayerId] = useState('')
+  const [playerId, setPlayerId] = useState(() => readStorage('jcgo.yuanluobo.playerId') ?? '')
   const [categories, setCategories] = useState<YuanluoboRecordCategory[]>([defaultYuanluoboCategory])
-  const [gameMode, setGameMode] = useState(defaultYuanluoboGameMode)
+  const [gameMode, setGameMode] = useState(() => {
+    const stored = readStorage('jcgo.yuanluobo.gameMode')
+    return stored ? Number(stored) : defaultYuanluoboGameMode
+  })
   const [page, setPage] = useState(1)
   const [pageTotal, setPageTotal] = useState(0)
   const [total, setTotal] = useState(0)
@@ -189,7 +190,9 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack, pickerKind, onOpenPic
       .then((nextPlayers) => {
         if (cancelled) return
         setPlayers(nextPlayers)
-        setPlayerId(nextPlayers[0]?.playerId ?? '')
+        const storedPlayerId = readStorage('jcgo.yuanluobo.playerId')
+        const matched = storedPlayerId && nextPlayers.some((p) => p.playerId === storedPlayerId)
+        setPlayerId(matched ? storedPlayerId : (nextPlayers[0]?.playerId ?? ''))
       })
       .catch((reason) => {
         if (!cancelled) setError(errorMessage(reason))
@@ -211,22 +214,20 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack, pickerKind, onOpenPic
   const choosePlayer = (nextPlayerId: string) => {
     setPlayerId(nextPlayerId)
     setPage(1)
+    writeStorage('jcgo.yuanluobo.playerId', nextPlayerId)
     onClosePicker()
   }
 
   const choosePlatform = (nextGameMode: number) => {
     setGameMode(nextGameMode)
     setPage(1)
+    writeStorage('jcgo.yuanluobo.gameMode', String(nextGameMode))
     onClosePicker()
   }
 
   const chooseRecord = async (record: YuanluoboRecord) => {
-    if (record.imported && record.gameId) {
-      await onOpenGame(record.gameId)
-      return
-    }
-    const result = await api.importRecord(record.sessionId)
-    await onOpenGame(result.game.gameId)
+    await api.importRecord(record.sessionId)
+    await loadRecords(playerId, gameMode, page)
   }
 
   const selectedPlayer = players.find((player) => player.playerId === playerId)
@@ -330,7 +331,6 @@ function YuanluoboRecordBrowser({ api, onOpenGame, onBack, pickerKind, onOpenPic
                       {outcomeLabel(outcome)}
                     </span>
                   )}
-                  <ChevronRight className="yuanluobo-row-chevron" size={20} aria-hidden="true" />
                 </button>
               )
             })}
@@ -465,4 +465,12 @@ function qrStatusLabel(status: number) {
 
 function errorMessage(reason: unknown) {
   return reason instanceof Error ? reason.message : '元萝卜请求失败'
+}
+
+function readStorage(key: string): string | null {
+  try { return localStorage.getItem(key) } catch { return null }
+}
+
+function writeStorage(key: string, value: string) {
+  try { localStorage.setItem(key, value) } catch { /* ignore */ }
 }
