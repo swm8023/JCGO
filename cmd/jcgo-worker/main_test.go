@@ -26,12 +26,11 @@ func TestRunReturnsErrorWhenSharedConfigIsMissing(t *testing.T) {
 	}
 }
 
-func TestRunConnectsWithDerivedRuntimePathsAndMaxVisits(t *testing.T) {
+func TestRunConnectsWithRuntimeInfo(t *testing.T) {
 	dir := t.TempDir()
 	writeConfig(t, dir, `"model": "model.bin.gz"`)
 	var gotKatago, gotModel, gotAnalysis string
 	var gotInfo worker.Info
-	var gotVisits int
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -42,9 +41,8 @@ func TestRunConnectsWithDerivedRuntimePathsAndMaxVisits(t *testing.T) {
 			gotKatago, gotModel, gotAnalysis = katagoPath, modelPath, configPath
 			return staticAnalyzer{status: katago.Status{Available: true}}, nil
 		},
-		ServeConnection: func(ctx context.Context, serverURL string, token string, info worker.Info, engine katago.Analyzer, maxVisits int) error {
-			gotInfo = info
-			gotVisits = maxVisits
+		ServeConnection: func(ctx context.Context, serverURL string, token string, runtime worker.ClientRuntime) error {
+			gotInfo = runtime.Info()
 			cancel()
 			return context.Canceled
 		},
@@ -62,8 +60,8 @@ func TestRunConnectsWithDerivedRuntimePathsAndMaxVisits(t *testing.T) {
 	if gotAnalysis != filepath.Join(dir, "config", "analysis_config.cfg") {
 		t.Fatalf("analysis config = %q", gotAnalysis)
 	}
-	if gotInfo.Name != "local-gpu" || !gotInfo.Available || gotVisits != 700 {
-		t.Fatalf("info=%#v visits=%d", gotInfo, gotVisits)
+	if gotInfo.Name != "local-gpu" || gotInfo.Model != "model.bin.gz" || gotInfo.MaxVisits != 700 || !gotInfo.Available {
+		t.Fatalf("info=%#v", gotInfo)
 	}
 }
 
@@ -80,8 +78,8 @@ func TestRunRegistersUnavailableEngineStatusAfterStart(t *testing.T) {
 		StartLocal: func(context.Context, string, string, string) (katago.Analyzer, error) {
 			return staticAnalyzer{status: katago.Status{Available: false, Error: "katago exited: missing runtime dependency"}}, nil
 		},
-		ServeConnection: func(ctx context.Context, serverURL string, token string, info worker.Info, engine katago.Analyzer, maxVisits int) error {
-			gotInfo = info
+		ServeConnection: func(ctx context.Context, serverURL string, token string, runtime worker.ClientRuntime) error {
+			gotInfo = runtime.Info()
 			cancel()
 			return context.Canceled
 		},
@@ -95,22 +93,23 @@ func TestRunRegistersUnavailableEngineStatusAfterStart(t *testing.T) {
 	}
 }
 
-func TestRunReportsUnavailableWhenWorkerModelIsEmpty(t *testing.T) {
+func TestRunUsesDefaultModelWhenWorkerModelIsEmpty(t *testing.T) {
 	dir := t.TempDir()
 	writeConfig(t, dir, `"model": ""`)
 	var gotInfo worker.Info
+	var gotModel string
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	err := run(ctx, runOptions{
 		Dir:    dir,
 		Logger: log.New(&bytes.Buffer{}, "", 0),
-		StartLocal: func(context.Context, string, string, string) (katago.Analyzer, error) {
-			t.Fatal("StartLocal should not be called without worker.model")
-			return nil, nil
+		StartLocal: func(ctx context.Context, katagoPath string, modelPath string, configPath string) (katago.Analyzer, error) {
+			gotModel = filepath.Base(modelPath)
+			return staticAnalyzer{status: katago.Status{Available: true}}, nil
 		},
-		ServeConnection: func(ctx context.Context, serverURL string, token string, info worker.Info, engine katago.Analyzer, maxVisits int) error {
-			gotInfo = info
+		ServeConnection: func(ctx context.Context, serverURL string, token string, runtime worker.ClientRuntime) error {
+			gotInfo = runtime.Info()
 			cancel()
 			return context.Canceled
 		},
@@ -119,7 +118,7 @@ func TestRunReportsUnavailableWhenWorkerModelIsEmpty(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v", err)
 	}
-	if gotInfo.Available || !strings.Contains(gotInfo.Error, "worker.model is required") {
+	if gotInfo.Model != "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz" || gotModel != gotInfo.Model || !gotInfo.Available {
 		t.Fatalf("info = %#v", gotInfo)
 	}
 }

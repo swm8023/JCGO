@@ -7,8 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"runtime"
-	"strings"
 	"time"
 
 	"jcgo/internal/config"
@@ -17,7 +15,7 @@ import (
 )
 
 type startLocalFunc func(context.Context, string, string, string) (katago.Analyzer, error)
-type serveConnectionFunc func(context.Context, string, string, worker.Info, katago.Analyzer, int) error
+type serveConnectionFunc func(context.Context, string, string, worker.ClientRuntime) error
 
 type runOptions struct {
 	Dir             string
@@ -87,49 +85,26 @@ func run(ctx context.Context, opts runOptions) error {
 		return nil
 	}
 
-	var engine katago.Analyzer
-	available := false
-	errorMessage := ""
-	if strings.TrimSpace(cfg.Worker.Model) == "" {
-		errorMessage = "worker.model is required"
-		engine = katago.NewUnavailable(errorMessage)
-	} else {
-		started, engineErr := opts.StartLocal(ctx, cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
-		if engineErr != nil {
-			errorMessage = engineErr.Error()
-			engine = katago.NewUnavailable(errorMessage)
-			opts.Logger.Printf("katago unavailable: %v", engineErr)
-		} else {
-			engine = started
-			defer engine.Close()
-			opts.Sleep(300 * time.Millisecond)
-			status := engine.Status()
-			available = status.Available
-			errorMessage = status.Error
-			if available {
-				opts.Logger.Printf("katago started: path=%s model=%s config=%s", cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
-			} else {
-				opts.Logger.Printf("katago unavailable after start: %s", errorMessage)
-			}
-		}
+	runtimeEngine, err := worker.NewRuntime(worker.RuntimeOptions{
+		Dir:        opts.Dir,
+		Logger:     opts.Logger,
+		StartLocal: opts.StartLocal,
+	})
+	if err != nil {
+		return err
 	}
-
-	info := worker.Info{
-		Name:               cfg.Worker.Name,
-		Platform:           runtime.GOOS + "/" + runtime.GOARCH,
-		KatagoPath:         cfg.KatagoPath,
-		ModelPath:          cfg.ModelPath,
-		AnalysisConfigPath: cfg.AnalysisConfigPath,
-		Available:          available,
-		Error:              errorMessage,
-	}
+	defer runtimeEngine.Close()
 
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		cfg, err := config.LoadDir(opts.Dir)
+		if err != nil {
+			return err
+		}
 		opts.Logger.Printf("connecting to %s as %s", cfg.Worker.URL, cfg.Worker.Name)
-		err := opts.ServeConnection(ctx, cfg.Worker.URL, cfg.Worker.Token, info, engine, cfg.Worker.MaxVisits)
+		err = opts.ServeConnection(ctx, cfg.Worker.URL, cfg.Worker.Token, runtimeEngine)
 		if errors.Is(err, context.Canceled) {
 			return err
 		}
