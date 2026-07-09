@@ -206,6 +206,84 @@ func TestStageReleaseAssetsDownloadsAndPublishesSelectedBackend(t *testing.T) {
 	}
 }
 
+func TestStageReleaseAssetsReusesInstalledModelBeforeDownloading(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	repo := filepath.Join(root, "repo")
+	cache := filepath.Join(repo, "release-assets", "cache", "katago")
+	if err := os.MkdirAll(cache, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeZip(t, filepath.Join(cache, "opencl.zip"), map[string]string{"katago.exe": "opencl-katago"})
+	installedModel := filepath.Join(home, ".jcgo", "model", DefaultWorkerModel)
+	if err := os.MkdirAll(filepath.Dir(installedModel), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(installedModel, []byte("installed-model"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest{
+		Katago: KatagoManifest{
+			Version:        "v1.16.5",
+			PublishBackend: "opencl",
+			Backends:       []BackendAsset{{ID: "opencl", Label: "OpenCL", Archive: "opencl.zip", URL: "https://example.test/opencl.zip"}},
+		},
+		Models: []ModelAsset{{ID: "b18", Filename: DefaultWorkerModel, URL: "https://example.test/b18.bin.gz"}},
+	}
+
+	if err := StageReleaseAssets(context.Background(), Options{RepoRoot: repo, HomeDir: home}, manifest, failingDownloader{}); err != nil {
+		t.Fatalf("StageReleaseAssets returned error: %v", err)
+	}
+
+	stage := StageDir(Options{RepoRoot: repo, HomeDir: home})
+	assertFile(t, filepath.Join(stage, "publish", "model", DefaultWorkerModel), "installed-model")
+	assertFile(t, filepath.Join(repo, "release-assets", "cache", "model", DefaultWorkerModel), "installed-model")
+}
+
+func TestAutoDownloaderUsesAria2ForHTTPDownloads(t *testing.T) {
+	oldLookPath := execLookPath
+	oldRunCommand := runDownloadCommand
+	defer func() {
+		execLookPath = oldLookPath
+		runDownloadCommand = oldRunCommand
+	}()
+
+	execLookPath = func(name string) (string, error) {
+		if name != "aria2c" {
+			return "", errors.New("unexpected command")
+		}
+		return "fake-aria2c", nil
+	}
+	var gotName string
+	var gotArgs []string
+	runDownloadCommand = func(ctx context.Context, name string, args ...string) error {
+		gotName = name
+		gotArgs = append([]string{}, args...)
+		dir := commandArgValue(t, args, "--dir")
+		out := commandArgValue(t, args, "--out")
+		if err := os.WriteFile(filepath.Join(dir, out), []byte("downloaded"), 0o644); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	dst := filepath.Join(t.TempDir(), "model.bin.gz")
+	if err := (AutoDownloader{}).Download(context.Background(), "https://example.test/model.bin.gz", dst); err != nil {
+		t.Fatalf("Download returned error: %v", err)
+	}
+
+	if gotName != "fake-aria2c" {
+		t.Fatalf("download command = %q", gotName)
+	}
+	if !hasArg(gotArgs, "-x") || !hasArg(gotArgs, "--continue=true") {
+		t.Fatalf("aria2 args = %#v", gotArgs)
+	}
+	assertFile(t, dst, "downloaded")
+	if _, err := os.Stat(dst + ".tmp"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temporary file still exists: %v", err)
+	}
+}
+
 func TestDeployDoesNotPublishWhenStageBuildFails(t *testing.T) {
 	root := t.TempDir()
 	repo := filepath.Join(root, "repo")
@@ -340,6 +418,12 @@ func (r *recordingRunner) Run(ctx context.Context, dir string, name string, args
 	return nil
 }
 
+type failingDownloader struct{}
+
+func (failingDownloader) Download(ctx context.Context, sourceURL string, dst string) error {
+	return errors.New("download should not be called")
+}
+
 func writeMinimalManifestAndStageFiles(t *testing.T, repo string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Join(repo, "release-assets"), 0o755); err != nil {
@@ -372,4 +456,24 @@ func writeMinimalManifestAndStageFiles(t *testing.T, repo string) {
 	if err := os.WriteFile(filepath.Join(repo, "web", "dist", "index.html"), []byte("web"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func commandArgValue(t *testing.T, args []string, name string) string {
+	t.Helper()
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == name {
+			return args[i+1]
+		}
+	}
+	t.Fatalf("missing command arg %s in %#v", name, args)
+	return ""
+}
+
+func hasArg(args []string, want string) bool {
+	for _, arg := range args {
+		if arg == want {
+			return true
+		}
+	}
+	return false
 }

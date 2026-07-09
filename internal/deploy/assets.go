@@ -4,11 +4,13 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -18,8 +20,19 @@ type Downloader interface {
 }
 
 type AutoDownloader struct{}
+type Aria2Downloader struct {
+	Path string
+}
 type HTTPDownloader struct{}
 type FileDownloader struct{}
+
+var execLookPath = exec.LookPath
+var runDownloadCommand = func(ctx context.Context, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
 
 func StageDir(opts Options) string {
 	opts = resolve(opts)
@@ -57,7 +70,7 @@ func StageReleaseAssets(ctx context.Context, opts Options, manifest Manifest, do
 	}
 	for _, model := range manifest.Models {
 		modelPath := filepath.Join(cache, "model", model.Filename)
-		if err := ensureDownloaded(ctx, downloader, model.URL, modelPath); err != nil {
+		if err := ensureModelCached(ctx, opts, downloader, model, modelPath); err != nil {
 			return err
 		}
 		if err := copyFile(modelPath, filepath.Join(stage, "publish", "model", model.Filename)); err != nil {
@@ -80,6 +93,21 @@ func ensureDownloaded(ctx context.Context, downloader Downloader, sourceURL stri
 	return downloader.Download(ctx, sourceURL, dst)
 }
 
+func ensureModelCached(ctx context.Context, opts Options, downloader Downloader, model ModelAsset, dst string) error {
+	if _, err := os.Stat(dst); err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat cached model: %w", err)
+	}
+	installed := filepath.Join(StateDir(opts), "model", model.Filename)
+	if _, err := os.Stat(installed); err == nil {
+		return copyFile(installed, dst)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat installed model: %w", err)
+	}
+	return ensureDownloaded(ctx, downloader, model.URL, dst)
+}
+
 func (AutoDownloader) Download(ctx context.Context, sourceURL string, dst string) error {
 	parsed, err := url.Parse(sourceURL)
 	if err != nil {
@@ -88,7 +116,41 @@ func (AutoDownloader) Download(ctx context.Context, sourceURL string, dst string
 	if parsed.Scheme == "file" || parsed.Scheme == "" {
 		return FileDownloader{}.Download(ctx, sourceURL, dst)
 	}
+	if path, err := execLookPath("aria2c"); err == nil {
+		return Aria2Downloader{Path: path}.Download(ctx, sourceURL, dst)
+	}
 	return HTTPDownloader{}.Download(ctx, sourceURL, dst)
+}
+
+func (d Aria2Downloader) Download(ctx context.Context, sourceURL string, dst string) error {
+	if strings.TrimSpace(d.Path) == "" {
+		return errors.New("aria2c path is required")
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("create destination dir: %w", err)
+	}
+	tmp := dst + ".tmp"
+	args := []string{
+		"-x", "16",
+		"-s", "16",
+		"-k", "1M",
+		"--continue=true",
+		"--allow-overwrite=true",
+		"--auto-file-renaming=false",
+		"--summary-interval=5",
+		"--console-log-level=warn",
+		"--dir", filepath.Dir(dst),
+		"--out", filepath.Base(tmp),
+		sourceURL,
+	}
+	if err := runDownloadCommand(ctx, d.Path, args...); err != nil {
+		return fmt.Errorf("download %s with aria2c: %w", sourceURL, err)
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		return fmt.Errorf("publish downloaded file: %w", err)
+	}
+	_ = os.Remove(tmp + ".aria2")
+	return nil
 }
 
 func (HTTPDownloader) Download(ctx context.Context, sourceURL string, dst string) error {
