@@ -273,6 +273,25 @@ func TestWriteScriptsUsesInstalledHomeAndDirFlag(t *testing.T) {
 	}
 }
 
+func TestRootDeployBatChecksGoNodeAndNpm(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "deploy.bat"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	for _, want := range []string{
+		"Get-Command go",
+		"Get-Command node",
+		"Get-Command npm",
+		"JCGO_DEPLOY_NO_PAUSE",
+		"Log:",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("deploy.bat missing %q", want)
+		}
+	}
+}
+
 func assertFile(t *testing.T, path string, want string) {
 	t.Helper()
 	raw, err := os.ReadFile(path)

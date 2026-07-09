@@ -43,7 +43,13 @@ try {
   Write-Info "Log: $logFile"
 
   if (-not (Get-Command go -ErrorAction SilentlyContinue)) {
-    throw "Go was not found in PATH. Install Go or run from a shell where go is available."
+    throw "go was not found in PATH. Install go or run from a shell where go is available."
+  }
+  if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+    throw "node was not found in PATH. Install node or run from a shell where node is available."
+  }
+  if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    throw "npm was not found in PATH. Install npm or run from a shell where npm is available."
   }
 
   $extraArgs = @($DeployArgs | Where-Object { $_ -ne $null -and $_ -ne "" })
