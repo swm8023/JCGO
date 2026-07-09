@@ -12,12 +12,11 @@ import (
 
 type ClientRuntime interface {
 	Info() Info
-	Configure(context.Context, RuntimeConfig) (Info, error)
-	Analyze(context.Context, katago.Query) (katago.Result, error)
+	Analyze(context.Context, katago.Query, RuntimeConfig) (katago.Result, error)
 }
 
 type ClientProgressRuntime interface {
-	AnalyzeWithProgress(context.Context, katago.Query, func(katago.Result)) (katago.Result, error)
+	AnalyzeWithProgress(context.Context, katago.Query, RuntimeConfig, func(katago.Result)) (katago.Result, error)
 }
 
 func ServeConnection(ctx context.Context, serverURL string, accessToken string, runtime ClientRuntime) error {
@@ -44,20 +43,11 @@ func ServeConnection(ctx context.Context, serverURL string, accessToken string, 
 				_ = conn.WriteJSON(Envelope{Type: MessageError, ID: msg.ID, Error: "analyze query is required"})
 				continue
 			}
-			if err := analyzeAndReply(ctx, conn, msg.ID, *msg.Query, runtime); err != nil {
-				return err
-			}
-		case MessageConfigure:
 			if msg.Config == nil {
-				_ = conn.WriteJSON(Envelope{Type: MessageError, ID: msg.ID, Error: "configure config is required"})
+				_ = conn.WriteJSON(Envelope{Type: MessageError, ID: msg.ID, Error: "analyze config is required"})
 				continue
 			}
-			info, err := runtime.Configure(ctx, *msg.Config)
-			if err != nil {
-				_ = conn.WriteJSON(Envelope{Type: MessageError, ID: msg.ID, Error: err.Error()})
-				continue
-			}
-			if err := conn.WriteJSON(Envelope{Type: MessageStatus, ID: msg.ID, Worker: &info}); err != nil {
+			if err := analyzeAndReply(ctx, conn, msg.ID, *msg.Query, *msg.Config, runtime); err != nil {
 				return err
 			}
 		default:
@@ -66,7 +56,7 @@ func ServeConnection(ctx context.Context, serverURL string, accessToken string, 
 	}
 }
 
-func analyzeAndReply(ctx context.Context, conn *websocket.Conn, id string, query katago.Query, runtime ClientRuntime) error {
+func analyzeAndReply(ctx context.Context, conn *websocket.Conn, id string, query katago.Query, cfg RuntimeConfig, runtime ClientRuntime) error {
 	writeResult := func(result katago.Result) {
 		_ = conn.WriteJSON(Envelope{Type: MessageResult, ID: id, Result: &result})
 	}
@@ -76,9 +66,9 @@ func analyzeAndReply(ctx context.Context, conn *websocket.Conn, id string, query
 		err    error
 	)
 	if progressEngine, ok := runtime.(ClientProgressRuntime); ok {
-		result, err = progressEngine.AnalyzeWithProgress(ctx, query, writeResult)
+		result, err = progressEngine.AnalyzeWithProgress(ctx, query, cfg, writeResult)
 	} else {
-		result, err = runtime.Analyze(ctx, query)
+		result, err = runtime.Analyze(ctx, query, cfg)
 	}
 	if err != nil {
 		if writeErr := conn.WriteJSON(Envelope{Type: MessageError, ID: id, Error: err.Error()}); writeErr != nil {

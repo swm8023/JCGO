@@ -641,8 +641,17 @@ func TestWorkspaceStateIncludesWorkerStatus(t *testing.T) {
 			ID:        "worker-1",
 			Name:      "gpu-worker",
 			Platform:  "windows/amd64",
+			CPU:       "AMD Ryzen",
+			GPUs:      []string{"RTX 4070"},
 			Available: true,
 		}},
+	}
+	if _, err := repo.UpsertWorkerConfig(ctx, store.WorkerConfigInput{
+		Name:      "gpu-worker",
+		Model:     "kata1-b28c512nbt-s13255194368-d5935380940.bin.gz",
+		MaxVisits: 900,
+	}); err != nil {
+		t.Fatal(err)
 	}
 	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil, HandlerOptions{
 		WorkerStatusProvider: fakeWorkerStatusProvider{status: status},
@@ -658,9 +667,15 @@ func TestWorkspaceStateIncludesWorkerStatus(t *testing.T) {
 	if state.WorkerStatus.Workers[0].Name != "gpu-worker" {
 		t.Fatalf("worker details = %#v", state.WorkerStatus.Workers)
 	}
+	if state.WorkerStatus.Workers[0].Model != "kata1-b28c512nbt-s13255194368-d5935380940.bin.gz" || state.WorkerStatus.Workers[0].MaxVisits != 900 {
+		t.Fatalf("worker config = %#v", state.WorkerStatus.Workers[0])
+	}
+	if state.WorkerStatus.Workers[0].CPU != "AMD Ryzen" || len(state.WorkerStatus.Workers[0].GPUs) != 1 || state.WorkerStatus.Workers[0].GPUs[0] != "RTX 4070" {
+		t.Fatalf("worker hardware = %#v", state.WorkerStatus.Workers[0])
+	}
 }
 
-func TestWorkerConfigureCallsWorkerConfigurator(t *testing.T) {
+func TestWorkerConfigureStoresServerConfigAndReturnsMergedStatus(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
@@ -668,31 +683,32 @@ func TestWorkerConfigureCallsWorkerConfigurator(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	configurator := &fakeWorkerConfigurator{status: worker.StatusSnapshot{
+	statusProvider := fakeWorkerStatusProvider{status: worker.StatusSnapshot{
 		Connected: 1,
 		Available: 1,
 		Workers: []worker.RuntimeStatus{{
 			ID:        "worker-1",
 			Name:      "gpu",
 			Available: true,
-			Model:     "old.bin.gz",
-			MaxVisits: 500,
 		}},
 	}}
 	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil, HandlerOptions{
-		WorkerStatusProvider: configurator,
-		WorkerConfigurator:   configurator,
+		WorkerStatusProvider: statusProvider,
 	})
 
-	result, err := handler.Call(ctx, "secret", "worker.configure", json.RawMessage(`{"workerId":"worker-1","model":"new.bin.gz","maxVisits":900}`))
+	result, err := handler.Call(ctx, "secret", "worker.configure", json.RawMessage(`{"workerName":"gpu","model":"new.bin.gz","maxVisits":900}`))
 	if err != nil {
 		t.Fatalf("worker.configure returned error: %v", err)
 	}
 	status := result.(worker.StatusSnapshot)
-	if configurator.gotID != "worker-1" || configurator.gotConfig.Model != "new.bin.gz" || configurator.gotConfig.MaxVisits != 900 {
-		t.Fatalf("configure call = %q %#v", configurator.gotID, configurator.gotConfig)
+	cfg, err := repo.GetOrCreateWorkerConfig(ctx, "gpu")
+	if err != nil {
+		t.Fatal(err)
 	}
-	if status.Workers[0].Model != "new.bin.gz" {
+	if cfg.Model != "new.bin.gz" || cfg.MaxVisits != 900 {
+		t.Fatalf("stored config = %#v", cfg)
+	}
+	if status.Workers[0].Model != "new.bin.gz" || status.Workers[0].MaxVisits != 900 {
 		t.Fatalf("status = %#v", status)
 	}
 }
@@ -857,24 +873,6 @@ type fakeWorkerStatusProvider struct {
 
 func (f fakeWorkerStatusProvider) StatusSnapshot() worker.StatusSnapshot {
 	return f.status
-}
-
-type fakeWorkerConfigurator struct {
-	status    worker.StatusSnapshot
-	gotID     string
-	gotConfig worker.RuntimeConfig
-}
-
-func (f *fakeWorkerConfigurator) StatusSnapshot() worker.StatusSnapshot {
-	return f.status
-}
-
-func (f *fakeWorkerConfigurator) ConfigureWorker(ctx context.Context, id string, cfg worker.RuntimeConfig) (worker.StatusSnapshot, error) {
-	f.gotID = id
-	f.gotConfig = cfg
-	f.status.Workers[0].Model = cfg.Model
-	f.status.Workers[0].MaxVisits = cfg.MaxVisits
-	return f.status, nil
 }
 
 func (r *recordingAnalysisController) StartGame(input StartInput) {

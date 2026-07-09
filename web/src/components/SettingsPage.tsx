@@ -84,8 +84,9 @@ function WorkerRow({ worker, onConfigureWorker }: { worker: WorkerRuntimeStatus;
   const [saving, setSaving] = useState(false)
   const visitsValue = Number(maxVisits)
   const state = worker.available ? worker.busy ? 'busy' : 'available' : 'unavailable'
-  const controlsDisabled = Boolean(!onConfigureWorker || !worker.available || worker.busy || saving)
-  const canSave = !controlsDisabled && Number.isFinite(visitsValue) && visitsValue > 0
+  const controlsDisabled = Boolean(!onConfigureWorker || saving)
+  const workerName = worker.name || worker.id
+  const canSave = !controlsDisabled && workerName.trim().length > 0 && model.trim().length > 0 && Number.isFinite(visitsValue) && visitsValue > 0
 
   useEffect(() => {
     setModel(worker.model || workerModels[0].filename)
@@ -96,7 +97,7 @@ function WorkerRow({ worker, onConfigureWorker }: { worker: WorkerRuntimeStatus;
     if (!onConfigureWorker || !canSave) return
     setSaving(true)
     try {
-      await onConfigureWorker({ workerId: worker.id, model, maxVisits: visitsValue })
+      await onConfigureWorker({ workerName, model, maxVisits: visitsValue })
     } finally {
       setSaving(false)
     }
@@ -108,9 +109,11 @@ function WorkerRow({ worker, onConfigureWorker }: { worker: WorkerRuntimeStatus;
         <Server size={18} />
       </span>
       <span className="worker-row-main">
-        <strong>{worker.name || worker.id}</strong>
+        <strong>{workerName}</strong>
         <small>{worker.platform || 'unknown platform'}</small>
-        <small>{worker.backendLabel || worker.backend || 'unknown backend'}</small>
+        <small>{backendLabel(worker.backend)}</small>
+        {worker.cpu && <small>{worker.cpu}</small>}
+        {worker.gpus?.map((gpu) => <small key={gpu}>{gpu}</small>)}
         {worker.error && <small className="worker-row-error">{worker.error}</small>}
         <span className="worker-controls">
           <label>
@@ -131,6 +134,12 @@ function WorkerRow({ worker, onConfigureWorker }: { worker: WorkerRuntimeStatus;
       <span className="worker-row-state">{worker.available ? worker.busy ? '忙碌' : '可用' : '不可用'}</span>
     </article>
   )
+}
+
+function backendLabel(backend?: string) {
+  if (backend === 'opencl') return 'OpenCL'
+  if (backend?.toLowerCase().startsWith('cuda')) return 'CUDA'
+  return backend || 'unknown backend'
 }
 
 function workerStatusLabel(status: WorkerStatus) {

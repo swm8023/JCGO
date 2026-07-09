@@ -158,6 +158,44 @@ func TestRepositoryStoresAndFindsGameSource(t *testing.T) {
 	}
 }
 
+func TestRepositoryStoresWorkerConfigsWithDefaults(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+
+	cfg, err := repo.GetOrCreateWorkerConfig(ctx, "local-gpu")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Name != "local-gpu" || cfg.Model != DefaultWorkerModel || cfg.MaxVisits != DefaultWorkerMaxVisits {
+		t.Fatalf("default worker config = %#v", cfg)
+	}
+
+	updated, err := repo.UpsertWorkerConfig(ctx, WorkerConfigInput{
+		Name:      "local-gpu",
+		Model:     "kata1-b28c512nbt-s13255194368-d5935380940.bin.gz",
+		MaxVisits: 900,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Model != "kata1-b28c512nbt-s13255194368-d5935380940.bin.gz" || updated.MaxVisits != 900 {
+		t.Fatalf("updated worker config = %#v", updated)
+	}
+
+	configs, err := repo.ListWorkerConfigs(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(configs) != 1 || configs[0].Name != "local-gpu" || configs[0].MaxVisits != 900 {
+		t.Fatalf("worker configs = %#v", configs)
+	}
+}
+
 func TestRepositoryMigratesExistingGamesTableWithSourceColumns(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()

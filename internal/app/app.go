@@ -28,13 +28,13 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 	files := store.NewFileStore(cfg.GamesDir)
 	workers := worker.NewPool(log.Default())
+	workers.SetConfigProvider(workerConfigProvider{repo: repo})
 	engine := katago.Analyzer(workers)
 	workspaces := NewWorkspaceStore()
 	scheduler := NewScheduler(engine)
 	handler := NewHandlerWithOptions(repo, files, workspaces, scheduler, HandlerOptions{
 		YuanluoboAuthStore:   NewYuanluoboFileAuthStore(filepath.Join(cfg.Dir, "config", "yuanluobo_auth.json")),
 		WorkerStatusProvider: workers,
-		WorkerConfigurator:   workers,
 	})
 	return &App{
 		Repo:       repo,
@@ -45,6 +45,18 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		Scheduler:  scheduler,
 		RPC:        handler,
 	}, nil
+}
+
+type workerConfigProvider struct {
+	repo *store.Repository
+}
+
+func (p workerConfigProvider) RuntimeConfig(ctx context.Context, workerName string) (worker.RuntimeConfig, error) {
+	cfg, err := p.repo.GetOrCreateWorkerConfig(ctx, workerName)
+	if err != nil {
+		return worker.RuntimeConfig{}, err
+	}
+	return worker.RuntimeConfig{Model: cfg.Model, MaxVisits: cfg.MaxVisits}, nil
 }
 
 func (a *App) EngineStatus() katago.Status {

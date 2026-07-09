@@ -28,7 +28,7 @@ func TestRunReturnsErrorWhenSharedConfigIsMissing(t *testing.T) {
 
 func TestRunConnectsWithRuntimeInfo(t *testing.T) {
 	dir := t.TempDir()
-	writeConfig(t, dir, `"model": "model.bin.gz"`)
+	writeConfig(t, dir)
 	var gotKatago, gotModel, gotAnalysis string
 	var gotInfo worker.Info
 
@@ -54,20 +54,20 @@ func TestRunConnectsWithRuntimeInfo(t *testing.T) {
 	if gotKatago != filepath.Join(dir, "bin", "katago.exe") {
 		t.Fatalf("katago = %q", gotKatago)
 	}
-	if gotModel != filepath.Join(dir, "model", "model.bin.gz") {
+	if gotModel != filepath.Join(dir, "model", "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz") {
 		t.Fatalf("model = %q", gotModel)
 	}
 	if gotAnalysis != filepath.Join(dir, "config", "analysis_config.cfg") {
 		t.Fatalf("analysis config = %q", gotAnalysis)
 	}
-	if gotInfo.Name != "local-gpu" || gotInfo.Model != "model.bin.gz" || gotInfo.MaxVisits != 700 || !gotInfo.Available {
+	if gotInfo.Name != "local-gpu" || gotInfo.Backend != "unknown" || gotInfo.Error != "" {
 		t.Fatalf("info=%#v", gotInfo)
 	}
 }
 
 func TestRunRegistersUnavailableEngineStatusAfterStart(t *testing.T) {
 	dir := t.TempDir()
-	writeConfig(t, dir, `"model": "model.bin.gz"`)
+	writeConfig(t, dir)
 	var gotInfo worker.Info
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -88,16 +88,16 @@ func TestRunRegistersUnavailableEngineStatusAfterStart(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v", err)
 	}
-	if gotInfo.Available || !strings.Contains(gotInfo.Error, "missing runtime dependency") {
+	if !strings.Contains(gotInfo.Error, "missing runtime dependency") {
 		t.Fatalf("info = %#v", gotInfo)
 	}
 }
 
-func TestRunUsesDefaultModelWhenWorkerModelIsEmpty(t *testing.T) {
+func TestRunUsesDefaultModelWhenWorkerConfigHasNoModel(t *testing.T) {
 	dir := t.TempDir()
-	writeConfig(t, dir, `"model": ""`)
 	var gotInfo worker.Info
 	var gotModel string
+	writeConfig(t, dir)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -118,16 +118,16 @@ func TestRunUsesDefaultModelWhenWorkerModelIsEmpty(t *testing.T) {
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v", err)
 	}
-	if gotInfo.Model != "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz" || gotModel != gotInfo.Model || !gotInfo.Available {
+	if gotInfo.Name != "local-gpu" || gotModel != "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz" || gotInfo.Error != "" {
 		t.Fatalf("info = %#v", gotInfo)
 	}
 }
 
-func writeConfig(t *testing.T, dir string, modelLine string) {
+func writeConfig(t *testing.T, dir string) {
 	t.Helper()
 	raw := `{
   "server": {"enabled": false, "port": 4380, "token": ""},
-  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "dev-token", ` + modelLine + `, "maxVisits": 700},
+  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "dev-token"},
   "log": {"level": "warn"}
 }`
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(raw), 0o644); err != nil {

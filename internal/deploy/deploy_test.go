@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestEnsureConfigCreatesDefaultWithFixedWorkerModel(t *testing.T) {
+func TestEnsureConfigCreatesConnectionOnlyDefaultConfig(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	repo := filepath.Join(root, "repo")
@@ -26,7 +26,13 @@ func TestEnsureConfigCreatesDefaultWithFixedWorkerModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `"model": "`+DefaultWorkerModel+`"`) {
+	text := string(raw)
+	for _, want := range []string{`"server"`, `"worker"`, `"url": "ws://127.0.0.1:4380/worker"`, `"token": "dev-token"`} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("config missing %q: %s", want, raw)
+		}
+	}
+	if strings.Contains(text, `"model"`) || strings.Contains(text, `"maxVisits"`) {
 		t.Fatalf("config = %s", raw)
 	}
 }

@@ -5,26 +5,20 @@ import "jcgo/internal/katago"
 const (
 	Subprotocol = "jcgo-worker"
 
-	MessageRegister  = "register"
-	MessageAnalyze   = "analyze"
-	MessageConfigure = "configure"
-	MessageStatus    = "status"
-	MessageResult    = "result"
-	MessageError     = "error"
+	MessageRegister = "register"
+	MessageAnalyze  = "analyze"
+	MessageStatus   = "status"
+	MessageResult   = "result"
+	MessageError    = "error"
 )
 
 type Info struct {
-	Name               string `json:"name"`
-	Platform           string `json:"platform"`
-	KatagoPath         string `json:"katagoPath"`
-	ModelPath          string `json:"modelPath"`
-	AnalysisConfigPath string `json:"analysisConfigPath"`
-	Backend            string `json:"backend,omitempty"`
-	BackendLabel       string `json:"backendLabel,omitempty"`
-	Model              string `json:"model,omitempty"`
-	MaxVisits          int    `json:"maxVisits,omitempty"`
-	Available          bool   `json:"available"`
-	Error              string `json:"error,omitempty"`
+	Name     string   `json:"name"`
+	Platform string   `json:"platform"`
+	Backend  string   `json:"backend,omitempty"`
+	CPU      string   `json:"cpu,omitempty"`
+	GPUs     []string `json:"gpus,omitempty"`
+	Error    string   `json:"error,omitempty"`
 }
 
 type Envelope struct {

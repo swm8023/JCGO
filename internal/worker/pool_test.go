@@ -33,6 +33,7 @@ func TestPoolReturnsErrorWhenNoWorkerIsConnected(t *testing.T) {
 
 func TestPoolUsesRegisteredWorker(t *testing.T) {
 	pool := NewPool(log.New(io.Discard, "", 0))
+	pool.SetConfigProvider(staticConfigProvider{config: RuntimeConfig{Model: "b28.bin.gz", MaxVisits: 900}})
 	serverURL, closeServer := servePool(t, pool)
 	defer closeServer()
 
@@ -40,6 +41,10 @@ func TestPoolUsesRegisteredWorker(t *testing.T) {
 	go runFakeWorker(t, serverURL, func(conn *websocket.Conn, msg Envelope) {
 		if msg.Type != MessageAnalyze || msg.Query == nil || msg.Query.ID != "main:1" {
 			t.Errorf("message = %#v", msg)
+			return
+		}
+		if msg.Config == nil || msg.Config.Model != "b28.bin.gz" || msg.Config.MaxVisits != 900 {
+			t.Errorf("config = %#v", msg.Config)
 			return
 		}
 		err := conn.WriteJSON(Envelope{
@@ -122,12 +127,12 @@ func TestPoolStatusSnapshotCountsWorkers(t *testing.T) {
 	pool := NewPool(log.New(io.Discard, "", 0))
 	pool.addWorker(&remoteWorker{
 		id:        "worker-2",
-		info:      Info{Name: "offline-gpu", Platform: "linux/amd64", Available: false, Error: "katago missing"},
+		info:      Info{Name: "offline-gpu", Platform: "linux/amd64", Error: "katago missing"},
 		responses: map[string]chan Envelope{},
 	})
 	pool.addWorker(&remoteWorker{
 		id:        "worker-1",
-		info:      Info{Name: "busy-gpu", Platform: "windows/amd64", Available: true},
+		info:      Info{Name: "busy-gpu", Platform: "windows/amd64", CPU: "AMD Ryzen", GPUs: []string{"RTX 4070"}},
 		busy:      true,
 		responses: map[string]chan Envelope{},
 	})
@@ -143,25 +148,11 @@ func TestPoolStatusSnapshotCountsWorkers(t *testing.T) {
 	if status.Workers[0].ID != "worker-1" || !status.Workers[0].Busy || !status.Workers[0].Available {
 		t.Fatalf("first worker = %#v", status.Workers[0])
 	}
+	if status.Workers[0].CPU != "AMD Ryzen" || len(status.Workers[0].GPUs) != 1 || status.Workers[0].GPUs[0] != "RTX 4070" {
+		t.Fatalf("hardware = %#v", status.Workers[0])
+	}
 	if status.Workers[1].ID != "worker-2" || status.Workers[1].Available || status.Workers[1].Error != "katago missing" {
 		t.Fatalf("second worker = %#v", status.Workers[1])
-	}
-}
-
-func TestPoolConfiguresOnlineWorker(t *testing.T) {
-	pool := NewPool(log.New(io.Discard, "", 0))
-	serverURL, closeServer := servePool(t, pool)
-	defer closeServer()
-
-	go runConfigurableFakeWorker(t, serverURL)
-	waitForWorkers(t, pool, 1)
-
-	status, err := pool.ConfigureWorker(context.Background(), "worker-1", RuntimeConfig{Model: "new.bin.gz", MaxVisits: 900})
-	if err != nil {
-		t.Fatalf("ConfigureWorker returned error: %v", err)
-	}
-	if status.Workers[0].Model != "new.bin.gz" || status.Workers[0].MaxVisits != 900 {
-		t.Fatalf("status = %#v", status)
 	}
 }
 
@@ -191,12 +182,9 @@ func runFakeWorker(t *testing.T, url string, handle func(*websocket.Conn, Envelo
 	if err := conn.WriteJSON(Envelope{
 		Type: MessageRegister,
 		Worker: &Info{
-			Name:               "test-worker",
-			Platform:           "windows/amd64",
-			KatagoPath:         "katago.exe",
-			ModelPath:          "model.bin.gz",
-			AnalysisConfigPath: "analysis_config.cfg",
-			Available:          true,
+			Name:     "test-worker",
+			Platform: "windows/amd64",
+			Backend:  "opencl",
 		},
 	}); err != nil {
 		t.Error(err)
@@ -210,33 +198,6 @@ func runFakeWorker(t *testing.T, url string, handle func(*websocket.Conn, Envelo
 	handle(conn, msg)
 }
 
-func runConfigurableFakeWorker(t *testing.T, url string) {
-	t.Helper()
-	dialer := websocket.Dialer{Subprotocols: []string{Subprotocol}}
-	conn, _, err := dialer.Dial(url, nil)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	defer conn.Close()
-	info := Info{Name: "test-worker", Platform: "windows/amd64", Backend: "opencl", Model: "old.bin.gz", MaxVisits: 500, Available: true}
-	if err := conn.WriteJSON(Envelope{Type: MessageRegister, Worker: &info}); err != nil {
-		t.Error(err)
-		return
-	}
-	var msg Envelope
-	if err := conn.ReadJSON(&msg); err != nil {
-		t.Error(err)
-		return
-	}
-	info.Model = msg.Config.Model
-	info.MaxVisits = msg.Config.MaxVisits
-	if err := conn.WriteJSON(Envelope{Type: MessageStatus, ID: msg.ID, Worker: &info}); err != nil {
-		t.Error(err)
-	}
-	time.Sleep(100 * time.Millisecond)
-}
-
 func waitForWorkers(t *testing.T, pool *Pool, want int) {
 	t.Helper()
 	deadline := time.Now().Add(time.Second)
@@ -247,4 +208,13 @@ func waitForWorkers(t *testing.T, pool *Pool, want int) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("workers = %d, want %d", pool.WorkerCount(), want)
+}
+
+type staticConfigProvider struct {
+	config RuntimeConfig
+	err    error
+}
+
+func (p staticConfigProvider) RuntimeConfig(ctx context.Context, workerName string) (RuntimeConfig, error) {
+	return p.config, p.err
 }

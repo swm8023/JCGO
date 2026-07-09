@@ -30,17 +30,12 @@ type WorkerStatusProvider interface {
 	StatusSnapshot() worker.StatusSnapshot
 }
 
-type WorkerConfigurator interface {
-	ConfigureWorker(context.Context, string, worker.RuntimeConfig) (worker.StatusSnapshot, error)
-}
-
 type Handler struct {
 	repo         *store.Repository
 	files        store.FileStore
 	workspaces   *WorkspaceStore
 	analysis     AnalysisController
 	workerStatus WorkerStatusProvider
-	workerConfig WorkerConfigurator
 	yuanluobo    YuanluoboBackend
 }
 
@@ -49,7 +44,6 @@ type HandlerOptions struct {
 	YuanluoboHTTPClient  *http.Client
 	YuanluoboBaseURL     string
 	WorkerStatusProvider WorkerStatusProvider
-	WorkerConfigurator   WorkerConfigurator
 }
 
 type ImportResult struct {
@@ -91,7 +85,7 @@ func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, worksp
 		HTTPClient: opts.YuanluoboHTTPClient,
 		BaseURL:    opts.YuanluoboBaseURL,
 	})
-	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis, workerStatus: opts.WorkerStatusProvider, workerConfig: opts.WorkerConfigurator, yuanluobo: ylb}
+	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis, workerStatus: opts.WorkerStatusProvider, yuanluobo: ylb}
 	if analysis != nil {
 		analysis.Subscribe(func(event Event) {
 			ws := h.workspaces.ForToken(event.Token)
@@ -434,15 +428,13 @@ func (h *Handler) workspaceSnapshot(ctx context.Context, token string, params js
 }
 
 func (h *Handler) configureWorker(ctx context.Context, params json.RawMessage) (worker.StatusSnapshot, error) {
-	if h.workerConfig == nil {
-		return worker.StatusSnapshot{}, errors.New("worker configuration is unavailable")
-	}
 	var in workerConfigureParams
 	if err := decodeParams(params, &in); err != nil {
 		return worker.StatusSnapshot{}, err
 	}
-	if strings.TrimSpace(in.WorkerID) == "" {
-		return worker.StatusSnapshot{}, errors.New("workerId is required")
+	workerName := strings.TrimSpace(in.WorkerName)
+	if workerName == "" {
+		return worker.StatusSnapshot{}, errors.New("workerName is required")
 	}
 	if strings.TrimSpace(in.Model) == "" {
 		return worker.StatusSnapshot{}, errors.New("model is required")
@@ -450,7 +442,10 @@ func (h *Handler) configureWorker(ctx context.Context, params json.RawMessage) (
 	if in.MaxVisits <= 0 {
 		return worker.StatusSnapshot{}, errors.New("maxVisits must be positive")
 	}
-	return h.workerConfig.ConfigureWorker(ctx, in.WorkerID, worker.RuntimeConfig{Model: in.Model, MaxVisits: in.MaxVisits})
+	if _, err := h.repo.UpsertWorkerConfig(ctx, store.WorkerConfigInput{Name: workerName, Model: in.Model, MaxVisits: in.MaxVisits}); err != nil {
+		return worker.StatusSnapshot{}, err
+	}
+	return h.currentWorkerStatus(ctx)
 }
 
 func (h *Handler) analysisCall(ctx context.Context, token string, params json.RawMessage, action string) (any, error) {
@@ -602,7 +597,7 @@ type badMovePromptParams struct {
 }
 
 type workerConfigureParams struct {
-	WorkerID  string `json:"workerId"`
-	Model     string `json:"model"`
-	MaxVisits int    `json:"maxVisits"`
+	WorkerName string `json:"workerName"`
+	Model      string `json:"model"`
+	MaxVisits  int    `json:"maxVisits"`
 }

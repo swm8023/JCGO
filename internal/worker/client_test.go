@@ -74,7 +74,7 @@ func TestServeConnectionRegistersAndReturnsAnalysis(t *testing.T) {
 	defer cancel()
 	go func() {
 		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", staticClientRuntime{
-			info:     Info{Name: "worker-1", Available: true},
+			info:     Info{Name: "worker-1"},
 			analyzer: clientBasicAnalyzer{},
 		})
 	}()
@@ -89,7 +89,12 @@ func TestServeConnectionRegistersAndReturnsAnalysis(t *testing.T) {
 	if register.Type != MessageRegister || register.Worker == nil || register.Worker.Name != "worker-1" {
 		t.Fatalf("register = %#v", register)
 	}
-	if err := conn.WriteJSON(Envelope{Type: MessageAnalyze, ID: "job-1", Query: &katago.Query{ID: "main:0"}}); err != nil {
+	if err := conn.WriteJSON(Envelope{
+		Type:   MessageAnalyze,
+		ID:     "job-1",
+		Query:  &katago.Query{ID: "main:0"},
+		Config: &RuntimeConfig{Model: "b18.bin.gz", MaxVisits: 500},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	var result Envelope
@@ -109,7 +114,7 @@ func TestServeConnectionForwardsProgress(t *testing.T) {
 	defer cancel()
 	go func() {
 		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", staticClientRuntime{
-			info:     Info{Name: "worker-1", Available: true},
+			info:     Info{Name: "worker-1"},
 			analyzer: clientFakeAnalyzer{progress: true},
 		})
 	}()
@@ -120,7 +125,12 @@ func TestServeConnectionForwardsProgress(t *testing.T) {
 	if err := conn.ReadJSON(&register); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.WriteJSON(Envelope{Type: MessageAnalyze, ID: "job-2", Query: &katago.Query{ID: "main:1"}}); err != nil {
+	if err := conn.WriteJSON(Envelope{
+		Type:   MessageAnalyze,
+		ID:     "job-2",
+		Query:  &katago.Query{ID: "main:1"},
+		Config: &RuntimeConfig{Model: "b18.bin.gz", MaxVisits: 500},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	var progress Envelope
@@ -139,15 +149,16 @@ func TestServeConnectionForwardsProgress(t *testing.T) {
 	}
 }
 
-func TestServeConnectionConfiguresRuntimeAndUsesRuntimeVisits(t *testing.T) {
+func TestServeConnectionPassesAnalyzeConfigToRuntime(t *testing.T) {
 	server, connCh := testWorkerServer(t)
 	defer server.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	runtime := &clientRecordingRuntime{
-		info:    Info{Name: "worker-1", Model: "old.bin.gz", MaxVisits: 700, Available: true},
+		info:    Info{Name: "worker-1"},
 		queries: make(chan katago.Query, 1),
+		configs: make(chan RuntimeConfig, 1),
 	}
 	go func() {
 		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", runtime)
@@ -159,26 +170,29 @@ func TestServeConnectionConfiguresRuntimeAndUsesRuntimeVisits(t *testing.T) {
 	if err := conn.ReadJSON(&register); err != nil {
 		t.Fatal(err)
 	}
-	if err := conn.WriteJSON(Envelope{Type: MessageConfigure, ID: "cfg-1", Config: &RuntimeConfig{Model: "new.bin.gz", MaxVisits: 900}}); err != nil {
-		t.Fatal(err)
-	}
-	var status Envelope
-	if err := conn.ReadJSON(&status); err != nil {
-		t.Fatal(err)
-	}
-	if status.Type != MessageStatus || status.Worker == nil || status.Worker.Model != "new.bin.gz" || status.Worker.MaxVisits != 900 {
-		t.Fatalf("status = %#v", status)
-	}
-	if err := conn.WriteJSON(Envelope{Type: MessageAnalyze, ID: "job-3", Query: &katago.Query{ID: "main:2", MaxVisits: 1}}); err != nil {
+	if err := conn.WriteJSON(Envelope{
+		Type:   MessageAnalyze,
+		ID:     "job-3",
+		Query:  &katago.Query{ID: "main:2", MaxVisits: 1},
+		Config: &RuntimeConfig{Model: "new.bin.gz", MaxVisits: 900},
+	}); err != nil {
 		t.Fatal(err)
 	}
 	select {
 	case query := <-runtime.queries:
-		if query.MaxVisits != 900 {
+		if query.MaxVisits != 1 {
 			t.Fatalf("MaxVisits = %d", query.MaxVisits)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("expected query")
+	}
+	select {
+	case cfg := <-runtime.configs:
+		if cfg.Model != "new.bin.gz" || cfg.MaxVisits != 900 {
+			t.Fatalf("config = %#v", cfg)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected config")
 	}
 }
 
@@ -219,15 +233,11 @@ type staticClientRuntime struct {
 
 func (r staticClientRuntime) Info() Info { return r.info }
 
-func (r staticClientRuntime) Configure(context.Context, RuntimeConfig) (Info, error) {
-	return r.info, nil
-}
-
-func (r staticClientRuntime) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
+func (r staticClientRuntime) Analyze(ctx context.Context, query katago.Query, cfg RuntimeConfig) (katago.Result, error) {
 	return r.analyzer.Analyze(ctx, query)
 }
 
-func (r staticClientRuntime) AnalyzeWithProgress(ctx context.Context, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
+func (r staticClientRuntime) AnalyzeWithProgress(ctx context.Context, query katago.Query, cfg RuntimeConfig, progress func(katago.Result)) (katago.Result, error) {
 	if progressAnalyzer, ok := r.analyzer.(katago.ProgressAnalyzer); ok {
 		return progressAnalyzer.AnalyzeWithProgress(ctx, query, progress)
 	}
@@ -237,22 +247,17 @@ func (r staticClientRuntime) AnalyzeWithProgress(ctx context.Context, query kata
 type clientRecordingRuntime struct {
 	info    Info
 	queries chan katago.Query
+	configs chan RuntimeConfig
 }
 
 func (r *clientRecordingRuntime) Info() Info { return r.info }
 
-func (r *clientRecordingRuntime) Configure(ctx context.Context, cfg RuntimeConfig) (Info, error) {
-	r.info.Model = cfg.Model
-	r.info.MaxVisits = cfg.MaxVisits
-	return r.info, nil
-}
-
-func (r *clientRecordingRuntime) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
-	query.MaxVisits = r.info.MaxVisits
+func (r *clientRecordingRuntime) Analyze(ctx context.Context, query katago.Query, cfg RuntimeConfig) (katago.Result, error) {
 	r.queries <- query
+	r.configs <- cfg
 	return katago.Result{ID: query.ID, RootInfo: katago.RootInfo{Visits: query.MaxVisits}}, nil
 }
 
-func (r *clientRecordingRuntime) AnalyzeWithProgress(ctx context.Context, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
-	return r.Analyze(ctx, query)
+func (r *clientRecordingRuntime) AnalyzeWithProgress(ctx context.Context, query katago.Query, cfg RuntimeConfig, progress func(katago.Result)) (katago.Result, error) {
+	return r.Analyze(ctx, query, cfg)
 }

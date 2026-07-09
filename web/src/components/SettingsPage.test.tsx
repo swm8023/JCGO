@@ -20,6 +20,9 @@ describe('SettingsPage', () => {
             id: 'worker-1',
             name: 'gpu-worker',
             platform: 'windows/amd64',
+            backend: 'opencl',
+            cpu: 'AMD Ryzen',
+            gpus: ['RTX 4070'],
             available: true,
             busy: false,
           }],
@@ -34,6 +37,9 @@ describe('SettingsPage', () => {
     expect(section).not.toHaveTextContent(`远程${'连接'}`)
     expect(within(section).getByText('gpu-worker')).toBeInTheDocument()
     expect(within(section).getByText('windows/amd64')).toBeInTheDocument()
+    expect(within(section).getByText('OpenCL')).toBeInTheDocument()
+    expect(within(section).getByText('AMD Ryzen')).toBeInTheDocument()
+    expect(within(section).getByText('RTX 4070')).toBeInTheDocument()
   })
 
   it('shows an empty worker-only state', () => {
@@ -87,7 +93,6 @@ describe('SettingsPage', () => {
             name: 'gpu-worker',
             platform: 'windows/amd64',
             backend: 'opencl',
-            backendLabel: 'OpenCL',
             model: 'kata1-b18c384nbt-s9996604416-d4316597426.bin.gz',
             maxVisits: 500,
             available: true,
@@ -106,7 +111,7 @@ describe('SettingsPage', () => {
 
     await waitFor(() => {
       expect(onConfigureWorker).toHaveBeenCalledWith({
-        workerId: 'worker-1',
+        workerName: 'gpu-worker',
         model: 'kata1-b28c512nbt-s13255194368-d5935380940.bin.gz',
         maxVisits: 900,
       })

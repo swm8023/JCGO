@@ -9,32 +9,44 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"time"
 
 	"jcgo/internal/config"
 	"jcgo/internal/katago"
 )
 
-const defaultRuntimeModel = "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz"
+const (
+	defaultRuntimeModel     = "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz"
+	defaultRuntimeMaxVisits = 500
+)
 
 type RuntimeConfig struct {
 	Model     string `json:"model"`
 	MaxVisits int    `json:"maxVisits"`
 }
 
+type HardwareInfo struct {
+	CPU  string
+	GPUs []string
+}
+
 type RuntimeOptions struct {
-	Dir        string
-	Logger     *log.Logger
-	StartLocal func(context.Context, string, string, string) (katago.Analyzer, error)
+	Dir           string
+	Logger        *log.Logger
+	StartLocal    func(context.Context, string, string, string) (katago.Analyzer, error)
+	ProbeHardware func(context.Context) HardwareInfo
 }
 
 type Runtime struct {
-	mu         sync.Mutex
-	dir        string
-	logger     *log.Logger
-	startLocal func(context.Context, string, string, string) (katago.Analyzer, error)
-	engine     katago.Analyzer
-	cfg        config.Config
-	backend    config.KatagoBackendInfo
+	mu           sync.Mutex
+	dir          string
+	logger       *log.Logger
+	startLocal   func(context.Context, string, string, string) (katago.Analyzer, error)
+	engine       katago.Analyzer
+	cfg          config.Config
+	backend      config.KatagoBackendInfo
+	hardware     HardwareInfo
+	currentModel string
 }
 
 func NewRuntime(opts RuntimeOptions) (*Runtime, error) {
@@ -44,17 +56,25 @@ func NewRuntime(opts RuntimeOptions) (*Runtime, error) {
 	if opts.StartLocal == nil {
 		opts.StartLocal = katago.StartLocal
 	}
+	if opts.ProbeHardware == nil {
+		opts.ProbeHardware = DetectHardware
+	}
 	cfg, err := config.LoadDir(opts.Dir)
 	if err != nil {
 		return nil, err
 	}
 	applyRuntimeDefaults(&cfg)
+	probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	hardware := opts.ProbeHardware(probeCtx)
+	cancel()
 	r := &Runtime{
-		dir:        cfg.Dir,
-		logger:     opts.Logger,
-		startLocal: opts.StartLocal,
-		cfg:        cfg,
-		backend:    config.LoadKatagoBackendInfo(cfg.Dir),
+		dir:          cfg.Dir,
+		logger:       opts.Logger,
+		startLocal:   opts.StartLocal,
+		cfg:          cfg,
+		backend:      config.LoadKatagoBackendInfo(cfg.Dir),
+		hardware:     hardware,
+		currentModel: cfg.Worker.Model,
 	}
 	r.mu.Lock()
 	err = r.startLocked(context.Background())
@@ -71,54 +91,29 @@ func (r *Runtime) Info() Info {
 	return r.infoLocked()
 }
 
-func (r *Runtime) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
+func (r *Runtime) Analyze(ctx context.Context, query katago.Query, cfg RuntimeConfig) (katago.Result, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	query.MaxVisits = r.cfg.Worker.MaxVisits
+	cfg = normalizeRuntimeConfig(cfg)
+	if err := r.ensureModelLocked(ctx, cfg.Model); err != nil {
+		return katago.Result{}, err
+	}
+	query.MaxVisits = cfg.MaxVisits
 	return r.engine.Analyze(ctx, query)
 }
 
-func (r *Runtime) AnalyzeWithProgress(ctx context.Context, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
+func (r *Runtime) AnalyzeWithProgress(ctx context.Context, query katago.Query, cfg RuntimeConfig, progress func(katago.Result)) (katago.Result, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	query.MaxVisits = r.cfg.Worker.MaxVisits
+	cfg = normalizeRuntimeConfig(cfg)
+	if err := r.ensureModelLocked(ctx, cfg.Model); err != nil {
+		return katago.Result{}, err
+	}
+	query.MaxVisits = cfg.MaxVisits
 	if progressEngine, ok := r.engine.(katago.ProgressAnalyzer); ok {
 		return progressEngine.AnalyzeWithProgress(ctx, query, progress)
 	}
 	return r.engine.Analyze(ctx, query)
-}
-
-func (r *Runtime) Configure(ctx context.Context, next RuntimeConfig) (Info, error) {
-	if next.Model == "" {
-		return r.Info(), errors.New("model is required")
-	}
-	if next.MaxVisits <= 0 {
-		return r.Info(), errors.New("maxVisits must be positive")
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	modelPath := filepath.Join(r.cfg.Dir, "model", next.Model)
-	if _, err := os.Stat(modelPath); err != nil {
-		return r.infoLocked(), fmt.Errorf("model %s is unavailable: %w", next.Model, err)
-	}
-	previousModel := r.cfg.Worker.Model
-	if err := config.UpdateWorkerRuntime(r.dir, next.Model, next.MaxVisits); err != nil {
-		return r.infoLocked(), err
-	}
-	r.cfg.Worker.Model = next.Model
-	r.cfg.Worker.MaxVisits = next.MaxVisits
-	r.cfg.ModelPath = modelPath
-	if previousModel != next.Model {
-		if r.engine != nil {
-			_ = r.engine.Close()
-		}
-		if err := r.startLocked(ctx); err != nil {
-			return r.infoLocked(), err
-		}
-	}
-	return r.infoLocked(), nil
 }
 
 func (r *Runtime) Close() error {
@@ -136,18 +131,33 @@ func (r *Runtime) infoLocked() Info {
 		status = r.engine.Status()
 	}
 	return Info{
-		Name:               r.cfg.Worker.Name,
-		Platform:           runtime.GOOS + "/" + runtime.GOARCH,
-		KatagoPath:         r.cfg.KatagoPath,
-		ModelPath:          r.cfg.ModelPath,
-		AnalysisConfigPath: r.cfg.AnalysisConfigPath,
-		Backend:            r.backend.ID,
-		BackendLabel:       r.backend.Label,
-		Model:              r.cfg.Worker.Model,
-		MaxVisits:          r.cfg.Worker.MaxVisits,
-		Available:          status.Available,
-		Error:              status.Error,
+		Name:     r.cfg.Worker.Name,
+		Platform: runtime.GOOS + "/" + runtime.GOARCH,
+		Backend:  r.backend.ID,
+		CPU:      r.hardware.CPU,
+		GPUs:     append([]string{}, r.hardware.GPUs...),
+		Error:    status.Error,
 	}
+}
+
+func (r *Runtime) ensureModelLocked(ctx context.Context, model string) error {
+	if model == "" {
+		return errors.New("model is required")
+	}
+	modelPath := filepath.Join(r.cfg.Dir, "model", model)
+	if _, err := os.Stat(modelPath); err != nil {
+		return fmt.Errorf("model %s is unavailable: %w", model, err)
+	}
+	if r.currentModel == model && r.engine != nil && r.engine.Available() {
+		return nil
+	}
+	if r.engine != nil {
+		_ = r.engine.Close()
+	}
+	r.currentModel = model
+	r.cfg.Worker.Model = model
+	r.cfg.ModelPath = modelPath
+	return r.startLocked(ctx)
 }
 
 func (r *Runtime) startLocked(ctx context.Context) error {
@@ -161,8 +171,20 @@ func (r *Runtime) startLocked(ctx context.Context) error {
 }
 
 func applyRuntimeDefaults(cfg *config.Config) {
-	if cfg.Worker.Model == "" {
-		cfg.Worker.Model = defaultRuntimeModel
-		cfg.ModelPath = filepath.Join(cfg.Dir, "model", cfg.Worker.Model)
+	cfg.Worker.Model = defaultRuntimeModel
+	cfg.ModelPath = filepath.Join(cfg.Dir, "model", cfg.Worker.Model)
+}
+
+func defaultRuntimeConfig() RuntimeConfig {
+	return RuntimeConfig{Model: defaultRuntimeModel, MaxVisits: defaultRuntimeMaxVisits}
+}
+
+func normalizeRuntimeConfig(cfg RuntimeConfig) RuntimeConfig {
+	if cfg.Model == "" {
+		cfg.Model = defaultRuntimeModel
 	}
+	if cfg.MaxVisits <= 0 {
+		cfg.MaxVisits = defaultRuntimeMaxVisits
+	}
+	return cfg
 }

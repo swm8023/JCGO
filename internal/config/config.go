@@ -39,8 +39,8 @@ type WorkerConfig struct {
 	Name      string `json:"name"`
 	URL       string `json:"url"`
 	Token     string `json:"token"`
-	Model     string `json:"model"`
-	MaxVisits int    `json:"maxVisits"`
+	Model     string `json:"model,omitempty"`
+	MaxVisits int    `json:"maxVisits,omitempty"`
 }
 
 type LogConfig struct {
@@ -156,16 +156,14 @@ func EnsureDirs(cfg Config) error {
 	return nil
 }
 
-func DefaultFile(model string) []byte {
+func DefaultFile(_ string) []byte {
 	raw := fileConfig{
 		Server: ServerConfig{Enabled: true, Port: 4380, Token: "dev-token"},
 		Worker: WorkerConfig{
-			Enabled:   true,
-			Name:      "local-gpu",
-			URL:       "ws://127.0.0.1:4380/worker",
-			Token:     "dev-token",
-			Model:     model,
-			MaxVisits: 500,
+			Enabled: true,
+			Name:    "local-gpu",
+			URL:     "ws://127.0.0.1:4380/worker",
+			Token:   "dev-token",
 		},
 		Log: LogConfig{Level: "warn"},
 	}
@@ -221,9 +219,6 @@ func validate(raw fileConfig) error {
 		}
 		if strings.TrimSpace(raw.Worker.Token) == "" {
 			missing = append(missing, "worker.token")
-		}
-		if raw.Worker.MaxVisits <= 0 {
-			missing = append(missing, "worker.maxVisits")
 		}
 	}
 	if len(missing) > 0 {

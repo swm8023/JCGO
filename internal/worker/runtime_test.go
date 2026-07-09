@@ -2,11 +2,12 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"testing"
 
 	"jcgo/internal/katago"
@@ -33,20 +34,29 @@ func (e *runtimeFakeEngine) Close() error {
 	return nil
 }
 
-func TestRuntimeUsesStoredMaxVisitsAndReportsInfo(t *testing.T) {
-	dir := writeRuntimeConfig(t, "", "model.bin.gz", 700)
+func TestRuntimeUsesAnalyzeConfigAndReportsHardwareInfo(t *testing.T) {
+	dir := writeRuntimeConfig(t, "")
 	engine := &runtimeFakeEngine{}
 	runtime, err := NewRuntime(RuntimeOptions{
 		Dir:    dir,
 		Logger: log.New(io.Discard, "", 0),
-		StartLocal: func(context.Context, string, string, string) (katago.Analyzer, error) {
+		ProbeHardware: func(context.Context) HardwareInfo {
+			return HardwareInfo{CPU: "AMD Ryzen", GPUs: []string{"RTX 4070"}}
+		},
+		StartLocal: func(ctx context.Context, katagoPath string, modelPath string, configPath string) (katago.Analyzer, error) {
+			if filepath.Base(modelPath) != defaultRuntimeModel {
+				t.Fatalf("initial model = %q", modelPath)
+			}
 			return engine, nil
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := runtime.Analyze(context.Background(), katago.Query{ID: "main:0", MaxVisits: 1})
+	result, err := runtime.Analyze(context.Background(), katago.Query{ID: "main:0", MaxVisits: 1}, RuntimeConfig{
+		Model:     defaultRuntimeModel,
+		MaxVisits: 700,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,25 +64,25 @@ func TestRuntimeUsesStoredMaxVisitsAndReportsInfo(t *testing.T) {
 		t.Fatalf("query visits = %#v result=%#v", engine.queries[0], result)
 	}
 	info := runtime.Info()
-	if info.Model != "model.bin.gz" || info.MaxVisits != 700 || info.Backend != "opencl" {
+	if info.Backend != "opencl" || info.CPU != "AMD Ryzen" || len(info.GPUs) != 1 || info.GPUs[0] != "RTX 4070" {
 		t.Fatalf("info = %#v", info)
 	}
 }
 
-func TestRuntimeConfigurePersistsAndRestartsOnModelChange(t *testing.T) {
-	dir := writeRuntimeConfig(t, "", "old.bin.gz", 500)
+func TestRuntimeAnalyzeRestartsOnModelChangeWithoutPersistingConfig(t *testing.T) {
+	dir := writeRuntimeConfig(t, "")
 	if err := os.WriteFile(filepath.Join(dir, "model", "new.bin.gz"), []byte("new-model"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	starts := 0
+	var starts []string
 	first := &runtimeFakeEngine{}
 	second := &runtimeFakeEngine{}
 	runtime, err := NewRuntime(RuntimeOptions{
 		Dir:    dir,
 		Logger: log.New(io.Discard, "", 0),
-		StartLocal: func(context.Context, string, string, string) (katago.Analyzer, error) {
-			starts++
-			if starts == 1 {
+		StartLocal: func(ctx context.Context, katagoPath string, modelPath string, configPath string) (katago.Analyzer, error) {
+			starts = append(starts, filepath.Base(modelPath))
+			if len(starts) == 1 {
 				return first, nil
 			}
 			return second, nil
@@ -81,16 +91,86 @@ func TestRuntimeConfigurePersistsAndRestartsOnModelChange(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	info, err := runtime.Configure(context.Background(), RuntimeConfig{Model: "new.bin.gz", MaxVisits: 900})
+	result, err := runtime.Analyze(context.Background(), katago.Query{ID: "main:1", MaxVisits: 1}, RuntimeConfig{Model: "new.bin.gz", MaxVisits: 900})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !first.closed || info.Model != "new.bin.gz" || info.MaxVisits != 900 {
-		t.Fatalf("closed=%t info=%#v", first.closed, info)
+	if strings.Join(starts, ",") != defaultRuntimeModel+",new.bin.gz" || !first.closed {
+		t.Fatalf("starts=%v first.closed=%t", starts, first.closed)
+	}
+	if result.RootInfo.Visits != 900 || second.queries[0].MaxVisits != 900 {
+		t.Fatalf("query visits = %#v result=%#v", second.queries[0], result)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "new.bin.gz") || strings.Contains(string(raw), `"maxVisits": 900`) {
+		t.Fatalf("runtime config was persisted unexpectedly: %s", raw)
 	}
 }
 
-func writeRuntimeConfig(t *testing.T, dir string, model string, maxVisits int) string {
+func TestRuntimeIgnoresLegacyWorkerModelInLocalConfig(t *testing.T) {
+	dir := writeRuntimeConfig(t, "")
+	raw := []byte(`{
+  "server": {"enabled": false, "port": 4380, "token": ""},
+  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "dev-token", "model": "legacy.bin.gz", "maxVisits": 900},
+  "log": {"level": "warn"}
+}`)
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "model", "legacy.bin.gz"), []byte("legacy"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var startedModel string
+	_, err := NewRuntime(RuntimeOptions{
+		Dir:    dir,
+		Logger: log.New(io.Discard, "", 0),
+		StartLocal: func(ctx context.Context, katagoPath string, modelPath string, configPath string) (katago.Analyzer, error) {
+			startedModel = filepath.Base(modelPath)
+			return &runtimeFakeEngine{}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if startedModel != defaultRuntimeModel {
+		t.Fatalf("started model = %q, want %q", startedModel, defaultRuntimeModel)
+	}
+}
+
+func TestRuntimeRetriesModelAfterStartupFailure(t *testing.T) {
+	dir := writeRuntimeConfig(t, "")
+	starts := 0
+	engine := &runtimeFakeEngine{}
+	runtime, err := NewRuntime(RuntimeOptions{
+		Dir:    dir,
+		Logger: log.New(io.Discard, "", 0),
+		StartLocal: func(ctx context.Context, katagoPath string, modelPath string, configPath string) (katago.Analyzer, error) {
+			starts++
+			if starts == 1 {
+				return nil, errors.New("startup failed")
+			}
+			return engine, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := runtime.Analyze(context.Background(), katago.Query{ID: "main:2", MaxVisits: 1}, RuntimeConfig{
+		Model:     defaultRuntimeModel,
+		MaxVisits: 600,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if starts != 2 || result.RootInfo.Visits != 600 {
+		t.Fatalf("starts=%d result=%#v", starts, result)
+	}
+}
+
+func writeRuntimeConfig(t *testing.T, dir string) string {
 	t.Helper()
 	if dir == "" {
 		dir = t.TempDir()
@@ -106,13 +186,13 @@ func writeRuntimeConfig(t *testing.T, dir string, model string, maxVisits int) s
 	}
 	raw := []byte(`{
   "server": {"enabled": false, "port": 4380, "token": ""},
-  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "dev-token", "model": "` + model + `", "maxVisits": ` + strconv.Itoa(maxVisits) + `},
+  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "dev-token"},
   "log": {"level": "warn"}
 }`)
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "model", model), []byte("model"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "model", defaultRuntimeModel), []byte("model"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "config", "analysis_config.cfg"), []byte("analysis"), 0o644); err != nil {

@@ -11,7 +11,7 @@ func TestLoadDirReadsStrictConfigAndDerivesRuntimePaths(t *testing.T) {
 	dir := t.TempDir()
 	raw := []byte(`{
   "server": {"enabled": true, "port": 4380, "token": "server-token"},
-  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "worker-token", "model": "model.bin.gz", "maxVisits": 700},
+  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "worker-token"},
   "log": {"level": "debug"}
 }`)
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), raw, 0o644); err != nil {
@@ -29,7 +29,7 @@ func TestLoadDirReadsStrictConfigAndDerivesRuntimePaths(t *testing.T) {
 	if cfg.ListenAddr != "127.0.0.1:4380" || cfg.AccessToken != "server-token" {
 		t.Fatalf("server derivation = %#v", cfg)
 	}
-	if cfg.Worker.Name != "local-gpu" || cfg.Worker.MaxVisits != 700 {
+	if cfg.Worker.Name != "local-gpu" || cfg.Worker.URL != "ws://127.0.0.1:4380/worker" {
 		t.Fatalf("worker = %#v", cfg.Worker)
 	}
 	if cfg.DatabasePath != filepath.Join(dir, "db", "jcgo.sqlite") {
@@ -44,7 +44,7 @@ func TestLoadDirReadsStrictConfigAndDerivesRuntimePaths(t *testing.T) {
 	if cfg.KatagoPath != filepath.Join(dir, "bin", exeName("katago")) {
 		t.Fatalf("KatagoPath = %q", cfg.KatagoPath)
 	}
-	if cfg.ModelPath != filepath.Join(dir, "model", "model.bin.gz") {
+	if cfg.ModelPath != filepath.Join(dir, "model") {
 		t.Fatalf("ModelPath = %q", cfg.ModelPath)
 	}
 	if cfg.AnalysisConfigPath != filepath.Join(dir, "config", "analysis_config.cfg") {
@@ -66,7 +66,7 @@ func TestLoadDirRejectsUnknownFields(t *testing.T) {
 	dir := t.TempDir()
 	raw := []byte(`{
   "server": {"enabled": true, "port": 4380, "token": "server-token", "extra": true},
-  "worker": {"enabled": false, "name": "", "url": "", "token": "", "model": "", "maxVisits": 500},
+  "worker": {"enabled": false, "name": "", "url": "", "token": ""},
   "log": {"level": "warn"}
 }`)
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), raw, 0o644); err != nil {
@@ -83,7 +83,7 @@ func TestLoadDirValidatesEnabledSections(t *testing.T) {
 	dir := t.TempDir()
 	raw := []byte(`{
   "server": {"enabled": true, "port": 0, "token": ""},
-  "worker": {"enabled": true, "name": "", "url": "", "token": "", "model": "", "maxVisits": 0},
+  "worker": {"enabled": true, "name": "", "url": "", "token": ""},
   "log": {"level": "warn"}
 }`)
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), raw, 0o644); err != nil {
@@ -94,7 +94,7 @@ func TestLoadDirValidatesEnabledSections(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected validation error")
 	}
-	for _, want := range []string{"server.port", "server.token", "worker.name", "worker.url", "worker.token", "worker.maxVisits"} {
+	for _, want := range []string{"server.port", "server.token", "worker.name", "worker.url", "worker.token"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("err = %v, missing %s", err, want)
 		}

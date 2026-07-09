@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -17,9 +18,14 @@ import (
 type Pool struct {
 	logger *log.Logger
 
-	seq uint64
-	mu  sync.Mutex
-	ws  map[string]*remoteWorker
+	seq            uint64
+	mu             sync.Mutex
+	ws             map[string]*remoteWorker
+	configProvider ConfigProvider
+}
+
+type ConfigProvider interface {
+	RuntimeConfig(context.Context, string) (RuntimeConfig, error)
 }
 
 type remoteWorker struct {
@@ -33,16 +39,17 @@ type remoteWorker struct {
 }
 
 type RuntimeStatus struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Platform     string `json:"platform"`
-	Backend      string `json:"backend,omitempty"`
-	BackendLabel string `json:"backendLabel,omitempty"`
-	Model        string `json:"model,omitempty"`
-	MaxVisits    int    `json:"maxVisits,omitempty"`
-	Available    bool   `json:"available"`
-	Busy         bool   `json:"busy"`
-	Error        string `json:"error,omitempty"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Platform  string   `json:"platform"`
+	Backend   string   `json:"backend,omitempty"`
+	CPU       string   `json:"cpu,omitempty"`
+	GPUs      []string `json:"gpus,omitempty"`
+	Model     string   `json:"model,omitempty"`
+	MaxVisits int      `json:"maxVisits,omitempty"`
+	Available bool     `json:"available"`
+	Busy      bool     `json:"busy"`
+	Error     string   `json:"error,omitempty"`
 }
 
 type StatusSnapshot struct {
@@ -62,6 +69,12 @@ func NewPool(logger *log.Logger) *Pool {
 	}
 }
 
+func (p *Pool) SetConfigProvider(provider ConfigProvider) {
+	p.mu.Lock()
+	p.configProvider = provider
+	p.mu.Unlock()
+}
+
 func (p *Pool) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
 	return p.AnalyzeWithProgress(ctx, query, nil)
 }
@@ -72,7 +85,13 @@ func (p *Pool) AnalyzeWithProgress(ctx context.Context, query katago.Query, prog
 		return katago.Result{}, errors.New("no available worker")
 	}
 
-	result, err := p.analyzeRemote(ctx, worker, query, progress)
+	cfg, err := p.runtimeConfig(ctx, worker.info.Name)
+	if err != nil {
+		p.releaseWorker(worker)
+		return katago.Result{}, err
+	}
+
+	result, err := p.analyzeRemote(ctx, worker, query, cfg, progress)
 	p.releaseWorker(worker)
 	if err == nil {
 		return result, nil
@@ -84,7 +103,7 @@ func (p *Pool) AnalyzeWithProgress(ctx context.Context, query katago.Query, prog
 func (p *Pool) Available() bool {
 	p.mu.Lock()
 	for _, worker := range p.ws {
-		if !worker.closed && worker.info.Available {
+		if !worker.closed && workerAvailable(worker.info) {
 			p.mu.Unlock()
 			return true
 		}
@@ -112,16 +131,15 @@ func (p *Pool) StatusSnapshot() StatusSnapshot {
 			continue
 		}
 		runtime := RuntimeStatus{
-			ID:           id,
-			Name:         worker.info.Name,
-			Platform:     worker.info.Platform,
-			Backend:      worker.info.Backend,
-			BackendLabel: worker.info.BackendLabel,
-			Model:        worker.info.Model,
-			MaxVisits:    worker.info.MaxVisits,
-			Available:    worker.info.Available,
-			Busy:         worker.busy,
-			Error:        worker.info.Error,
+			ID:        id,
+			Name:      worker.info.Name,
+			Platform:  worker.info.Platform,
+			Backend:   worker.info.Backend,
+			CPU:       worker.info.CPU,
+			GPUs:      append([]string{}, worker.info.GPUs...),
+			Available: workerAvailable(worker.info),
+			Busy:      worker.busy,
+			Error:     worker.info.Error,
 		}
 		if runtime.Available {
 			status.Available++
@@ -196,74 +214,12 @@ func (p *Pool) WorkerCount() int {
 	return len(p.ws)
 }
 
-func (p *Pool) ConfigureWorker(ctx context.Context, id string, cfg RuntimeConfig) (StatusSnapshot, error) {
-	worker := p.workerByID(id)
-	if worker == nil {
-		return p.StatusSnapshot(), fmt.Errorf("worker %s not connected", id)
-	}
-	replyID := fmt.Sprintf("cfg-%d", atomic.AddUint64(&p.seq, 1))
-	ch := make(chan Envelope, 1)
-	p.mu.Lock()
-	if worker.closed {
-		p.mu.Unlock()
-		return p.StatusSnapshot(), errors.New("worker disconnected")
-	}
-	worker.responses[replyID] = ch
-	p.mu.Unlock()
-	defer func() {
-		p.mu.Lock()
-		delete(worker.responses, replyID)
-		p.mu.Unlock()
-	}()
-
-	worker.writeMu.Lock()
-	err := worker.conn.WriteJSON(Envelope{Type: MessageConfigure, ID: replyID, Config: &cfg})
-	worker.writeMu.Unlock()
-	if err != nil {
-		return p.StatusSnapshot(), err
-	}
-
-	select {
-	case <-ctx.Done():
-		return p.StatusSnapshot(), ctx.Err()
-	case msg, ok := <-ch:
-		if !ok {
-			return p.StatusSnapshot(), errors.New("worker disconnected")
-		}
-		if msg.Type == MessageError {
-			if msg.Error == "" {
-				msg.Error = "worker returned error"
-			}
-			return p.StatusSnapshot(), errors.New(msg.Error)
-		}
-		if msg.Type != MessageStatus || msg.Worker == nil {
-			return p.StatusSnapshot(), fmt.Errorf("unexpected worker message %q", msg.Type)
-		}
-		p.mu.Lock()
-		if current, ok := p.ws[id]; ok && current == worker && !current.closed {
-			worker.info = *msg.Worker
-		}
-		p.mu.Unlock()
-		return p.StatusSnapshot(), nil
-	}
-}
-
 func (p *Pool) addWorker(worker *remoteWorker) {
 	p.mu.Lock()
 	p.ws[worker.id] = worker
 	p.mu.Unlock()
-	p.logger.Printf("worker pool: registered %s platform=%s katago=%s model=%s config=%s available=%t error=%s",
-		worker.info.Name, worker.info.Platform, worker.info.KatagoPath, worker.info.ModelPath, worker.info.AnalysisConfigPath, worker.info.Available, worker.info.Error)
-}
-
-func (p *Pool) workerByID(id string) *remoteWorker {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	worker := p.ws[id]
-	if worker == nil || worker.closed {
-		return nil
-	}
-	return worker
+	p.logger.Printf("worker pool: registered %s platform=%s backend=%s cpu=%s gpus=%s error=%s",
+		worker.info.Name, worker.info.Platform, worker.info.Backend, worker.info.CPU, strings.Join(worker.info.GPUs, ","), worker.info.Error)
 }
 
 func (p *Pool) removeWorker(id string) {
@@ -286,7 +242,7 @@ func (p *Pool) pickWorker() *remoteWorker {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, worker := range p.ws {
-		if !worker.closed && !worker.busy && worker.info.Available {
+		if !worker.closed && !worker.busy && workerAvailable(worker.info) {
 			worker.busy = true
 			return worker
 		}
@@ -302,7 +258,7 @@ func (p *Pool) releaseWorker(worker *remoteWorker) {
 	}
 }
 
-func (p *Pool) analyzeRemote(ctx context.Context, worker *remoteWorker, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
+func (p *Pool) analyzeRemote(ctx context.Context, worker *remoteWorker, query katago.Query, cfg RuntimeConfig, progress func(katago.Result)) (katago.Result, error) {
 	id := fmt.Sprintf("job-%d", atomic.AddUint64(&p.seq, 1))
 	ch := make(chan Envelope, 8)
 
@@ -320,7 +276,7 @@ func (p *Pool) analyzeRemote(ctx context.Context, worker *remoteWorker, query ka
 	}()
 
 	worker.writeMu.Lock()
-	err := worker.conn.WriteJSON(Envelope{Type: MessageAnalyze, ID: id, Query: &query})
+	err := worker.conn.WriteJSON(Envelope{Type: MessageAnalyze, ID: id, Query: &query, Config: &cfg})
 	worker.writeMu.Unlock()
 	if err != nil {
 		return katago.Result{}, err
@@ -354,6 +310,20 @@ func (p *Pool) analyzeRemote(ctx context.Context, worker *remoteWorker, query ka
 	}
 }
 
+func (p *Pool) runtimeConfig(ctx context.Context, workerName string) (RuntimeConfig, error) {
+	p.mu.Lock()
+	provider := p.configProvider
+	p.mu.Unlock()
+	if provider == nil {
+		return defaultRuntimeConfig(), nil
+	}
+	cfg, err := provider.RuntimeConfig(ctx, workerName)
+	if err != nil {
+		return RuntimeConfig{}, err
+	}
+	return normalizeRuntimeConfig(cfg), nil
+}
+
 func (p *Pool) deliver(worker *remoteWorker, msg Envelope) {
 	p.mu.Lock()
 	ch := worker.responses[msg.ID]
@@ -363,4 +333,8 @@ func (p *Pool) deliver(worker *remoteWorker, msg Envelope) {
 		return
 	}
 	ch <- msg
+}
+
+func workerAvailable(info Info) bool {
+	return strings.TrimSpace(info.Error) == ""
 }

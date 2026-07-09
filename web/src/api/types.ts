@@ -191,7 +191,8 @@ export interface WorkerRuntimeStatus {
   name: string
   platform: string
   backend?: string
-  backendLabel?: string
+  cpu?: string
+  gpus?: string[]
   model?: string
   maxVisits?: number
   available: boolean
@@ -207,7 +208,7 @@ export interface WorkerStatus {
 }
 
 export interface WorkerConfigureInput {
-  workerId: string
+  workerName: string
   model: string
   maxVisits: number
 }

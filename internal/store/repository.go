@@ -38,6 +38,24 @@ type CreateGameInput struct {
 	SourceID       string
 }
 
+const (
+	DefaultWorkerModel     = "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz"
+	DefaultWorkerMaxVisits = 500
+)
+
+type WorkerConfig struct {
+	Name      string    `json:"name"`
+	Model     string    `json:"model"`
+	MaxVisits int       `json:"maxVisits"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type WorkerConfigInput struct {
+	Name      string
+	Model     string
+	MaxVisits int
+}
+
 type Repository struct {
 	db *sql.DB
 }
@@ -180,6 +198,82 @@ func (r *Repository) DeleteGame(ctx context.Context, id string) error {
 	return requireAffected(result)
 }
 
+func (r *Repository) GetOrCreateWorkerConfig(ctx context.Context, name string) (WorkerConfig, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return WorkerConfig{}, errors.New("worker name is required")
+	}
+	row := r.db.QueryRowContext(ctx, `
+		SELECT name, model, max_visits, updated_at
+		FROM worker_configs
+		WHERE name = ?
+	`, name)
+	cfg, err := scanWorkerConfig(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return r.UpsertWorkerConfig(ctx, WorkerConfigInput{
+			Name:      name,
+			Model:     DefaultWorkerModel,
+			MaxVisits: DefaultWorkerMaxVisits,
+		})
+	}
+	if err != nil {
+		return WorkerConfig{}, err
+	}
+	return cfg, nil
+}
+
+func (r *Repository) UpsertWorkerConfig(ctx context.Context, input WorkerConfigInput) (WorkerConfig, error) {
+	name := strings.TrimSpace(input.Name)
+	model := strings.TrimSpace(input.Model)
+	if name == "" {
+		return WorkerConfig{}, errors.New("worker name is required")
+	}
+	if model == "" {
+		return WorkerConfig{}, errors.New("worker model is required")
+	}
+	if input.MaxVisits <= 0 {
+		return WorkerConfig{}, errors.New("worker maxVisits must be positive")
+	}
+	updatedAt := time.Now().UTC()
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO worker_configs (name, model, max_visits, updated_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(name) DO UPDATE SET
+			model = excluded.model,
+			max_visits = excluded.max_visits,
+			updated_at = excluded.updated_at
+	`, name, model, input.MaxVisits, formatTime(updatedAt))
+	if err != nil {
+		return WorkerConfig{}, err
+	}
+	return WorkerConfig{Name: name, Model: model, MaxVisits: input.MaxVisits, UpdatedAt: updatedAt}, nil
+}
+
+func (r *Repository) ListWorkerConfigs(ctx context.Context) ([]WorkerConfig, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT name, model, max_visits, updated_at
+		FROM worker_configs
+		ORDER BY name ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	configs := make([]WorkerConfig, 0)
+	for rows.Next() {
+		cfg, err := scanWorkerConfig(rows)
+		if err != nil {
+			return nil, err
+		}
+		configs = append(configs, cfg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return configs, nil
+}
+
 func (r *Repository) migrate(ctx context.Context) error {
 	_, err := r.db.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS games (
@@ -216,6 +310,17 @@ func (r *Repository) migrate(ctx context.Context) error {
 		ON games(source_platform, source_id)
 		WHERE source_platform <> '' AND source_id <> ''
 	`)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS worker_configs (
+			name TEXT PRIMARY KEY,
+			model TEXT NOT NULL,
+			max_visits INTEGER NOT NULL,
+			updated_at TEXT NOT NULL
+		)
+	`)
 	return err
 }
 
@@ -246,6 +351,20 @@ func scanGame(scanner gameScanner) (GameRecord, error) {
 	}
 	game.CreatedAt = parsed
 	return game, nil
+}
+
+func scanWorkerConfig(scanner gameScanner) (WorkerConfig, error) {
+	var cfg WorkerConfig
+	var updatedAt string
+	if err := scanner.Scan(&cfg.Name, &cfg.Model, &cfg.MaxVisits, &updatedAt); err != nil {
+		return WorkerConfig{}, err
+	}
+	parsed, err := time.Parse(time.RFC3339Nano, updatedAt)
+	if err != nil {
+		return WorkerConfig{}, err
+	}
+	cfg.UpdatedAt = parsed
+	return cfg, nil
 }
 
 func (r *Repository) ensureColumn(ctx context.Context, columnName string, columnDDL string) error {

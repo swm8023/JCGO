@@ -33,9 +33,13 @@ func (h *Handler) workspaceState(ctx context.Context, token string) (any, error)
 		return nil, err
 	}
 	ws := h.workspaces.ForToken(token)
+	workerStatus, err := h.currentWorkerStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
 	selectedGameID := ws.SelectedGameID()
 	if selectedGameID == "" {
-		return EmptyWorkspaceState{Type: "state", Schema: 1, Games: games, AnalysisState: AnalysisIdle, WorkerStatus: h.currentWorkerStatus()}, nil
+		return EmptyWorkspaceState{Type: "state", Schema: 1, Games: games, AnalysisState: AnalysisIdle, WorkerStatus: workerStatus}, nil
 	}
 	if _, err := h.ensureWorkspaceGame(ctx, token, selectedGameID); err != nil {
 		return nil, err
@@ -45,21 +49,60 @@ func (h *Handler) workspaceState(ctx context.Context, token string) (any, error)
 		return nil, err
 	}
 	payload.Games = games
-	payload.WorkerStatus = h.currentWorkerStatus()
+	payload.WorkerStatus = workerStatus
 	return payload, nil
 }
 
-func (h *Handler) currentWorkerStatus() worker.StatusSnapshot {
-	if h.workerStatus == nil {
-		return worker.StatusSnapshot{
-			Workers: []worker.RuntimeStatus{},
-		}
+func (h *Handler) currentWorkerStatus(ctx context.Context) (worker.StatusSnapshot, error) {
+	status := worker.StatusSnapshot{
+		Workers: []worker.RuntimeStatus{},
 	}
-	status := h.workerStatus.StatusSnapshot()
+	if h.workerStatus == nil {
+		status.Workers = []worker.RuntimeStatus{}
+	} else {
+		status = h.workerStatus.StatusSnapshot()
+	}
 	if status.Workers == nil {
 		status.Workers = []worker.RuntimeStatus{}
 	}
-	return status
+	configs, err := h.repo.ListWorkerConfigs(ctx)
+	if err != nil {
+		return worker.StatusSnapshot{}, err
+	}
+	configByName := make(map[string]store.WorkerConfig, len(configs))
+	for _, cfg := range configs {
+		configByName[cfg.Name] = cfg
+	}
+	seen := make(map[string]bool, len(status.Workers))
+	for i := range status.Workers {
+		name := status.Workers[i].Name
+		if name == "" {
+			continue
+		}
+		cfg, ok := configByName[name]
+		if !ok {
+			cfg, err = h.repo.GetOrCreateWorkerConfig(ctx, name)
+			if err != nil {
+				return worker.StatusSnapshot{}, err
+			}
+		}
+		status.Workers[i].Model = cfg.Model
+		status.Workers[i].MaxVisits = cfg.MaxVisits
+		seen[name] = true
+	}
+	for _, cfg := range configs {
+		if seen[cfg.Name] {
+			continue
+		}
+		status.Workers = append(status.Workers, worker.RuntimeStatus{
+			ID:        "config:" + cfg.Name,
+			Name:      cfg.Name,
+			Model:     cfg.Model,
+			MaxVisits: cfg.MaxVisits,
+			Available: false,
+		})
+	}
+	return status, nil
 }
 
 func (h *Handler) listGames(ctx context.Context, token string) ([]store.GameRecord, error) {
