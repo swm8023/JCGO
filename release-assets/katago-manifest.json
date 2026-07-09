@@ -1,0 +1,40 @@
+{
+  "katago": {
+    "version": "v1.16.5",
+    "publishBackend": "opencl",
+    "backends": [
+      {
+        "id": "opencl",
+        "label": "OpenCL",
+        "archive": "katago-v1.16.5-opencl-windows-x64.zip",
+        "url": "https://github.com/lightvector/KataGo/releases/download/v1.16.5/katago-v1.16.5-opencl-windows-x64.zip"
+      },
+      {
+        "id": "cuda12.8",
+        "label": "CUDA 12.8 / cuDNN 9.8.0",
+        "archive": "katago-v1.16.5-cuda12.8-cudnn9.8.0-windows-x64.zip",
+        "url": "https://github.com/lightvector/KataGo/releases/download/v1.16.5/katago-v1.16.5-cuda12.8-cudnn9.8.0-windows-x64.zip"
+      }
+    ]
+  },
+  "models": [
+    {
+      "id": "b18",
+      "label": "b18 balanced",
+      "filename": "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz",
+      "url": "https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz"
+    },
+    {
+      "id": "b28",
+      "label": "b28 latest",
+      "filename": "kata1-b28c512nbt-s13255194368-d5935380940.bin.gz",
+      "url": "https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-b28c512nbt-s13255194368-d5935380940.bin.gz"
+    },
+    {
+      "id": "zhizi",
+      "label": "zhizi strongest",
+      "filename": "kata1-zhizi-b40c768nbt-s11272M-d5935M.bin.gz",
+      "url": "https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-zhizi-b40c768nbt-s11272M-d5935M.bin.gz"
+    }
+  ]
+}
