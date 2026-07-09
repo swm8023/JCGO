@@ -3,13 +3,14 @@ package deploy
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestEnsureConfigCreatesDefaultWithFirstSortedModel(t *testing.T) {
+func TestEnsureConfigCreatesDefaultWithFixedWorkerModel(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	repo := filepath.Join(root, "repo")
@@ -34,7 +35,7 @@ func TestEnsureConfigCreatesDefaultWithFirstSortedModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `"model": "a-model.bin.gz"`) {
+	if !strings.Contains(string(raw), `"model": "`+DefaultWorkerModel+`"`) {
 		t.Fatalf("config = %s", raw)
 	}
 }
@@ -69,7 +70,7 @@ func TestEnsureConfigPreservesExistingConfig(t *testing.T) {
 	}
 }
 
-func TestEnsureConfigFillsEmptyExistingWorkerModel(t *testing.T) {
+func TestEnsureConfigPreservesExistingConfigWithEmptyWorkerModel(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	repo := filepath.Join(root, "repo")
@@ -107,11 +108,8 @@ func TestEnsureConfigFillsEmptyExistingWorkerModel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `"model": "a-model.bin.gz"`) {
-		t.Fatalf("config = %s", raw)
-	}
-	if !strings.Contains(string(raw), `"token": "dev-token"`) {
-		t.Fatalf("config lost existing fields: %s", raw)
+	if string(raw) != string(existing) {
+		t.Fatalf("config overwritten: %s", raw)
 	}
 }
 
@@ -208,6 +206,47 @@ func TestStageReleaseAssetsDownloadsAndPublishesSelectedBackend(t *testing.T) {
 	}
 }
 
+func TestDeployDoesNotPublishWhenStageBuildFails(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "repo")
+	home := filepath.Join(root, "home")
+	writeMinimalManifestAndStageFiles(t, repo)
+	runner := &recordingRunner{failOn: "npm run build"}
+
+	err := Deploy(context.Background(), Options{RepoRoot: repo, HomeDir: home, Runner: runner})
+	if err == nil || !strings.Contains(err.Error(), "build web") {
+		t.Fatalf("err = %v", err)
+	}
+	for _, call := range runner.calls {
+		if strings.Contains(call, "stop.bat") {
+			t.Fatalf("stop was called during failed stage: %v", runner.calls)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(home, ".jcgo")); !os.IsNotExist(err) {
+		t.Fatalf("runtime dir was touched: %v", err)
+	}
+}
+
+func TestDeployPublishesFromStageAfterSuccessfulBuild(t *testing.T) {
+	root := t.TempDir()
+	repo := filepath.Join(root, "repo")
+	home := filepath.Join(root, "home")
+	writeMinimalManifestAndStageFiles(t, repo)
+	runner := &recordingRunner{}
+
+	if err := Deploy(context.Background(), Options{RepoRoot: repo, HomeDir: home, Runner: runner}); err != nil {
+		t.Fatalf("Deploy returned error: %v", err)
+	}
+
+	state := filepath.Join(home, ".jcgo")
+	assertFile(t, filepath.Join(state, "bin", "katago.exe"), "opencl-katago")
+	assertFile(t, filepath.Join(state, "model", DefaultWorkerModel), "b18-model")
+	assertFile(t, filepath.Join(state, "config", "katago_backend.json"), "{\n  \"id\": \"opencl\",\n  \"label\": \"OpenCL\"\n}\n")
+	if _, err := os.Stat(filepath.Join(state, "start.bat")); err != nil {
+		t.Fatalf("start.bat missing: %v", err)
+	}
+}
+
 func TestWriteScriptsUsesInstalledHomeAndDirFlag(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "home")
 	if err := WriteScripts(Options{HomeDir: home}); err != nil {
@@ -265,5 +304,53 @@ func writeZip(t *testing.T, path string, files map[string]string) {
 		if _, err := w.Write([]byte(body)); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+type recordingRunner struct {
+	failOn string
+	calls  []string
+}
+
+func (r *recordingRunner) Run(ctx context.Context, dir string, name string, args ...string) error {
+	call := name + " " + strings.Join(args, " ")
+	r.calls = append(r.calls, call)
+	if r.failOn != "" && strings.Contains(call, r.failOn) {
+		return errors.New("forced failure")
+	}
+	return nil
+}
+
+func writeMinimalManifestAndStageFiles(t *testing.T, repo string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(repo, "release-assets"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	openclZip := filepath.Join(repo, "release-assets", "opencl.zip")
+	writeZip(t, openclZip, map[string]string{"katago.exe": "opencl-katago"})
+	modelPath := filepath.Join(repo, "release-assets", "b18.bin.gz")
+	if err := os.WriteFile(modelPath, []byte("b18-model"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	raw := []byte(`{
+	  "katago": {
+	    "version": "v1.16.5",
+	    "publishBackend": "opencl",
+	    "backends": [
+	      {"id": "opencl", "label": "OpenCL", "archive": "opencl.zip", "url": "file://` + filepath.ToSlash(openclZip) + `"}
+	    ]
+	  },
+	  "models": [
+	    {"id": "b18", "label": "b18", "filename": "` + DefaultWorkerModel + `", "url": "file://` + filepath.ToSlash(modelPath) + `"}
+	  ]
+	}`)
+	if err := os.WriteFile(filepath.Join(repo, "release-assets", "katago-manifest.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(repo, "web", "dist"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "web", "dist", "index.html"), []byte("web"), 0o644); err != nil {
+		t.Fatal(err)
 	}
 }

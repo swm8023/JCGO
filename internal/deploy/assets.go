@@ -17,6 +17,7 @@ type Downloader interface {
 	Download(ctx context.Context, sourceURL string, dst string) error
 }
 
+type AutoDownloader struct{}
 type HTTPDownloader struct{}
 type FileDownloader struct{}
 
@@ -33,7 +34,7 @@ func CacheDir(opts Options) string {
 func StageReleaseAssets(ctx context.Context, opts Options, manifest Manifest, downloader Downloader) error {
 	opts = resolve(opts)
 	if downloader == nil {
-		downloader = HTTPDownloader{}
+		downloader = AutoDownloader{}
 	}
 	stage := StageDir(opts)
 	cache := CacheDir(opts)
@@ -77,6 +78,17 @@ func ensureDownloaded(ctx context.Context, downloader Downloader, sourceURL stri
 		return fmt.Errorf("create cache dir: %w", err)
 	}
 	return downloader.Download(ctx, sourceURL, dst)
+}
+
+func (AutoDownloader) Download(ctx context.Context, sourceURL string, dst string) error {
+	parsed, err := url.Parse(sourceURL)
+	if err != nil {
+		return err
+	}
+	if parsed.Scheme == "file" || parsed.Scheme == "" {
+		return FileDownloader{}.Download(ctx, sourceURL, dst)
+	}
+	return HTTPDownloader{}.Download(ctx, sourceURL, dst)
 }
 
 func (HTTPDownloader) Download(ctx context.Context, sourceURL string, dst string) error {

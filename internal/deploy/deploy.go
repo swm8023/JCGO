@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 
 	"jcgo/internal/config"
@@ -38,6 +36,11 @@ func (ExecRunner) Run(ctx context.Context, dir string, name string, args ...stri
 	return cmd.Run()
 }
 
+type StagedRelease struct {
+	Dir        string
+	PublishDir string
+}
+
 func Deploy(ctx context.Context, opts Options) error {
 	opts = resolve(opts)
 	runner := opts.Runner
@@ -49,32 +52,73 @@ func Deploy(ctx context.Context, opts Options) error {
 			return fmt.Errorf("pull latest source: %w", err)
 		}
 	}
+	stage, err := Stage(ctx, opts, runner)
+	if err != nil {
+		return err
+	}
+	return Publish(ctx, opts, runner, stage)
+}
+
+func Stage(ctx context.Context, opts Options, runner Runner) (StagedRelease, error) {
+	opts = resolve(opts)
+	if runner == nil {
+		runner = ExecRunner{}
+	}
+	manifest, err := LoadManifest(opts)
+	if err != nil {
+		return StagedRelease{}, err
+	}
+	if err := StageReleaseAssets(ctx, opts, manifest, nil); err != nil {
+		return StagedRelease{}, err
+	}
+	stage := StageDir(opts)
+	publish := filepath.Join(stage, "publish")
+	if err := runner.Run(ctx, filepath.Join(opts.RepoRoot, "web"), "npm", "ci"); err != nil {
+		return StagedRelease{}, fmt.Errorf("install web dependencies: %w", err)
+	}
+	if err := runner.Run(ctx, filepath.Join(opts.RepoRoot, "web"), "npm", "run", "build"); err != nil {
+		return StagedRelease{}, fmt.Errorf("build web: %w", err)
+	}
+	if err := copyDir(filepath.Join(opts.RepoRoot, "web", "dist"), filepath.Join(publish, "web")); err != nil {
+		return StagedRelease{}, err
+	}
+	if err := runner.Run(ctx, opts.RepoRoot, "go", "build", "-o", filepath.Join(publish, "bin", exeName("jcgo")), "./cmd/jcgo"); err != nil {
+		return StagedRelease{}, fmt.Errorf("build jcgo: %w", err)
+	}
+	if err := runner.Run(ctx, opts.RepoRoot, "go", "build", "-o", filepath.Join(publish, "bin", exeName("jcgo-worker")), "./cmd/jcgo-worker"); err != nil {
+		return StagedRelease{}, fmt.Errorf("build jcgo-worker: %w", err)
+	}
+	return StagedRelease{Dir: stage, PublishDir: publish}, nil
+}
+
+func Publish(ctx context.Context, opts Options, runner Runner, stage StagedRelease) error {
+	opts = resolve(opts)
+	if runner == nil {
+		runner = ExecRunner{}
+	}
+	if err := stopExistingRuntime(ctx, opts, runner); err != nil {
+		return err
+	}
 	if err := createRuntimeDirs(opts); err != nil {
 		return err
 	}
-	state := StateDir(opts)
-	if err := runner.Run(ctx, opts.RepoRoot, "go", "build", "-o", filepath.Join(state, "bin", exeName("jcgo")), "./cmd/jcgo"); err != nil {
-		return fmt.Errorf("build jcgo: %w", err)
+	for _, dir := range []string{
+		filepath.Join(StateDir(opts), "bin"),
+		filepath.Join(StateDir(opts), "web"),
+	} {
+		if err := replaceDir(dir); err != nil {
+			return err
+		}
 	}
-	if err := runner.Run(ctx, opts.RepoRoot, "go", "build", "-o", filepath.Join(state, "bin", exeName("jcgo-worker")), "./cmd/jcgo-worker"); err != nil {
-		return fmt.Errorf("build jcgo-worker: %w", err)
-	}
-	if err := runner.Run(ctx, filepath.Join(opts.RepoRoot, "web"), "npm", "run", "build"); err != nil {
-		return fmt.Errorf("build web: %w", err)
-	}
-	if err := copyWebDist(opts); err != nil {
-		return err
+	for _, name := range []string{"bin", "model", "config", "web"} {
+		if err := copyDir(filepath.Join(stage.PublishDir, name), filepath.Join(StateDir(opts), name)); err != nil {
+			return err
+		}
 	}
 	if _, err := EnsureConfig(opts); err != nil {
 		return err
 	}
-	if err := CopyReleaseAssets(opts); err != nil {
-		return err
-	}
-	if err := WriteScripts(opts); err != nil {
-		return err
-	}
-	return nil
+	return WriteScripts(opts)
 }
 
 func StateDir(opts Options) string {
@@ -87,7 +131,7 @@ func EnsureConfig(opts Options) (bool, error) {
 	state := StateDir(opts)
 	path := filepath.Join(state, "config.json")
 	if _, err := os.Stat(path); err == nil {
-		return false, ensureExistingConfigModel(opts, path)
+		return false, nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return false, fmt.Errorf("stat config: %w", err)
 	}
@@ -98,38 +142,6 @@ func EnsureConfig(opts Options) (bool, error) {
 		return false, fmt.Errorf("write config: %w", err)
 	}
 	return true, nil
-}
-
-func ensureExistingConfigModel(opts Options, path string) error {
-	model := firstModel(opts)
-	if strings.TrimSpace(model) == "" {
-		return nil
-	}
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read config: %w", err)
-	}
-	var decoded map[string]any
-	if err := json.Unmarshal(raw, &decoded); err != nil {
-		return fmt.Errorf("parse config for model update: %w", err)
-	}
-	workerConfig, ok := decoded["worker"].(map[string]any)
-	if !ok {
-		return nil
-	}
-	current, _ := workerConfig["model"].(string)
-	if strings.TrimSpace(current) != "" {
-		return nil
-	}
-	workerConfig["model"] = model
-	updated, err := json.MarshalIndent(decoded, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode config model update: %w", err)
-	}
-	if err := os.WriteFile(path, append(updated, '\n'), 0o644); err != nil {
-		return fmt.Errorf("write config model update: %w", err)
-	}
-	return nil
 }
 
 func CopyReleaseAssets(opts Options) error {
@@ -222,23 +234,7 @@ func createRuntimeDirs(opts Options) error {
 }
 
 func firstModel(opts Options) string {
-	modelDir := filepath.Join(opts.RepoRoot, "release-assets", "model")
-	entries, err := os.ReadDir(modelDir)
-	if err != nil {
-		return ""
-	}
-	names := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		if entry.IsDir() || entry.Name() == ".gitkeep" {
-			continue
-		}
-		names = append(names, entry.Name())
-	}
-	sort.Strings(names)
-	if len(names) == 0 {
-		return ""
-	}
-	return names[0]
+	return DefaultWorkerModel
 }
 
 func copyWebDist(opts Options) error {
@@ -559,6 +555,17 @@ try {
 
 func psSingleQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
+}
+
+func stopExistingRuntime(ctx context.Context, opts Options, runner Runner) error {
+	stop := filepath.Join(StateDir(opts), "stop.bat")
+	if _, err := os.Stat(stop); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("stat stop script: %w", err)
+	}
+	return runner.Run(ctx, StateDir(opts), stop)
 }
 
 func exeName(name string) string {
