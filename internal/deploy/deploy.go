@@ -312,21 +312,232 @@ func copyFile(src string, dst string) error {
 }
 
 func startScript(state string) string {
-	quotedState := psSingleQuote(filepath.Clean(state))
-	return fmt.Sprintf(`@echo off
-setlocal
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; $dir = %s; $bin = Join-Path $dir 'bin'; Start-Process -FilePath (Join-Path $bin 'jcgo.exe') -ArgumentList @('--dir', $dir) -WorkingDirectory $dir -WindowStyle Hidden; Start-Process -FilePath (Join-Path $bin 'jcgo-worker.exe') -ArgumentList @('--dir', $dir) -WorkingDirectory $dir -WindowStyle Hidden"
-exit /b %%ERRORLEVEL%%
-`, quotedState)
+	return strings.ReplaceAll(`@echo off
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { param([string]$bat) $lines = Get-Content -LiteralPath $bat; $idx = [Array]::IndexOf($lines, '# POWERSHELL'); if ($idx -lt 0) { throw 'start.bat payload marker missing' }; $script = ($lines[($idx + 1)..($lines.Count - 1)] -join [Environment]::NewLine); & ([ScriptBlock]::Create($script)) -StateDir {{STATE}} }" "%~f0"
+exit /b %ERRORLEVEL%
+# POWERSHELL
+param(
+  [Parameter(Mandatory = $true)]
+  [string]$StateDir
+)
+
+$ErrorActionPreference = "Stop"
+
+function Wait-ForExit {
+  if ($env:JCGO_RUNTIME_NO_PAUSE -or $env:JCGO_DEPLOY_NO_PAUSE) {
+    return
+  }
+  Write-Host
+  Read-Host "Press Enter to close" | Out-Null
+}
+
+function Write-Status {
+  param([Parameter(Mandatory = $true)][string]$Message)
+  $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
+  Write-Host $Message
+  Add-Content -LiteralPath $script:LogFile -Value $line
+}
+
+function Test-SamePath {
+  param([string]$Left, [string]$Right)
+  if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) {
+    return $false
+  }
+  return [string]::Equals([System.IO.Path]::GetFullPath($Left), [System.IO.Path]::GetFullPath($Right), [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-InstalledProcess {
+  param([Parameter(Mandatory = $true)][string]$ExePath)
+  Get-CimInstance Win32_Process | Where-Object { Test-SamePath $_.ExecutablePath $ExePath }
+}
+
+function Start-Component {
+  param([Parameter(Mandatory = $true)][string]$Name)
+  $path = Join-Path $script:BinDir $Name
+  if (-not (Test-Path -LiteralPath $path)) {
+    throw "$Name not found at $path"
+  }
+  $running = @(Get-InstalledProcess -ExePath $path)
+  if ($running.Count -gt 0) {
+    foreach ($process in $running) {
+      Write-Status "$Name already running pid=$($process.ProcessId)"
+    }
+    return
+  }
+  $process = Start-Process -FilePath $path -ArgumentList @("--dir", $script:StateDir) -WorkingDirectory $script:StateDir -WindowStyle Hidden -PassThru
+  Write-Status "started $Name pid=$($process.Id)"
+  Start-Sleep -Milliseconds 800
+  if (-not (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) {
+    Write-Status "$Name exited quickly; check logs under $script:LogDir"
+  }
+}
+
+$script:StateDir = [System.IO.Path]::GetFullPath($StateDir)
+$script:BinDir = Join-Path $script:StateDir "bin"
+$script:LogDir = Join-Path $script:StateDir "log"
+$script:LogFile = Join-Path $script:LogDir "start.bat.log"
+
+try {
+  New-Item -ItemType Directory -Force -Path $script:LogDir | Out-Null
+  Write-Host "============================================"
+  Write-Host "  JCGO Start"
+  Write-Host "============================================"
+  Write-Host
+  Write-Status "state dir: $script:StateDir"
+  Start-Component "jcgo.exe"
+  Start-Component "jcgo-worker.exe"
+  Write-Host
+  Write-Host "[OK] start complete"
+  Wait-ForExit
+  exit 0
+} catch {
+  Write-Host
+  Write-Host "[FAILED] $($_.Exception.Message)" -ForegroundColor Red
+  if ($script:LogFile) {
+    Add-Content -LiteralPath $script:LogFile -Value ("[{0}] failed: {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $_.Exception.Message)
+    Write-Host "Log: $script:LogFile"
+  }
+  Wait-ForExit
+  exit 1
+}
+`, "{{STATE}}", psSingleQuote(filepath.Clean(state)))
 }
 
 func stopScript(state string) string {
-	quotedState := psSingleQuote(filepath.Clean(state))
-	return fmt.Sprintf(`@echo off
-setlocal
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference = 'Stop'; $dir = %s; $targets = @((Join-Path $dir 'bin\jcgo.exe'), (Join-Path $dir 'bin\jcgo-worker.exe')); Get-CimInstance Win32_Process | Where-Object { $targets -contains $_.ExecutablePath } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
-exit /b %%ERRORLEVEL%%
-`, quotedState)
+	return strings.ReplaceAll(`@echo off
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { param([string]$bat) $lines = Get-Content -LiteralPath $bat; $idx = [Array]::IndexOf($lines, '# POWERSHELL'); if ($idx -lt 0) { throw 'stop.bat payload marker missing' }; $script = ($lines[($idx + 1)..($lines.Count - 1)] -join [Environment]::NewLine); & ([ScriptBlock]::Create($script)) -StateDir {{STATE}} }" "%~f0"
+exit /b %ERRORLEVEL%
+# POWERSHELL
+param(
+  [Parameter(Mandatory = $true)]
+  [string]$StateDir
+)
+
+$ErrorActionPreference = "Stop"
+
+function Wait-ForExit {
+  if ($env:JCGO_RUNTIME_NO_PAUSE -or $env:JCGO_DEPLOY_NO_PAUSE) {
+    return
+  }
+  Write-Host
+  Read-Host "Press Enter to close" | Out-Null
+}
+
+function Write-Status {
+  param([Parameter(Mandatory = $true)][string]$Message)
+  $line = "[{0}] {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Message
+  Write-Host $Message
+  Add-Content -LiteralPath $script:LogFile -Value $line
+}
+
+function Test-SamePath {
+  param([string]$Left, [string]$Right)
+  if ([string]::IsNullOrWhiteSpace($Left) -or [string]::IsNullOrWhiteSpace($Right)) {
+    return $false
+  }
+  return [string]::Equals([System.IO.Path]::GetFullPath($Left), [System.IO.Path]::GetFullPath($Right), [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Test-CommandContainsStateDir {
+  param([string]$CommandLine)
+  if ([string]::IsNullOrWhiteSpace($CommandLine)) {
+    return $false
+  }
+  return $CommandLine.IndexOf($script:StateDir, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+}
+
+function Test-ManagedProcessName {
+  param([string]$Name)
+  return @("jcgo.exe", "jcgo-worker.exe", "katago.exe") -contains $Name
+}
+
+function Get-InstalledProcessSet {
+  $targets = @(
+    (Join-Path $script:BinDir "jcgo.exe"),
+    (Join-Path $script:BinDir "jcgo-worker.exe"),
+    (Join-Path $script:BinDir "katago.exe")
+  )
+  $all = @(Get-CimInstance Win32_Process)
+  $selected = @{}
+  foreach ($process in $all) {
+    $matchesTarget = $false
+    foreach ($target in $targets) {
+      if (Test-SamePath $process.ExecutablePath $target) {
+        $matchesTarget = $true
+        break
+      }
+    }
+    if ($matchesTarget -or ((Test-ManagedProcessName $process.Name) -and (Test-CommandContainsStateDir $process.CommandLine))) {
+      $selected[[int]$process.ProcessId] = $process
+    }
+  }
+
+  $changed = $true
+  while ($changed) {
+    $changed = $false
+    foreach ($process in $all) {
+      $parentID = [int]$process.ParentProcessId
+      $processID = [int]$process.ProcessId
+      if ($selected.ContainsKey($parentID) -and -not $selected.ContainsKey($processID)) {
+        $selected[$processID] = $process
+        $changed = $true
+      }
+    }
+  }
+  return @($selected.Values)
+}
+
+function Get-UnmanagedRuntimeProcess {
+  Get-CimInstance Win32_Process | Where-Object {
+    (Test-ManagedProcessName $_.Name) -and
+    -not (Test-SamePath $_.ExecutablePath (Join-Path $script:BinDir "jcgo.exe")) -and
+    -not (Test-SamePath $_.ExecutablePath (Join-Path $script:BinDir "jcgo-worker.exe")) -and
+    -not (Test-SamePath $_.ExecutablePath (Join-Path $script:BinDir "katago.exe"))
+  }
+}
+
+$script:StateDir = [System.IO.Path]::GetFullPath($StateDir)
+$script:BinDir = Join-Path $script:StateDir "bin"
+$script:LogDir = Join-Path $script:StateDir "log"
+$script:LogFile = Join-Path $script:LogDir "stop.bat.log"
+
+try {
+  New-Item -ItemType Directory -Force -Path $script:LogDir | Out-Null
+  Write-Host "============================================"
+  Write-Host "  JCGO Stop"
+  Write-Host "============================================"
+  Write-Host
+  Write-Status "state dir: $script:StateDir"
+
+  $processes = @(Get-InstalledProcessSet | Sort-Object ProcessId -Descending)
+  if ($processes.Count -eq 0) {
+    Write-Status "no installed JCGO processes found"
+  } else {
+    foreach ($process in $processes) {
+      Write-Status "stopping pid=$($process.ProcessId) name=$($process.Name) path=$($process.ExecutablePath)"
+      Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+    }
+  }
+  Start-Sleep -Milliseconds 500
+  foreach ($process in @(Get-UnmanagedRuntimeProcess)) {
+    Write-Status "unmanaged process still running pid=$($process.ProcessId) name=$($process.Name) path=$($process.ExecutablePath)"
+  }
+
+  Write-Host
+  Write-Host "[OK] stop complete"
+  Wait-ForExit
+  exit 0
+} catch {
+  Write-Host
+  Write-Host "[FAILED] $($_.Exception.Message)" -ForegroundColor Red
+  if ($script:LogFile) {
+    Add-Content -LiteralPath $script:LogFile -Value ("[{0}] failed: {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $_.Exception.Message)
+    Write-Host "Log: $script:LogFile"
+  }
+  Wait-ForExit
+  exit 1
+}
+`, "{{STATE}}", psSingleQuote(filepath.Clean(state)))
 }
 
 func psSingleQuote(value string) string {

@@ -160,12 +160,12 @@ func TestWriteScriptsUsesInstalledHomeAndDirFlag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"jcgo.exe", "jcgo-worker.exe", "--dir"} {
+	for _, want := range []string{"jcgo.exe", "jcgo-worker.exe", "--dir", "start.bat.log", "Read-Host"} {
 		if !strings.Contains(string(start), want) {
 			t.Fatalf("start.bat missing %q:\n%s", want, start)
 		}
 	}
-	for _, want := range []string{"Get-CimInstance Win32_Process", "jcgo.exe", "jcgo-worker.exe", ".ExecutablePath"} {
+	for _, want := range []string{"Get-CimInstance Win32_Process", "jcgo.exe", "jcgo-worker.exe", "katago.exe", "ParentProcessId", "stop.bat.log", "Read-Host", "unmanaged process still running"} {
 		if !strings.Contains(string(stop), want) {
 			t.Fatalf("stop.bat missing %q:\n%s", want, stop)
 		}

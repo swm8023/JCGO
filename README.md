@@ -51,6 +51,8 @@ Stop JCGO:
 ~\.jcgo\stop.bat
 ```
 
+Both scripts keep the window open when double-clicked and write logs under `~\.jcgo\log`. `stop.bat` stops the installed `jcgo.exe`, `jcgo-worker.exe`, `katago.exe`, and their child processes. If another development or external KataGo process is still running outside `~\.jcgo`, it reports it as unmanaged instead of killing it.
+
 Open `http://127.0.0.1:4380` and enter `server.token` from `~\.jcgo\config.json`.
 
 JCGO uses Worker-only analysis. The server does not start KataGo directly. When `worker.enabled` is true, `jcgo-worker.exe` reads the same `config.json`, connects to `worker.url`, and starts KataGo from:
