@@ -1,6 +1,8 @@
 package deploy
 
 import (
+	"archive/zip"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -157,6 +159,55 @@ func TestCopyReleaseAssetsOverwritesRuntimeAssets(t *testing.T) {
 	assertFile(t, filepath.Join(state, "model", "model.bin.gz"), "new-model")
 }
 
+func TestStageReleaseAssetsDownloadsAndPublishesSelectedBackend(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	repo := filepath.Join(root, "repo")
+	if err := os.MkdirAll(filepath.Join(repo, "release-assets"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	openclZip := filepath.Join(root, "opencl.zip")
+	cudaZip := filepath.Join(root, "cuda.zip")
+	writeZip(t, openclZip, map[string]string{
+		"katago.exe":          "opencl-katago",
+		"OpenCL.dll":          "opencl-dll",
+		"KataGoData/tune.txt": "opencl-tune",
+	})
+	writeZip(t, cudaZip, map[string]string{
+		"katago.exe":    "cuda-katago",
+		"cudnn64_9.dll": "cuda-dll",
+	})
+	modelPath := filepath.Join(root, "b18.bin.gz")
+	if err := os.WriteFile(modelPath, []byte("b18-model"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest := Manifest{
+		Katago: KatagoManifest{
+			Version:        "v1.16.5",
+			PublishBackend: "opencl",
+			Backends: []BackendAsset{
+				{ID: "opencl", Label: "OpenCL", Archive: "opencl.zip", URL: "file://" + filepath.ToSlash(openclZip)},
+				{ID: "cuda12.8", Label: "CUDA", Archive: "cuda.zip", URL: "file://" + filepath.ToSlash(cudaZip)},
+			},
+		},
+		Models: []ModelAsset{{ID: "b18", Filename: DefaultWorkerModel, URL: "file://" + filepath.ToSlash(modelPath)}},
+	}
+
+	if err := StageReleaseAssets(context.Background(), Options{RepoRoot: repo, HomeDir: home}, manifest, FileDownloader{}); err != nil {
+		t.Fatalf("StageReleaseAssets returned error: %v", err)
+	}
+
+	stage := StageDir(Options{RepoRoot: repo, HomeDir: home})
+	assertFile(t, filepath.Join(stage, "publish", "bin", "katago.exe"), "opencl-katago")
+	assertFile(t, filepath.Join(stage, "publish", "bin", "OpenCL.dll"), "opencl-dll")
+	assertFile(t, filepath.Join(stage, "publish", "bin", "KataGoData", "tune.txt"), "opencl-tune")
+	assertFile(t, filepath.Join(stage, "publish", "model", DefaultWorkerModel), "b18-model")
+	assertFile(t, filepath.Join(stage, "publish", "config", "katago_backend.json"), "{\n  \"id\": \"opencl\",\n  \"label\": \"OpenCL\"\n}\n")
+	if _, err := os.Stat(filepath.Join(home, ".jcgo")); !os.IsNotExist(err) {
+		t.Fatalf("runtime dir was touched: %v", err)
+	}
+}
+
 func TestWriteScriptsUsesInstalledHomeAndDirFlag(t *testing.T) {
 	home := filepath.Join(t.TempDir(), "home")
 	if err := WriteScripts(Options{HomeDir: home}); err != nil {
@@ -191,5 +242,28 @@ func assertFile(t *testing.T, path string, want string) {
 	}
 	if string(raw) != want {
 		t.Fatalf("%s = %q, want %q", path, raw, want)
+	}
+}
+
+func writeZip(t *testing.T, path string, files map[string]string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer out.Close()
+	zipWriter := zip.NewWriter(out)
+	defer zipWriter.Close()
+	for name, body := range files {
+		w, err := zipWriter.Create(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
