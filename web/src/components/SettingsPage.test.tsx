@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, within } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SettingsPage } from './SettingsPage'
 
@@ -71,5 +72,44 @@ describe('SettingsPage', () => {
     const section = screen.getByRole('region', { name: 'Worker 状态' })
     expect(within(section).getAllByText('不可用').length).toBeGreaterThan(0)
     expect(within(section).getByText('worker.model is required')).toBeInTheDocument()
+  })
+
+  it('configures an online worker model and visits', async () => {
+    const onConfigureWorker = vi.fn().mockResolvedValue(undefined)
+    render(
+      <SettingsPage
+        workerStatus={{
+          connected: 1,
+          available: 1,
+          busy: 0,
+          workers: [{
+            id: 'worker-1',
+            name: 'gpu-worker',
+            platform: 'windows/amd64',
+            backend: 'opencl',
+            backendLabel: 'OpenCL',
+            model: 'kata1-b18c384nbt-s9996604416-d4316597426.bin.gz',
+            maxVisits: 500,
+            available: true,
+            busy: false,
+          }],
+        }}
+        onBack={vi.fn()}
+        onConfigureWorker={onConfigureWorker}
+      />,
+    )
+
+    await userEvent.selectOptions(screen.getByLabelText('模型'), 'kata1-b28c512nbt-s13255194368-d5935380940.bin.gz')
+    await userEvent.clear(screen.getByLabelText('Visits'))
+    await userEvent.type(screen.getByLabelText('Visits'), '900')
+    await userEvent.click(screen.getByRole('button', { name: '保存' }))
+
+    await waitFor(() => {
+      expect(onConfigureWorker).toHaveBeenCalledWith({
+        workerId: 'worker-1',
+        model: 'kata1-b28c512nbt-s13255194368-d5935380940.bin.gz',
+        maxVisits: 900,
+      })
+    })
   })
 })

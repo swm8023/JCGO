@@ -190,6 +190,10 @@ export interface WorkerRuntimeStatus {
   id: string
   name: string
   platform: string
+  backend?: string
+  backendLabel?: string
+  model?: string
+  maxVisits?: number
   available: boolean
   busy: boolean
   error?: string
@@ -200,6 +204,12 @@ export interface WorkerStatus {
   available: number
   busy: number
   workers: WorkerRuntimeStatus[]
+}
+
+export interface WorkerConfigureInput {
+  workerId: string
+  model: string
+  maxVisits: number
 }
 
 export interface YuanluoboQRCode {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { RPCClient } from './api/jsonrpc'
-import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload } from './api/types'
+import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload, WorkerConfigureInput, WorkerStatus } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
 import { AnalysisDetailTabs } from './components/AnalysisDetailTabs'
 import { AnalysisPanel } from './components/AnalysisPanel'
@@ -480,6 +480,13 @@ export default function App() {
     applyWorkspaceState(state)
   }
 
+  const configureWorker = async (input: WorkerConfigureInput) => {
+    if (!client) return
+    const status = await client.call<WorkerStatus>('worker.configure', input)
+    setWorkspace((current) => current ? { ...current, workerStatus: status } : current)
+    await refreshWorkspaceState()
+  }
+
   const layoutStyle = sideActionPlacement.enabled ? sideActionStyle(sideActionPlacement) : undefined
 
   return (
@@ -572,7 +579,7 @@ export default function App() {
         />
       )}
       {settingsOpen && (
-        <SettingsPage workerStatus={workspace?.workerStatus} onBack={closeCurrentAppHistoryLayer} />
+        <SettingsPage workerStatus={workspace?.workerStatus} onBack={closeCurrentAppHistoryLayer} onConfigureWorker={configureWorker} />
       )}
     </>
   )

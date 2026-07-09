@@ -1060,6 +1060,52 @@ textarea:focus-visible {
   color: var(--danger) !important;
 }
 
+.worker-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px auto;
+  gap: 8px;
+  align-items: end;
+  width: 100%;
+  padding-top: 4px;
+}
+
+.worker-controls label {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.worker-controls select,
+.worker-controls input {
+  min-width: 0;
+  height: 32px;
+  border: 1px solid rgb(184 168 152 / 0.58);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 0.62);
+  color: var(--ink);
+  font: inherit;
+}
+
+.worker-controls button {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgb(63 143 102 / 0.28);
+  border-radius: 6px;
+  background: rgb(63 143 102 / 0.12);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.worker-controls button:disabled,
+.worker-controls select:disabled,
+.worker-controls input:disabled {
+  opacity: 0.55;
+}
+
 .worker-row-state {
   min-width: 48px;
   min-height: 24px;

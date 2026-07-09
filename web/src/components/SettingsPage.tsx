@@ -1,10 +1,18 @@
+import { useEffect, useState } from 'react'
 import { ArrowLeft, Cpu, Server } from 'lucide-react'
-import type { WorkerRuntimeStatus, WorkerStatus } from '../api/types'
+import type { WorkerConfigureInput, WorkerRuntimeStatus, WorkerStatus } from '../api/types'
 
 interface SettingsPageProps {
   workerStatus?: WorkerStatus
   onBack(): void
+  onConfigureWorker?(input: WorkerConfigureInput): Promise<void>
 }
+
+const workerModels = [
+  { label: 'b18 balanced', filename: 'kata1-b18c384nbt-s9996604416-d4316597426.bin.gz' },
+  { label: 'b28 latest', filename: 'kata1-b28c512nbt-s13255194368-d5935380940.bin.gz' },
+  { label: 'zhizi strongest', filename: 'kata1-zhizi-b40c768nbt-s11272M-d5935M.bin.gz' },
+]
 
 const emptyWorkerStatus: WorkerStatus = {
   connected: 0,
@@ -13,7 +21,7 @@ const emptyWorkerStatus: WorkerStatus = {
   workers: [],
 }
 
-export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack }: SettingsPageProps) {
+export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack, onConfigureWorker }: SettingsPageProps) {
   const statusLabel = workerStatusLabel(workerStatus)
   return (
     <div className="settings-page" role="dialog" aria-label="设置">
@@ -60,7 +68,7 @@ export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack }: Setti
           ) : (
             <div className="worker-list">
               {workerStatus.workers.map((worker) => (
-                <WorkerRow key={worker.id} worker={worker} />
+                <WorkerRow key={worker.id} worker={worker} onConfigureWorker={onConfigureWorker} />
               ))}
             </div>
           )}
@@ -70,16 +78,55 @@ export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack }: Setti
   )
 }
 
-function WorkerRow({ worker }: { worker: WorkerRuntimeStatus }) {
+function WorkerRow({ worker, onConfigureWorker }: { worker: WorkerRuntimeStatus; onConfigureWorker?: (input: WorkerConfigureInput) => Promise<void> }) {
+  const [model, setModel] = useState(worker.model || workerModels[0].filename)
+  const [maxVisits, setMaxVisits] = useState(String(worker.maxVisits || 500))
+  const [saving, setSaving] = useState(false)
+  const visitsValue = Number(maxVisits)
+  const state = worker.available ? worker.busy ? 'busy' : 'available' : 'unavailable'
+  const controlsDisabled = Boolean(!onConfigureWorker || !worker.available || worker.busy || saving)
+  const canSave = !controlsDisabled && Number.isFinite(visitsValue) && visitsValue > 0
+
+  useEffect(() => {
+    setModel(worker.model || workerModels[0].filename)
+    setMaxVisits(String(worker.maxVisits || 500))
+  }, [worker.model, worker.maxVisits])
+
+  const save = async () => {
+    if (!onConfigureWorker || !canSave) return
+    setSaving(true)
+    try {
+      await onConfigureWorker({ workerId: worker.id, model, maxVisits: visitsValue })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <article className="worker-row" data-state={worker.available ? worker.busy ? 'busy' : 'available' : 'unavailable'}>
+    <article className="worker-row" data-state={state}>
       <span className="worker-row-icon" aria-hidden="true">
         <Server size={18} />
       </span>
       <span className="worker-row-main">
         <strong>{worker.name || worker.id}</strong>
         <small>{worker.platform || 'unknown platform'}</small>
+        <small>{worker.backendLabel || worker.backend || 'unknown backend'}</small>
         {worker.error && <small className="worker-row-error">{worker.error}</small>}
+        <span className="worker-controls">
+          <label>
+            模型
+            <select value={model} onChange={(event) => setModel(event.target.value)} disabled={controlsDisabled}>
+              {workerModels.map((candidate) => (
+                <option key={candidate.filename} value={candidate.filename}>{candidate.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Visits
+            <input value={maxVisits} inputMode="numeric" onChange={(event) => setMaxVisits(event.target.value)} disabled={controlsDisabled} />
+          </label>
+          <button type="button" onClick={() => void save()} disabled={!canSave}>保存</button>
+        </span>
       </span>
       <span className="worker-row-state">{worker.available ? worker.busy ? '忙碌' : '可用' : '不可用'}</span>
     </article>
