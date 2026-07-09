@@ -37,6 +37,7 @@ Deploy from the repository root:
 ```
 
 The deploy command installs to `~\.jcgo`, creates `config.json` only when it does not already exist, publishes Web assets, and writes `start.bat` / `stop.bat`. When launched by double-clicking, the deploy window stays open at the end and writes output to `~\.jcgo\log\deploy.bat.log`.
+If an existing `config.json` has an empty `worker.model`, deploy fills it from the first model found under `release-assets\model`.
 
 Start JCGO:
 

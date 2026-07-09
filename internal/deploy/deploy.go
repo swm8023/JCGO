@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -86,7 +87,7 @@ func EnsureConfig(opts Options) (bool, error) {
 	state := StateDir(opts)
 	path := filepath.Join(state, "config.json")
 	if _, err := os.Stat(path); err == nil {
-		return false, nil
+		return false, ensureExistingConfigModel(opts, path)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return false, fmt.Errorf("stat config: %w", err)
 	}
@@ -97,6 +98,38 @@ func EnsureConfig(opts Options) (bool, error) {
 		return false, fmt.Errorf("write config: %w", err)
 	}
 	return true, nil
+}
+
+func ensureExistingConfigModel(opts Options, path string) error {
+	model := firstModel(opts)
+	if strings.TrimSpace(model) == "" {
+		return nil
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read config: %w", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return fmt.Errorf("parse config for model update: %w", err)
+	}
+	workerConfig, ok := decoded["worker"].(map[string]any)
+	if !ok {
+		return nil
+	}
+	current, _ := workerConfig["model"].(string)
+	if strings.TrimSpace(current) != "" {
+		return nil
+	}
+	workerConfig["model"] = model
+	updated, err := json.MarshalIndent(decoded, "", "  ")
+	if err != nil {
+		return fmt.Errorf("encode config model update: %w", err)
+	}
+	if err := os.WriteFile(path, append(updated, '\n'), 0o644); err != nil {
+		return fmt.Errorf("write config model update: %w", err)
+	}
+	return nil
 }
 
 func CopyReleaseAssets(opts Options) error {

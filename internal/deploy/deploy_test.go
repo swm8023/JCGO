@@ -67,6 +67,52 @@ func TestEnsureConfigPreservesExistingConfig(t *testing.T) {
 	}
 }
 
+func TestEnsureConfigFillsEmptyExistingWorkerModel(t *testing.T) {
+	root := t.TempDir()
+	home := filepath.Join(root, "home")
+	repo := filepath.Join(root, "repo")
+	modelDir := filepath.Join(repo, "release-assets", "model")
+	if err := os.MkdirAll(modelDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"z-model.bin.gz", "a-model.bin.gz"} {
+		if err := os.WriteFile(filepath.Join(modelDir, name), []byte(name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	state := filepath.Join(home, ".jcgo")
+	if err := os.MkdirAll(state, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(state, "config.json")
+	existing := []byte(`{
+  "server": {"enabled": true, "port": 4380, "token": "dev-token"},
+  "worker": {"enabled": true, "name": "local-gpu", "url": "ws://127.0.0.1:4380/worker", "token": "dev-token", "model": "", "maxVisits": 500},
+  "log": {"level": "warn"}
+}`)
+	if err := os.WriteFile(path, existing, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	created, err := EnsureConfig(Options{RepoRoot: repo, HomeDir: home})
+	if err != nil {
+		t.Fatalf("EnsureConfig returned error: %v", err)
+	}
+	if created {
+		t.Fatal("created = true")
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"model": "a-model.bin.gz"`) {
+		t.Fatalf("config = %s", raw)
+	}
+	if !strings.Contains(string(raw), `"token": "dev-token"`) {
+		t.Fatalf("config lost existing fields: %s", raw)
+	}
+}
+
 func TestCopyReleaseAssetsOverwritesRuntimeAssets(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
