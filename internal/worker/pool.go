@@ -33,12 +33,16 @@ type remoteWorker struct {
 }
 
 type RuntimeStatus struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Platform  string `json:"platform"`
-	Available bool   `json:"available"`
-	Busy      bool   `json:"busy"`
-	Error     string `json:"error,omitempty"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Platform     string `json:"platform"`
+	Backend      string `json:"backend,omitempty"`
+	BackendLabel string `json:"backendLabel,omitempty"`
+	Model        string `json:"model,omitempty"`
+	MaxVisits    int    `json:"maxVisits,omitempty"`
+	Available    bool   `json:"available"`
+	Busy         bool   `json:"busy"`
+	Error        string `json:"error,omitempty"`
 }
 
 type StatusSnapshot struct {
@@ -108,12 +112,16 @@ func (p *Pool) StatusSnapshot() StatusSnapshot {
 			continue
 		}
 		runtime := RuntimeStatus{
-			ID:        id,
-			Name:      worker.info.Name,
-			Platform:  worker.info.Platform,
-			Available: worker.info.Available,
-			Busy:      worker.busy,
-			Error:     worker.info.Error,
+			ID:           id,
+			Name:         worker.info.Name,
+			Platform:     worker.info.Platform,
+			Backend:      worker.info.Backend,
+			BackendLabel: worker.info.BackendLabel,
+			Model:        worker.info.Model,
+			MaxVisits:    worker.info.MaxVisits,
+			Available:    worker.info.Available,
+			Busy:         worker.busy,
+			Error:        worker.info.Error,
 		}
 		if runtime.Available {
 			status.Available++
@@ -188,12 +196,74 @@ func (p *Pool) WorkerCount() int {
 	return len(p.ws)
 }
 
+func (p *Pool) ConfigureWorker(ctx context.Context, id string, cfg RuntimeConfig) (StatusSnapshot, error) {
+	worker := p.workerByID(id)
+	if worker == nil {
+		return p.StatusSnapshot(), fmt.Errorf("worker %s not connected", id)
+	}
+	replyID := fmt.Sprintf("cfg-%d", atomic.AddUint64(&p.seq, 1))
+	ch := make(chan Envelope, 1)
+	p.mu.Lock()
+	if worker.closed {
+		p.mu.Unlock()
+		return p.StatusSnapshot(), errors.New("worker disconnected")
+	}
+	worker.responses[replyID] = ch
+	p.mu.Unlock()
+	defer func() {
+		p.mu.Lock()
+		delete(worker.responses, replyID)
+		p.mu.Unlock()
+	}()
+
+	worker.writeMu.Lock()
+	err := worker.conn.WriteJSON(Envelope{Type: MessageConfigure, ID: replyID, Config: &cfg})
+	worker.writeMu.Unlock()
+	if err != nil {
+		return p.StatusSnapshot(), err
+	}
+
+	select {
+	case <-ctx.Done():
+		return p.StatusSnapshot(), ctx.Err()
+	case msg, ok := <-ch:
+		if !ok {
+			return p.StatusSnapshot(), errors.New("worker disconnected")
+		}
+		if msg.Type == MessageError {
+			if msg.Error == "" {
+				msg.Error = "worker returned error"
+			}
+			return p.StatusSnapshot(), errors.New(msg.Error)
+		}
+		if msg.Type != MessageStatus || msg.Worker == nil {
+			return p.StatusSnapshot(), fmt.Errorf("unexpected worker message %q", msg.Type)
+		}
+		p.mu.Lock()
+		if current, ok := p.ws[id]; ok && current == worker && !current.closed {
+			worker.info = *msg.Worker
+		}
+		p.mu.Unlock()
+		return p.StatusSnapshot(), nil
+	}
+}
+
 func (p *Pool) addWorker(worker *remoteWorker) {
 	p.mu.Lock()
 	p.ws[worker.id] = worker
 	p.mu.Unlock()
 	p.logger.Printf("worker pool: registered %s platform=%s katago=%s model=%s config=%s available=%t error=%s",
 		worker.info.Name, worker.info.Platform, worker.info.KatagoPath, worker.info.ModelPath, worker.info.AnalysisConfigPath, worker.info.Available, worker.info.Error)
+}
+
+func (p *Pool) workerByID(id string) *remoteWorker {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	worker := p.ws[id]
+	if worker == nil || worker.closed {
+		return nil
+	}
+	return worker
 }
 
 func (p *Pool) removeWorker(id string) {

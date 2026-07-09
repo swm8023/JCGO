@@ -5,10 +5,12 @@ import "jcgo/internal/katago"
 const (
 	Subprotocol = "jcgo-worker"
 
-	MessageRegister = "register"
-	MessageAnalyze  = "analyze"
-	MessageResult   = "result"
-	MessageError    = "error"
+	MessageRegister  = "register"
+	MessageAnalyze   = "analyze"
+	MessageConfigure = "configure"
+	MessageStatus    = "status"
+	MessageResult    = "result"
+	MessageError     = "error"
 )
 
 type Info struct {
@@ -29,6 +31,7 @@ type Envelope struct {
 	Type   string         `json:"type"`
 	ID     string         `json:"id,omitempty"`
 	Worker *Info          `json:"worker,omitempty"`
+	Config *RuntimeConfig `json:"config,omitempty"`
 	Query  *katago.Query  `json:"query,omitempty"`
 	Result *katago.Result `json:"result,omitempty"`
 	Error  string         `json:"error,omitempty"`

@@ -148,6 +148,23 @@ func TestPoolStatusSnapshotCountsWorkers(t *testing.T) {
 	}
 }
 
+func TestPoolConfiguresOnlineWorker(t *testing.T) {
+	pool := NewPool(log.New(io.Discard, "", 0))
+	serverURL, closeServer := servePool(t, pool)
+	defer closeServer()
+
+	go runConfigurableFakeWorker(t, serverURL)
+	waitForWorkers(t, pool, 1)
+
+	status, err := pool.ConfigureWorker(context.Background(), "worker-1", RuntimeConfig{Model: "new.bin.gz", MaxVisits: 900})
+	if err != nil {
+		t.Fatalf("ConfigureWorker returned error: %v", err)
+	}
+	if status.Workers[0].Model != "new.bin.gz" || status.Workers[0].MaxVisits != 900 {
+		t.Fatalf("status = %#v", status)
+	}
+}
+
 func servePool(t *testing.T, pool *Pool) (string, func()) {
 	t.Helper()
 	upgrader := websocket.Upgrader{Subprotocols: []string{Subprotocol}, CheckOrigin: func(*http.Request) bool { return true }}
@@ -191,6 +208,33 @@ func runFakeWorker(t *testing.T, url string, handle func(*websocket.Conn, Envelo
 		return
 	}
 	handle(conn, msg)
+}
+
+func runConfigurableFakeWorker(t *testing.T, url string) {
+	t.Helper()
+	dialer := websocket.Dialer{Subprotocols: []string{Subprotocol}}
+	conn, _, err := dialer.Dial(url, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer conn.Close()
+	info := Info{Name: "test-worker", Platform: "windows/amd64", Backend: "opencl", Model: "old.bin.gz", MaxVisits: 500, Available: true}
+	if err := conn.WriteJSON(Envelope{Type: MessageRegister, Worker: &info}); err != nil {
+		t.Error(err)
+		return
+	}
+	var msg Envelope
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Error(err)
+		return
+	}
+	info.Model = msg.Config.Model
+	info.MaxVisits = msg.Config.MaxVisits
+	if err := conn.WriteJSON(Envelope{Type: MessageStatus, ID: msg.ID, Worker: &info}); err != nil {
+		t.Error(err)
+	}
+	time.Sleep(100 * time.Millisecond)
 }
 
 func waitForWorkers(t *testing.T, pool *Pool, want int) {
