@@ -660,6 +660,43 @@ func TestWorkspaceStateIncludesWorkerStatus(t *testing.T) {
 	}
 }
 
+func TestWorkerConfigureCallsWorkerConfigurator(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	configurator := &fakeWorkerConfigurator{status: worker.StatusSnapshot{
+		Connected: 1,
+		Available: 1,
+		Workers: []worker.RuntimeStatus{{
+			ID:        "worker-1",
+			Name:      "gpu",
+			Available: true,
+			Model:     "old.bin.gz",
+			MaxVisits: 500,
+		}},
+	}}
+	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil, HandlerOptions{
+		WorkerStatusProvider: configurator,
+		WorkerConfigurator:   configurator,
+	})
+
+	result, err := handler.Call(ctx, "secret", "worker.configure", json.RawMessage(`{"workerId":"worker-1","model":"new.bin.gz","maxVisits":900}`))
+	if err != nil {
+		t.Fatalf("worker.configure returned error: %v", err)
+	}
+	status := result.(worker.StatusSnapshot)
+	if configurator.gotID != "worker-1" || configurator.gotConfig.Model != "new.bin.gz" || configurator.gotConfig.MaxVisits != 900 {
+		t.Fatalf("configure call = %q %#v", configurator.gotID, configurator.gotConfig)
+	}
+	if status.Workers[0].Model != "new.bin.gz" {
+		t.Fatalf("status = %#v", status)
+	}
+}
+
 func TestAnalysisUpdateNotificationContainsFullState(t *testing.T) {
 	h, token := newTestHandler(t)
 	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
@@ -820,6 +857,24 @@ type fakeWorkerStatusProvider struct {
 
 func (f fakeWorkerStatusProvider) StatusSnapshot() worker.StatusSnapshot {
 	return f.status
+}
+
+type fakeWorkerConfigurator struct {
+	status    worker.StatusSnapshot
+	gotID     string
+	gotConfig worker.RuntimeConfig
+}
+
+func (f *fakeWorkerConfigurator) StatusSnapshot() worker.StatusSnapshot {
+	return f.status
+}
+
+func (f *fakeWorkerConfigurator) ConfigureWorker(ctx context.Context, id string, cfg worker.RuntimeConfig) (worker.StatusSnapshot, error) {
+	f.gotID = id
+	f.gotConfig = cfg
+	f.status.Workers[0].Model = cfg.Model
+	f.status.Workers[0].MaxVisits = cfg.MaxVisits
+	return f.status, nil
 }
 
 func (r *recordingAnalysisController) StartGame(input StartInput) {

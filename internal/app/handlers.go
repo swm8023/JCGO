@@ -30,12 +30,17 @@ type WorkerStatusProvider interface {
 	StatusSnapshot() worker.StatusSnapshot
 }
 
+type WorkerConfigurator interface {
+	ConfigureWorker(context.Context, string, worker.RuntimeConfig) (worker.StatusSnapshot, error)
+}
+
 type Handler struct {
 	repo         *store.Repository
 	files        store.FileStore
 	workspaces   *WorkspaceStore
 	analysis     AnalysisController
 	workerStatus WorkerStatusProvider
+	workerConfig WorkerConfigurator
 	yuanluobo    YuanluoboBackend
 }
 
@@ -44,6 +49,7 @@ type HandlerOptions struct {
 	YuanluoboHTTPClient  *http.Client
 	YuanluoboBaseURL     string
 	WorkerStatusProvider WorkerStatusProvider
+	WorkerConfigurator   WorkerConfigurator
 }
 
 type ImportResult struct {
@@ -85,7 +91,7 @@ func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, worksp
 		HTTPClient: opts.YuanluoboHTTPClient,
 		BaseURL:    opts.YuanluoboBaseURL,
 	})
-	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis, workerStatus: opts.WorkerStatusProvider, yuanluobo: ylb}
+	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis, workerStatus: opts.WorkerStatusProvider, workerConfig: opts.WorkerConfigurator, yuanluobo: ylb}
 	if analysis != nil {
 		analysis.Subscribe(func(event Event) {
 			ws := h.workspaces.ForToken(event.Token)
@@ -131,6 +137,8 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.workspaceState(ctx, token)
 	case "workspace.snapshot":
 		return h.workspaceSnapshot(ctx, token, params)
+	case "worker.configure":
+		return h.configureWorker(ctx, params)
 	case "analysis.start":
 		return h.analysisCall(ctx, token, params, "start")
 	case "analysis.stop":
@@ -425,6 +433,26 @@ func (h *Handler) workspaceSnapshot(ctx context.Context, token string, params js
 	return SnapshotResult{Snapshot: snapshot}, err
 }
 
+func (h *Handler) configureWorker(ctx context.Context, params json.RawMessage) (worker.StatusSnapshot, error) {
+	if h.workerConfig == nil {
+		return worker.StatusSnapshot{}, errors.New("worker configuration is unavailable")
+	}
+	var in workerConfigureParams
+	if err := decodeParams(params, &in); err != nil {
+		return worker.StatusSnapshot{}, err
+	}
+	if strings.TrimSpace(in.WorkerID) == "" {
+		return worker.StatusSnapshot{}, errors.New("workerId is required")
+	}
+	if strings.TrimSpace(in.Model) == "" {
+		return worker.StatusSnapshot{}, errors.New("model is required")
+	}
+	if in.MaxVisits <= 0 {
+		return worker.StatusSnapshot{}, errors.New("maxVisits must be positive")
+	}
+	return h.workerConfig.ConfigureWorker(ctx, in.WorkerID, worker.RuntimeConfig{Model: in.Model, MaxVisits: in.MaxVisits})
+}
+
 func (h *Handler) analysisCall(ctx context.Context, token string, params json.RawMessage, action string) (any, error) {
 	var in gameIDParams
 	if err := decodeParams(params, &in); err != nil {
@@ -571,4 +599,10 @@ type playParams struct {
 type badMovePromptParams struct {
 	GameID string `json:"gameId"`
 	NodeID string `json:"nodeId"`
+}
+
+type workerConfigureParams struct {
+	WorkerID  string `json:"workerId"`
+	Model     string `json:"model"`
+	MaxVisits int    `json:"maxVisits"`
 }
