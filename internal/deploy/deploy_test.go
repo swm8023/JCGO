@@ -14,15 +14,6 @@ func TestEnsureConfigCreatesDefaultWithFixedWorkerModel(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	repo := filepath.Join(root, "repo")
-	modelDir := filepath.Join(repo, "release-assets", "model")
-	if err := os.MkdirAll(modelDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"z-model.bin.gz", "a-model.bin.gz"} {
-		if err := os.WriteFile(filepath.Join(modelDir, name), []byte(name), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
 
 	created, err := EnsureConfig(Options{RepoRoot: repo, HomeDir: home})
 	if err != nil {
@@ -74,15 +65,6 @@ func TestEnsureConfigPreservesExistingConfigWithEmptyWorkerModel(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	repo := filepath.Join(root, "repo")
-	modelDir := filepath.Join(repo, "release-assets", "model")
-	if err := os.MkdirAll(modelDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"z-model.bin.gz", "a-model.bin.gz"} {
-		if err := os.WriteFile(filepath.Join(modelDir, name), []byte(name), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
 	state := filepath.Join(home, ".jcgo")
 	if err := os.MkdirAll(state, 0o755); err != nil {
 		t.Fatal(err)
@@ -113,57 +95,10 @@ func TestEnsureConfigPreservesExistingConfigWithEmptyWorkerModel(t *testing.T) {
 	}
 }
 
-func TestCopyReleaseAssetsOverwritesRuntimeAssets(t *testing.T) {
-	root := t.TempDir()
-	home := filepath.Join(root, "home")
-	repo := filepath.Join(root, "repo")
-	if err := os.MkdirAll(filepath.Join(repo, "release-assets", "model"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(repo, "release-assets", "bin", "KataGoData"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repo, "release-assets", "katago.exe"), []byte("new-katago"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repo, "release-assets", "bin", "OpenCL.dll"), []byte("runtime-dll"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repo, "release-assets", "bin", "KataGoData", "tune.txt"), []byte("runtime-data"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repo, "release-assets", "analysis_config.cfg"), []byte("new-config"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(repo, "release-assets", "model", "model.bin.gz"), []byte("new-model"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	state := filepath.Join(home, ".jcgo")
-	if err := os.MkdirAll(filepath.Join(state, "bin"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(state, "bin", "katago.exe"), []byte("old"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := CopyReleaseAssets(Options{RepoRoot: repo, HomeDir: home}); err != nil {
-		t.Fatalf("CopyReleaseAssets returned error: %v", err)
-	}
-
-	assertFile(t, filepath.Join(state, "bin", "katago.exe"), "new-katago")
-	assertFile(t, filepath.Join(state, "bin", "OpenCL.dll"), "runtime-dll")
-	assertFile(t, filepath.Join(state, "bin", "KataGoData", "tune.txt"), "runtime-data")
-	assertFile(t, filepath.Join(state, "config", "analysis_config.cfg"), "new-config")
-	assertFile(t, filepath.Join(state, "model", "model.bin.gz"), "new-model")
-}
-
 func TestStageReleaseAssetsDownloadsAndPublishesSelectedBackend(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	repo := filepath.Join(root, "repo")
-	if err := os.MkdirAll(filepath.Join(repo, "release-assets"), 0o755); err != nil {
-		t.Fatal(err)
-	}
 	openclZip := filepath.Join(root, "opencl.zip")
 	cudaZip := filepath.Join(root, "cuda.zip")
 	writeZip(t, openclZip, map[string]string{
@@ -196,11 +131,19 @@ func TestStageReleaseAssetsDownloadsAndPublishesSelectedBackend(t *testing.T) {
 	}
 
 	stage := StageDir(Options{RepoRoot: repo, HomeDir: home})
-	assertFile(t, filepath.Join(stage, "publish", "bin", "katago.exe"), "opencl-katago")
-	assertFile(t, filepath.Join(stage, "publish", "bin", "OpenCL.dll"), "opencl-dll")
-	assertFile(t, filepath.Join(stage, "publish", "bin", "KataGoData", "tune.txt"), "opencl-tune")
-	assertFile(t, filepath.Join(stage, "publish", "model", DefaultWorkerModel), "b18-model")
-	assertFile(t, filepath.Join(stage, "publish", "config", "katago_backend.json"), "{\n  \"id\": \"opencl\",\n  \"label\": \"OpenCL\"\n}\n")
+	assertFile(t, filepath.Join(stage, "bin", "katago.exe"), "opencl-katago")
+	assertFile(t, filepath.Join(stage, "bin", "OpenCL.dll"), "opencl-dll")
+	assertFile(t, filepath.Join(stage, "bin", "KataGoData", "tune.txt"), "opencl-tune")
+	assertFile(t, filepath.Join(stage, "model", DefaultWorkerModel), "b18-model")
+	assertFile(t, filepath.Join(stage, "config", "katago_backend.json"), "{\n  \"id\": \"opencl\",\n  \"label\": \"OpenCL\"\n}\n")
+	assertExists(t, filepath.Join(stage, ".download", "katago", "opencl.zip"))
+	assertFile(t, filepath.Join(stage, ".download", "model", DefaultWorkerModel), "b18-model")
+	if _, err := os.Stat(filepath.Join(stage, "katago")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backend staging dir exists: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(stage, "publish")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("nested publish dir exists: %v", err)
+	}
 	if _, err := os.Stat(filepath.Join(home, ".jcgo")); !os.IsNotExist(err) {
 		t.Fatalf("runtime dir was touched: %v", err)
 	}
@@ -210,7 +153,7 @@ func TestStageReleaseAssetsReusesInstalledModelBeforeDownloading(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	repo := filepath.Join(root, "repo")
-	cache := filepath.Join(repo, "release-assets", "cache", "katago")
+	cache := filepath.Join(repo, ".stage", ".download", "katago")
 	if err := os.MkdirAll(cache, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -236,8 +179,8 @@ func TestStageReleaseAssetsReusesInstalledModelBeforeDownloading(t *testing.T) {
 	}
 
 	stage := StageDir(Options{RepoRoot: repo, HomeDir: home})
-	assertFile(t, filepath.Join(stage, "publish", "model", DefaultWorkerModel), "installed-model")
-	assertFile(t, filepath.Join(repo, "release-assets", "cache", "model", DefaultWorkerModel), "installed-model")
+	assertFile(t, filepath.Join(stage, "model", DefaultWorkerModel), "installed-model")
+	assertFile(t, filepath.Join(stage, ".download", "model", DefaultWorkerModel), "installed-model")
 }
 
 func TestAutoDownloaderUsesAria2ForHTTPDownloads(t *testing.T) {
@@ -300,6 +243,12 @@ func TestDeployDoesNotPublishWhenStageBuildFails(t *testing.T) {
 			t.Fatalf("stop was called during failed stage: %v", runner.calls)
 		}
 	}
+	for _, name := range []string{"bin", "model", "config", "web"} {
+		if _, err := os.Stat(filepath.Join(repo, ".stage", name)); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("stage target %s was not cleaned: %v", name, err)
+		}
+	}
+	assertFile(t, filepath.Join(repo, ".stage", ".download", "model", DefaultWorkerModel), "b18-model")
 	if _, err := os.Stat(filepath.Join(home, ".jcgo")); !os.IsNotExist(err) {
 		t.Fatalf("runtime dir was touched: %v", err)
 	}
@@ -381,6 +330,13 @@ func assertFile(t *testing.T, path string, want string) {
 	}
 }
 
+func assertExists(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func writeZip(t *testing.T, path string, files map[string]string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -426,12 +382,15 @@ func (failingDownloader) Download(ctx context.Context, sourceURL string, dst str
 
 func writeMinimalManifestAndStageFiles(t *testing.T, repo string) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(repo, "release-assets"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repo, ".stage", ".download", "katago"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	openclZip := filepath.Join(repo, "release-assets", "opencl.zip")
+	if err := os.MkdirAll(filepath.Join(repo, ".stage", ".download", "model"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	openclZip := filepath.Join(repo, ".stage", ".download", "katago", "opencl.zip")
 	writeZip(t, openclZip, map[string]string{"katago.exe": "opencl-katago"})
-	modelPath := filepath.Join(repo, "release-assets", "b18.bin.gz")
+	modelPath := filepath.Join(repo, ".stage", ".download", "model", DefaultWorkerModel)
 	if err := os.WriteFile(modelPath, []byte("b18-model"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -447,7 +406,7 @@ func writeMinimalManifestAndStageFiles(t *testing.T, repo string) {
 	    {"id": "b18", "label": "b18", "filename": "` + DefaultWorkerModel + `", "url": "file://` + filepath.ToSlash(modelPath) + `"}
 	  ]
 	}`)
-	if err := os.WriteFile(filepath.Join(repo, "release-assets", "katago-manifest.json"), raw, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "deploy-manifest.json"), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Join(repo, "web", "dist"), 0o755); err != nil {

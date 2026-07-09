@@ -9,10 +9,6 @@ import (
 
 func TestLoadManifestSelectsPublishBackend(t *testing.T) {
 	repo := t.TempDir()
-	path := filepath.Join(repo, "release-assets")
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		t.Fatal(err)
-	}
 	raw := []byte(`{
 	  "katago": {
 	    "version": "v1.16.5",
@@ -26,7 +22,7 @@ func TestLoadManifestSelectsPublishBackend(t *testing.T) {
 	    {"id": "b18", "label": "b18", "filename": "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz", "url": "https://example.test/b18.bin.gz"}
 	  ]
 	}`)
-	if err := os.WriteFile(filepath.Join(path, "katago-manifest.json"), raw, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "deploy-manifest.json"), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -45,10 +41,6 @@ func TestLoadManifestSelectsPublishBackend(t *testing.T) {
 
 func TestLoadManifestRejectsUnknownPublishBackend(t *testing.T) {
 	repo := t.TempDir()
-	path := filepath.Join(repo, "release-assets")
-	if err := os.MkdirAll(path, 0o755); err != nil {
-		t.Fatal(err)
-	}
 	raw := []byte(`{
 	  "katago": {
 	    "version": "v1.16.5",
@@ -61,7 +53,7 @@ func TestLoadManifestRejectsUnknownPublishBackend(t *testing.T) {
 	    {"id": "b18", "label": "b18", "filename": "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz", "url": "https://example.test/b18.bin.gz"}
 	  ]
 	}`)
-	if err := os.WriteFile(filepath.Join(path, "katago-manifest.json"), raw, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "deploy-manifest.json"), raw, 0o644); err != nil {
 		t.Fatal(err)
 	}
 

@@ -20,18 +20,27 @@ npm run build
 
 ## Windows Deploy
 
-Put optional runtime assets under `release-assets` before deploying:
+Deploy is driven by `deploy-manifest.json` in the repository root. Downloads and generated publish assets are staged under `.stage`:
 
 ```text
-release-assets/
+.stage/
+  .download/
+    katago/
+    model/
   bin/
+    jcgo.exe
+    jcgo-worker.exe
     katago.exe
     *.dll
     KataGoData/
-  katago.exe        # optional legacy override
-  analysis_config.cfg
+  config/
+    analysis_config.cfg
+    katago_backend.json
   model/
-    your-model.bin.gz
+    kata1-*.bin.gz
+  web/
+    index.html
+    assets/
 ```
 
 Deploy from the repository root:
@@ -40,8 +49,7 @@ Deploy from the repository root:
 .\deploy.bat
 ```
 
-The deploy command installs to `~\.jcgo`, creates `config.json` only when it does not already exist, publishes Web assets, and writes `start.bat` / `stop.bat`. When launched by double-clicking, the deploy window stays open at the end and writes output to `~\.jcgo\log\deploy.bat.log`.
-If an existing `config.json` has an empty `worker.model`, deploy fills it from the first model found under `release-assets\model`.
+The deploy command downloads missing KataGo assets into `.stage\.download`, rebuilds `.stage\bin`, `.stage\model`, `.stage\config`, and `.stage\web`, then installs to `~\.jcgo` only after staging succeeds. It creates `config.json` only when it does not already exist, publishes Web assets, and writes `start.bat` / `stop.bat`. When launched by double-clicking, the deploy window stays open at the end and writes output to `~\.jcgo\log\deploy.bat.log`.
 
 Start JCGO:
 

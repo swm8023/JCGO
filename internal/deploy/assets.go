@@ -36,36 +36,37 @@ var runDownloadCommand = func(ctx context.Context, name string, args ...string) 
 
 func StageDir(opts Options) string {
 	opts = resolve(opts)
-	return filepath.Join(opts.RepoRoot, "release-assets", "stage")
+	return filepath.Join(opts.RepoRoot, ".stage")
 }
 
 func CacheDir(opts Options) string {
 	opts = resolve(opts)
-	return filepath.Join(opts.RepoRoot, "release-assets", "cache")
+	return filepath.Join(StageDir(opts), ".download")
 }
 
-func StageReleaseAssets(ctx context.Context, opts Options, manifest Manifest, downloader Downloader) error {
+func StageReleaseAssets(ctx context.Context, opts Options, manifest Manifest, downloader Downloader) (err error) {
 	opts = resolve(opts)
 	if downloader == nil {
 		downloader = AutoDownloader{}
 	}
 	stage := StageDir(opts)
 	cache := CacheDir(opts)
-	if err := replaceDir(stage); err != nil {
+	if err := cleanStageTargets(stage); err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			_ = cleanStageTargets(stage)
+		}
+	}()
 	for _, backend := range manifest.Katago.Backends {
 		archivePath := filepath.Join(cache, "katago", backend.Archive)
 		if err := ensureDownloaded(ctx, downloader, backend.URL, archivePath); err != nil {
 			return err
 		}
-		dst := filepath.Join(stage, "katago", backend.ID)
-		if err := unzip(archivePath, dst); err != nil {
-			return err
-		}
 	}
 	backend, _ := manifest.PublishBackend()
-	if err := copyDir(filepath.Join(stage, "katago", backend.ID), filepath.Join(stage, "publish", "bin")); err != nil {
+	if err := unzip(filepath.Join(cache, "katago", backend.Archive), filepath.Join(stage, "bin")); err != nil {
 		return err
 	}
 	for _, model := range manifest.Models {
@@ -73,14 +74,14 @@ func StageReleaseAssets(ctx context.Context, opts Options, manifest Manifest, do
 		if err := ensureModelCached(ctx, opts, downloader, model, modelPath); err != nil {
 			return err
 		}
-		if err := copyFile(modelPath, filepath.Join(stage, "publish", "model", model.Filename)); err != nil {
+		if err := copyFile(modelPath, filepath.Join(stage, "model", model.Filename)); err != nil {
 			return err
 		}
 	}
-	if err := writeBackendInfo(filepath.Join(stage, "publish", "config", "katago_backend.json"), backend); err != nil {
+	if err := writeBackendInfo(filepath.Join(stage, "config", "katago_backend.json"), backend); err != nil {
 		return err
 	}
-	return copyOptionalFile(filepath.Join(opts.RepoRoot, "release-assets", "analysis_config.cfg"), filepath.Join(stage, "publish", "config", "analysis_config.cfg"))
+	return copyOptionalFile(filepath.Join(opts.RepoRoot, "analysis_config.cfg"), filepath.Join(stage, "config", "analysis_config.cfg"))
 }
 
 func ensureDownloaded(ctx context.Context, downloader Downloader, sourceURL string, dst string) error {

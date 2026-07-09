@@ -4,10 +4,5 @@ web/dist/
 web/node_modules/
 web/*.out
 web/*.err
-release-assets/katago.exe
-release-assets/bin/*
-!release-assets/bin/.gitkeep
-release-assets/model/*
-!release-assets/model/.gitkeep
-release-assets/cache/
-release-assets/stage/
+.stage/
+release-assets/

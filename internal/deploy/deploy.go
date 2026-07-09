@@ -59,11 +59,17 @@ func Deploy(ctx context.Context, opts Options) error {
 	return Publish(ctx, opts, runner, stage)
 }
 
-func Stage(ctx context.Context, opts Options, runner Runner) (StagedRelease, error) {
+func Stage(ctx context.Context, opts Options, runner Runner) (stage StagedRelease, err error) {
 	opts = resolve(opts)
 	if runner == nil {
 		runner = ExecRunner{}
 	}
+	stageDir := StageDir(opts)
+	defer func() {
+		if err != nil {
+			_ = cleanStageTargets(stageDir)
+		}
+	}()
 	manifest, err := LoadManifest(opts)
 	if err != nil {
 		return StagedRelease{}, err
@@ -71,24 +77,22 @@ func Stage(ctx context.Context, opts Options, runner Runner) (StagedRelease, err
 	if err := StageReleaseAssets(ctx, opts, manifest, nil); err != nil {
 		return StagedRelease{}, err
 	}
-	stage := StageDir(opts)
-	publish := filepath.Join(stage, "publish")
 	if err := runner.Run(ctx, filepath.Join(opts.RepoRoot, "web"), "npm", "ci"); err != nil {
 		return StagedRelease{}, fmt.Errorf("install web dependencies: %w", err)
 	}
 	if err := runner.Run(ctx, filepath.Join(opts.RepoRoot, "web"), "npm", "run", "build"); err != nil {
 		return StagedRelease{}, fmt.Errorf("build web: %w", err)
 	}
-	if err := copyDir(filepath.Join(opts.RepoRoot, "web", "dist"), filepath.Join(publish, "web")); err != nil {
+	if err := copyDir(filepath.Join(opts.RepoRoot, "web", "dist"), filepath.Join(stageDir, "web")); err != nil {
 		return StagedRelease{}, err
 	}
-	if err := runner.Run(ctx, opts.RepoRoot, "go", "build", "-o", filepath.Join(publish, "bin", exeName("jcgo")), "./cmd/jcgo"); err != nil {
+	if err := runner.Run(ctx, opts.RepoRoot, "go", "build", "-o", filepath.Join(stageDir, "bin", exeName("jcgo")), "./cmd/jcgo"); err != nil {
 		return StagedRelease{}, fmt.Errorf("build jcgo: %w", err)
 	}
-	if err := runner.Run(ctx, opts.RepoRoot, "go", "build", "-o", filepath.Join(publish, "bin", exeName("jcgo-worker")), "./cmd/jcgo-worker"); err != nil {
+	if err := runner.Run(ctx, opts.RepoRoot, "go", "build", "-o", filepath.Join(stageDir, "bin", exeName("jcgo-worker")), "./cmd/jcgo-worker"); err != nil {
 		return StagedRelease{}, fmt.Errorf("build jcgo-worker: %w", err)
 	}
-	return StagedRelease{Dir: stage, PublishDir: publish}, nil
+	return StagedRelease{Dir: stageDir, PublishDir: stageDir}, nil
 }
 
 func Publish(ctx context.Context, opts Options, runner Runner, stage StagedRelease) error {
@@ -142,40 +146,6 @@ func EnsureConfig(opts Options) (bool, error) {
 		return false, fmt.Errorf("write config: %w", err)
 	}
 	return true, nil
-}
-
-func CopyReleaseAssets(opts Options) error {
-	opts = resolve(opts)
-	state := StateDir(opts)
-	assets := filepath.Join(opts.RepoRoot, "release-assets")
-	if err := copyOptionalDir(filepath.Join(assets, "bin"), filepath.Join(state, "bin")); err != nil {
-		return err
-	}
-	if err := copyOptionalFile(filepath.Join(assets, "katago.exe"), filepath.Join(state, "bin", "katago.exe")); err != nil {
-		return err
-	}
-	if err := copyOptionalFile(filepath.Join(assets, "analysis_config.cfg"), filepath.Join(state, "config", "analysis_config.cfg")); err != nil {
-		return err
-	}
-	modelDir := filepath.Join(assets, "model")
-	entries, err := os.ReadDir(modelDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return fmt.Errorf("read model assets: %w", err)
-	}
-	for _, entry := range entries {
-		if entry.IsDir() || entry.Name() == ".gitkeep" {
-			continue
-		}
-		src := filepath.Join(modelDir, entry.Name())
-		dst := filepath.Join(state, "model", entry.Name())
-		if err := copyFile(src, dst); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func WriteScripts(opts Options) error {
@@ -251,6 +221,15 @@ func replaceDir(path string) error {
 		return fmt.Errorf("remove %s: %w", path, err)
 	}
 	return os.MkdirAll(path, 0o755)
+}
+
+func cleanStageTargets(stage string) error {
+	for _, name := range []string{"bin", "model", "config", "web"} {
+		if err := os.RemoveAll(filepath.Join(stage, name)); err != nil {
+			return fmt.Errorf("remove stage target %s: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func copyDir(src string, dst string) error {

@@ -38,7 +38,7 @@ type ModelAsset struct {
 
 func ManifestPath(opts Options) string {
 	opts = resolve(opts)
-	return filepath.Join(opts.RepoRoot, "release-assets", "katago-manifest.json")
+	return filepath.Join(opts.RepoRoot, "deploy-manifest.json")
 }
 
 func LoadManifest(opts Options) (Manifest, error) {
