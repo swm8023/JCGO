@@ -8,14 +8,13 @@ import (
 	"jcgo/internal/config"
 )
 
-func TestNewAppStartsWithUnavailableEngineWhenPathsMissing(t *testing.T) {
-	dataDir := t.TempDir()
+func TestNewAppStartsWithWorkerOnlyUnavailableEngine(t *testing.T) {
+	dir := t.TempDir()
 	cfg := config.Config{
 		AccessToken:  "secret",
-		DataDir:      dataDir,
-		DatabasePath: filepath.Join(dataDir, "jcgo.sqlite"),
-		GamesDir:     filepath.Join(dataDir, "games"),
-		MaxVisits:    500,
+		Dir:          dir,
+		DatabasePath: filepath.Join(dir, "jcgo.sqlite"),
+		GamesDir:     filepath.Join(dir, "games"),
 	}
 	app, err := New(context.Background(), cfg)
 	if err != nil {
@@ -23,7 +22,7 @@ func TestNewAppStartsWithUnavailableEngineWhenPathsMissing(t *testing.T) {
 	}
 	defer app.Close()
 	if app.EngineStatus().Available {
-		t.Fatal("engine should be unavailable without configured paths")
+		t.Fatal("engine should be unavailable without connected workers")
 	}
 	if app.Workers == nil {
 		t.Fatal("workers should be configured")

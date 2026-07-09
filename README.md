@@ -18,29 +18,44 @@ npm test -- --run
 npm run build
 ```
 
-Run the server:
+## Windows Deploy
 
-```powershell
-$env:JCGO_ACCESS_TOKEN='dev-token'
-$env:JCGO_DATA_DIR='.data'
-$env:JCGO_KATAGO_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\KataGo\katago.exe'
-$env:JCGO_MODEL_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\models\kata1-b18c384nbt-s9996604416-d4316597426.bin.gz'
-$env:JCGO_ANALYSIS_CONFIG_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\KataGo\analysis_config.cfg'
-go run ./cmd/jcgo
+Put optional runtime assets under `release-assets` before deploying:
+
+```text
+release-assets/
+  katago.exe
+  analysis_config.cfg
+  model/
+    your-model.bin.gz
 ```
 
-Open `http://127.0.0.1:4380` and enter `dev-token`.
-
-If the KataGo paths are not configured, the server still starts and SGF import/review remains available; analysis actions report that analysis is unavailable.
-
-## Remote Worker
-
-Build a Windows worker package:
+Deploy from the repository root:
 
 ```powershell
-.\scripts\build-worker.ps1
+.\deploy.bat
 ```
 
-The script writes `dist\worker\jcgo-worker.exe`, `dist\worker\jcgo-worker.example.json`, and `dist\worker\jcgo-worker.json` when the editable config does not already exist.
+The deploy command installs to `~\.jcgo`, creates `config.json` only when it does not already exist, publishes Web assets, and writes `start.bat` / `stop.bat`.
 
-Edit `dist\worker\jcgo-worker.json` on the worker machine, then double-click `jcgo-worker.exe`. The worker writes `jcgo-worker.log` next to the executable and connects to the JCGO `/worker` WebSocket endpoint with the existing `JCGO_ACCESS_TOKEN`.
+Start JCGO:
+
+```powershell
+~\.jcgo\start.bat
+```
+
+Stop JCGO:
+
+```powershell
+~\.jcgo\stop.bat
+```
+
+Open `http://127.0.0.1:4380` and enter `server.token` from `~\.jcgo\config.json`.
+
+JCGO uses Worker-only analysis. The server does not start KataGo directly. When `worker.enabled` is true, `jcgo-worker.exe` reads the same `config.json`, connects to `worker.url`, and starts KataGo from:
+
+```text
+~/.jcgo/bin/katago.exe
+~/.jcgo/model/<worker.model>
+~/.jcgo/config/analysis_config.cfg
+```

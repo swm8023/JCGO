@@ -2,20 +2,22 @@ package main
 
 import (
 	"context"
+	"errors"
+	"flag"
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
+	"jcgo/internal/config"
 	"jcgo/internal/katago"
 	"jcgo/internal/worker"
 )
 
 type startLocalFunc func(context.Context, string, string, string) (katago.Analyzer, error)
-type serveConnectionFunc func(context.Context, string, string, worker.Info, katago.Analyzer) error
+type serveConnectionFunc func(context.Context, string, string, worker.Info, katago.Analyzer, int) error
 
 type runOptions struct {
 	Dir             string
@@ -26,8 +28,24 @@ type runOptions struct {
 }
 
 func main() {
-	dir := executableDir()
-	logFile, err := os.OpenFile(filepath.Join(dir, "jcgo-worker.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	dirFlag := flag.String("dir", "", "JCGO home directory")
+	_ = flag.CommandLine.Parse(os.Args[1:])
+	dir := *dirFlag
+	if dir == "" {
+		var err error
+		dir, err = config.DefaultDir()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	cfg, err := config.LoadDir(dir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := config.EnsureDirs(cfg); err != nil {
+		log.Fatal(err)
+	}
+	logFile, err := os.OpenFile(cfg.WorkerLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,7 +59,11 @@ func main() {
 
 func run(ctx context.Context, opts runOptions) error {
 	if opts.Dir == "" {
-		opts.Dir = executableDir()
+		dir, err := config.DefaultDir()
+		if err != nil {
+			return err
+		}
+		opts.Dir = dir
 	}
 	if opts.Logger == nil {
 		opts.Logger = log.Default()
@@ -56,34 +78,37 @@ func run(ctx context.Context, opts runOptions) error {
 		opts.Sleep = time.Sleep
 	}
 
-	cfgPath := filepath.Join(opts.Dir, "jcgo-worker.json")
-	cfg, created, err := worker.LoadOrCreateConfig(cfgPath)
+	cfg, err := config.LoadDir(opts.Dir)
 	if err != nil {
 		return err
 	}
-	if created {
-		opts.Logger.Printf("created config template at %s; edit it and restart jcgo-worker.exe", cfgPath)
-		return nil
-	}
-	if missing := cfg.MissingFields(); len(missing) > 0 {
-		opts.Logger.Printf("config %s is missing required fields: %s", cfgPath, strings.Join(missing, ", "))
+	if !cfg.Worker.Enabled {
+		opts.Logger.Printf("worker disabled in config")
 		return nil
 	}
 
-	engine, engineErr := opts.StartLocal(ctx, cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
-	available := engineErr == nil
+	var engine katago.Analyzer
+	available := false
 	errorMessage := ""
-	if engineErr != nil {
-		errorMessage = engineErr.Error()
+	if strings.TrimSpace(cfg.Worker.Model) == "" {
+		errorMessage = "worker.model is required"
 		engine = katago.NewUnavailable(errorMessage)
-		opts.Logger.Printf("katago unavailable: %v", engineErr)
 	} else {
-		defer engine.Close()
-		opts.Logger.Printf("katago started: path=%s model=%s config=%s", cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
+		started, engineErr := opts.StartLocal(ctx, cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
+		if engineErr != nil {
+			errorMessage = engineErr.Error()
+			engine = katago.NewUnavailable(errorMessage)
+			opts.Logger.Printf("katago unavailable: %v", engineErr)
+		} else {
+			engine = started
+			available = true
+			defer engine.Close()
+			opts.Logger.Printf("katago started: path=%s model=%s config=%s", cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
+		}
 	}
 
 	info := worker.Info{
-		Name:               cfg.WorkerName,
+		Name:               cfg.Worker.Name,
 		Platform:           runtime.GOOS + "/" + runtime.GOARCH,
 		KatagoPath:         cfg.KatagoPath,
 		ModelPath:          cfg.ModelPath,
@@ -96,17 +121,12 @@ func run(ctx context.Context, opts runOptions) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		opts.Logger.Printf("connecting to %s as %s", cfg.ServerURL, cfg.WorkerName)
-		err := opts.ServeConnection(ctx, cfg.ServerURL, cfg.AccessToken, info, engine)
+		opts.Logger.Printf("connecting to %s as %s", cfg.Worker.URL, cfg.Worker.Name)
+		err := opts.ServeConnection(ctx, cfg.Worker.URL, cfg.Worker.Token, info, engine, cfg.Worker.MaxVisits)
+		if errors.Is(err, context.Canceled) {
+			return err
+		}
 		opts.Logger.Printf("connection ended: %v", err)
 		opts.Sleep(5 * time.Second)
 	}
-}
-
-func executableDir() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return "."
-	}
-	return filepath.Dir(exe)
 }

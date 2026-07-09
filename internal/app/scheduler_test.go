@@ -68,7 +68,7 @@ func (f *fakeProgressAnalyzer) AnalyzeWithProgress(ctx context.Context, query ka
 
 func TestSchedulerPublishesAnalysisEvents(t *testing.T) {
 	engine := &fakeAnalyzer{}
-	scheduler := NewScheduler(engine, 500)
+	scheduler := NewScheduler(engine)
 	defer scheduler.Close()
 
 	received := make(chan Event, 1)
@@ -100,7 +100,7 @@ func TestSchedulerPublishesAnalysisEvents(t *testing.T) {
 
 func TestSchedulerBuildsQueriesWithPolicyAndInitialPlayer(t *testing.T) {
 	engine := &fakeAnalyzer{}
-	scheduler := NewScheduler(engine, 500)
+	scheduler := NewScheduler(engine)
 	defer scheduler.Close()
 
 	received := make(chan Event, 1)
@@ -119,14 +119,14 @@ func TestSchedulerBuildsQueriesWithPolicyAndInitialPlayer(t *testing.T) {
 		t.Fatalf("queries = %#v", engine.queries)
 	}
 	query := engine.queries[0]
-	if query.InitialPlayer != "W" || !query.IncludePolicy {
+	if query.InitialPlayer != "W" || !query.IncludePolicy || query.MaxVisits != 0 {
 		t.Fatalf("query = %#v", query)
 	}
 }
 
 func TestSchedulerPublishesSearchProgressEvents(t *testing.T) {
 	engine := &fakeProgressAnalyzer{}
-	scheduler := NewScheduler(engine, 500)
+	scheduler := NewScheduler(engine)
 	defer scheduler.Close()
 
 	received := make(chan Event, 2)
@@ -152,7 +152,7 @@ func TestSchedulerPublishesSearchProgressEvents(t *testing.T) {
 
 func TestSchedulerPublishesAnalysisError(t *testing.T) {
 	engine := &fakeErrorAnalyzer{}
-	scheduler := NewScheduler(engine, 500)
+	scheduler := NewScheduler(engine)
 	defer scheduler.Close()
 
 	received := make(chan Event, 1)

@@ -10,7 +10,6 @@ const emptyWorkerStatus: WorkerStatus = {
   connected: 0,
   available: 0,
   busy: 0,
-  local: { available: false, error: 'worker status unavailable' },
   workers: [],
 }
 
@@ -37,13 +36,13 @@ export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack }: Setti
             </span>
             <span className="worker-status-copy">
               <strong>{statusLabel}</strong>
-              <small>{workerStatus.connected} 个远程 Worker，{workerStatus.available} 个可用，{workerStatus.busy} 个忙碌</small>
+              <small>{workerStatus.connected} 个 Worker，{workerStatus.available} 个可用，{workerStatus.busy} 个忙碌</small>
             </span>
           </div>
 
           <dl className="worker-status-grid">
             <div>
-              <dt>远程连接</dt>
+              <dt>连接</dt>
               <dd>{workerStatus.connected}</dd>
             </div>
             <div>
@@ -54,16 +53,10 @@ export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack }: Setti
               <dt>忙碌 Worker</dt>
               <dd>{workerStatus.busy}</dd>
             </div>
-            <div>
-              <dt>本机分析</dt>
-              <dd>{workerStatus.local.available ? '可用' : '不可用'}</dd>
-            </div>
           </dl>
 
-          {workerStatus.local.error && <p className="worker-status-error">{workerStatus.local.error}</p>}
-
           {workerStatus.workers.length === 0 ? (
-            <p className="worker-empty">暂无远程 Worker 连接</p>
+            <p className="worker-empty">暂无 Worker 连接</p>
           ) : (
             <div className="worker-list">
               {workerStatus.workers.map((worker) => (

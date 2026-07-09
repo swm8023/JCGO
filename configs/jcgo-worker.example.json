@@ -1,8 +1,0 @@
-{
-  "serverUrl": "ws://127.0.0.1:4380/worker",
-  "accessToken": "dev-token",
-  "workerName": "gpu-worker-1",
-  "katagoPath": "D:\\KataGo\\katago.exe",
-  "modelPath": "D:\\KataGo\\models\\model.bin.gz",
-  "analysisConfigPath": "D:\\KataGo\\analysis_config.cfg"
-}

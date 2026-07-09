@@ -2,11 +2,11 @@ package worker
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,53 +15,24 @@ import (
 	"jcgo/internal/katago"
 )
 
-type fakeAnalyzer struct {
-	calls   []string
-	results []katago.Result
-	err     error
-}
+func TestPoolReturnsErrorWhenNoWorkerIsConnected(t *testing.T) {
+	pool := NewPool(log.New(io.Discard, "", 0))
 
-func (f *fakeAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
-	f.calls = append(f.calls, query.ID)
-	if f.err != nil {
-		return katago.Result{}, f.err
+	_, err := pool.Analyze(context.Background(), katago.Query{ID: "main:0"})
+	if err == nil || !strings.Contains(err.Error(), "no available worker") {
+		t.Fatalf("err = %v", err)
 	}
-	if len(f.results) > 0 {
-		return f.results[0], nil
+	if pool.Available() {
+		t.Fatal("pool should be unavailable without workers")
 	}
-	return katago.Result{ID: query.ID, RootInfo: katago.RootInfo{Visits: 10}}, nil
-}
-
-func (f *fakeAnalyzer) Available() bool { return f.err == nil }
-
-func (f *fakeAnalyzer) Status() katago.Status {
-	if f.err != nil {
-		return katago.Status{Available: false, Error: f.err.Error()}
-	}
-	return katago.Status{Available: true}
-}
-
-func (f *fakeAnalyzer) Close() error { return nil }
-
-func TestPoolFallsBackWhenNoWorkerIsConnected(t *testing.T) {
-	local := &fakeAnalyzer{results: []katago.Result{{ID: "main:0", RootInfo: katago.RootInfo{Visits: 99}}}}
-	pool := NewPool(local, log.New(io.Discard, "", 0))
-
-	result, err := pool.Analyze(context.Background(), katago.Query{ID: "main:0"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.RootInfo.Visits != 99 {
-		t.Fatalf("result = %#v", result)
-	}
-	if len(local.calls) != 1 {
-		t.Fatalf("local calls = %v", local.calls)
+	status := pool.Status()
+	if status.Available || !strings.Contains(status.Error, "no available worker") {
+		t.Fatalf("status = %#v", status)
 	}
 }
 
 func TestPoolUsesRegisteredWorker(t *testing.T) {
-	local := &fakeAnalyzer{}
-	pool := NewPool(local, log.New(io.Discard, "", 0))
+	pool := NewPool(log.New(io.Discard, "", 0))
 	serverURL, closeServer := servePool(t, pool)
 	defer closeServer()
 
@@ -90,14 +61,11 @@ func TestPoolUsesRegisteredWorker(t *testing.T) {
 	if result.RootInfo.Visits != 123 {
 		t.Fatalf("result = %#v", result)
 	}
-	if len(local.calls) != 0 {
-		t.Fatalf("local calls = %v", local.calls)
-	}
 	<-done
 }
 
 func TestPoolForwardsWorkerProgress(t *testing.T) {
-	pool := NewPool(&fakeAnalyzer{}, log.New(io.Discard, "", 0))
+	pool := NewPool(log.New(io.Discard, "", 0))
 	serverURL, closeServer := servePool(t, pool)
 	defer closeServer()
 
@@ -132,9 +100,8 @@ func TestPoolForwardsWorkerProgress(t *testing.T) {
 	}
 }
 
-func TestPoolFallsBackWhenWorkerReturnsError(t *testing.T) {
-	local := &fakeAnalyzer{results: []katago.Result{{ID: "main:3", RootInfo: katago.RootInfo{Visits: 44}}}}
-	pool := NewPool(local, log.New(io.Discard, "", 0))
+func TestPoolReturnsWorkerErrorWithoutFallback(t *testing.T) {
+	pool := NewPool(log.New(io.Discard, "", 0))
 	serverURL, closeServer := servePool(t, pool)
 	defer closeServer()
 
@@ -145,28 +112,14 @@ func TestPoolFallsBackWhenWorkerReturnsError(t *testing.T) {
 	})
 
 	waitForWorkers(t, pool, 1)
-	result, err := pool.Analyze(context.Background(), katago.Query{ID: "main:3"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.RootInfo.Visits != 44 || len(local.calls) != 1 {
-		t.Fatalf("result = %#v local calls = %v", result, local.calls)
-	}
-}
-
-func TestPoolReturnsErrorWhenWorkerAndFallbackFail(t *testing.T) {
-	local := &fakeAnalyzer{err: errors.New("local missing")}
-	pool := NewPool(local, log.New(io.Discard, "", 0))
-
-	_, err := pool.Analyze(context.Background(), katago.Query{ID: "main:4"})
-	if err == nil || err.Error() != "local missing" {
+	_, err := pool.Analyze(context.Background(), katago.Query{ID: "main:3"})
+	if err == nil || err.Error() != "worker failed" {
 		t.Fatalf("err = %v", err)
 	}
 }
 
-func TestPoolStatusSnapshotCountsWorkersAndLocalFallback(t *testing.T) {
-	local := &fakeAnalyzer{err: errors.New("local missing")}
-	pool := NewPool(local, log.New(io.Discard, "", 0))
+func TestPoolStatusSnapshotCountsWorkers(t *testing.T) {
+	pool := NewPool(log.New(io.Discard, "", 0))
 	pool.addWorker(&remoteWorker{
 		id:        "worker-2",
 		info:      Info{Name: "offline-gpu", Platform: "linux/amd64", Available: false, Error: "katago missing"},
@@ -183,9 +136,6 @@ func TestPoolStatusSnapshotCountsWorkersAndLocalFallback(t *testing.T) {
 
 	if status.Connected != 2 || status.Available != 1 || status.Busy != 1 {
 		t.Fatalf("counts = %#v", status)
-	}
-	if status.Local.Available || status.Local.Error != "local missing" {
-		t.Fatalf("local = %#v", status.Local)
 	}
 	if len(status.Workers) != 2 {
 		t.Fatalf("workers = %#v", status.Workers)

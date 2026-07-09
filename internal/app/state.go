@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"jcgo/internal/game"
-	"jcgo/internal/katago"
 	"jcgo/internal/store"
 	"jcgo/internal/worker"
 )
@@ -53,7 +52,6 @@ func (h *Handler) workspaceState(ctx context.Context, token string) (any, error)
 func (h *Handler) currentWorkerStatus() worker.StatusSnapshot {
 	if h.workerStatus == nil {
 		return worker.StatusSnapshot{
-			Local:   katago.Status{Available: false, Error: "worker status unavailable"},
 			Workers: []worker.RuntimeStatus{},
 		}
 	}

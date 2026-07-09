@@ -18,6 +18,10 @@ type clientFakeAnalyzer struct {
 
 type clientBasicAnalyzer struct{}
 
+type clientRecordingAnalyzer struct {
+	queries chan katago.Query
+}
+
 func (a clientBasicAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
 	return katago.Result{ID: query.ID, RootInfo: katago.RootInfo{Visits: 88}}, nil
 }
@@ -29,6 +33,19 @@ func (a clientBasicAnalyzer) Status() katago.Status {
 }
 
 func (a clientBasicAnalyzer) Close() error { return nil }
+
+func (a clientRecordingAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
+	a.queries <- query
+	return katago.Result{ID: query.ID, RootInfo: katago.RootInfo{Visits: query.MaxVisits}}, nil
+}
+
+func (a clientRecordingAnalyzer) Available() bool { return true }
+
+func (a clientRecordingAnalyzer) Status() katago.Status {
+	return katago.Status{Available: true}
+}
+
+func (a clientRecordingAnalyzer) Close() error { return nil }
 
 func (a clientFakeAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
 	return katago.Result{ID: query.ID, RootInfo: katago.RootInfo{Visits: 88}}, nil
@@ -56,7 +73,7 @@ func TestServeConnectionRegistersAndReturnsAnalysis(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", Info{Name: "worker-1", Available: true}, clientBasicAnalyzer{})
+		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", Info{Name: "worker-1", Available: true}, clientBasicAnalyzer{}, 0)
 	}()
 
 	conn := <-connCh
@@ -88,7 +105,7 @@ func TestServeConnectionForwardsProgress(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() {
-		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", Info{Name: "worker-1", Available: true}, clientFakeAnalyzer{progress: true})
+		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", Info{Name: "worker-1", Available: true}, clientFakeAnalyzer{progress: true}, 0)
 	}()
 
 	conn := <-connCh
@@ -116,6 +133,43 @@ func TestServeConnectionForwardsProgress(t *testing.T) {
 	}
 }
 
+func TestServeConnectionAppliesWorkerMaxVisits(t *testing.T) {
+	server, connCh := testWorkerServer(t)
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	queries := make(chan katago.Query, 1)
+	go func() {
+		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", Info{Name: "worker-1", Available: true}, clientRecordingAnalyzer{queries: queries}, 700)
+	}()
+
+	conn := <-connCh
+	defer conn.Close()
+	var register Envelope
+	if err := conn.ReadJSON(&register); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.WriteJSON(Envelope{Type: MessageAnalyze, ID: "job-3", Query: &katago.Query{ID: "main:2", MaxVisits: 100}}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case query := <-queries:
+		if query.MaxVisits != 700 {
+			t.Fatalf("MaxVisits = %d", query.MaxVisits)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("expected query")
+	}
+	var result Envelope
+	if err := conn.ReadJSON(&result); err != nil {
+		t.Fatal(err)
+	}
+	if result.Result == nil || result.Result.RootInfo.Visits != 700 {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
 func testWorkerServer(t *testing.T) (*httptest.Server, <-chan *websocket.Conn) {
 	t.Helper()
 	connCh := make(chan *websocket.Conn, 1)
@@ -137,7 +191,7 @@ func testWorkerServer(t *testing.T) (*httptest.Server, <-chan *websocket.Conn) {
 func TestServeConnectionFailsOnBadURL(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	err := ServeConnection(ctx, "://bad-url", "secret", Info{Name: "worker-1"}, clientBasicAnalyzer{})
+	err := ServeConnection(ctx, "://bad-url", "secret", Info{Name: "worker-1"}, clientBasicAnalyzer{}, 0)
 	if err == nil {
 		t.Fatal("expected error")
 	}

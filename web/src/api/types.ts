@@ -186,11 +186,6 @@ export interface EncodedOwnership {
   data: string
 }
 
-export interface EngineStatus {
-  available: boolean
-  error?: string
-}
-
 export interface WorkerRuntimeStatus {
   id: string
   name: string
@@ -204,7 +199,6 @@ export interface WorkerStatus {
   connected: number
   available: number
   busy: number
-  local: EngineStatus
   workers: WorkerRuntimeStatus[]
 }
 

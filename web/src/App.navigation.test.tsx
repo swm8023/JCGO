@@ -454,7 +454,6 @@ describe('App variation navigation', () => {
         connected: 1,
         available: 1,
         busy: 0,
-        local: { available: true },
         workers: [{
           id: 'worker-1',
           name: 'gpu-worker',

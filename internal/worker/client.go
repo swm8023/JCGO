@@ -10,7 +10,7 @@ import (
 	"jcgo/internal/katago"
 )
 
-func ServeConnection(ctx context.Context, serverURL string, accessToken string, info Info, engine katago.Analyzer) error {
+func ServeConnection(ctx context.Context, serverURL string, accessToken string, info Info, engine katago.Analyzer, maxVisits int) error {
 	dialer := websocket.Dialer{Subprotocols: []string{Subprotocol, "token." + accessToken}}
 	conn, _, err := dialer.DialContext(ctx, serverURL, nil)
 	if err != nil {
@@ -31,13 +31,16 @@ func ServeConnection(ctx context.Context, serverURL string, accessToken string, 
 			_ = conn.WriteJSON(Envelope{Type: MessageError, ID: msg.ID, Error: fmt.Sprintf("unexpected message %q", msg.Type)})
 			continue
 		}
-		if err := analyzeAndReply(ctx, conn, msg.ID, *msg.Query, engine); err != nil {
+		if err := analyzeAndReply(ctx, conn, msg.ID, *msg.Query, engine, maxVisits); err != nil {
 			return err
 		}
 	}
 }
 
-func analyzeAndReply(ctx context.Context, conn *websocket.Conn, id string, query katago.Query, engine katago.Analyzer) error {
+func analyzeAndReply(ctx context.Context, conn *websocket.Conn, id string, query katago.Query, engine katago.Analyzer, maxVisits int) error {
+	if maxVisits > 0 {
+		query.MaxVisits = maxVisits
+	}
 	writeResult := func(result katago.Result) {
 		_ = conn.WriteJSON(Envelope{Type: MessageResult, ID: id, Result: &result})
 	}

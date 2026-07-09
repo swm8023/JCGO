@@ -38,16 +38,14 @@ npm test -- --run
 npm run build
 ```
 
-Run the server:
+Run Windows deploy:
 
 ```powershell
-$env:JCGO_ACCESS_TOKEN='dev-token'
-$env:JCGO_DATA_DIR='.data'
-$env:JCGO_KATAGO_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\KataGo\katago.exe'
-$env:JCGO_MODEL_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\models\kata1-b18c384nbt-s9996604416-d4316597426.bin.gz'
-$env:JCGO_ANALYSIS_CONFIG_PATH='D:\Code\katrain\.venv\Lib\site-packages\katrain\KataGo\analysis_config.cfg'
-go run ./cmd/jcgo
+.\deploy.bat
+~\.jcgo\start.bat
 ```
+
+Runtime config lives at `~\.jcgo\config.json`. The server uses `server.token`; the worker uses `worker.url`, `worker.token`, `worker.model`, and `worker.maxVisits`.
 
 ## Completion Gate (Highest Priority)
 

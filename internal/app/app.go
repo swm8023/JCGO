@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"log"
 	"path/filepath"
 
@@ -28,16 +27,12 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		return nil, err
 	}
 	files := store.NewFileStore(cfg.GamesDir)
-	localEngine, err := startEngine(ctx, cfg)
-	if err != nil {
-		localEngine = katago.NewUnavailable(err.Error())
-	}
-	workers := worker.NewPool(localEngine, log.Default())
+	workers := worker.NewPool(log.Default())
 	engine := katago.Analyzer(workers)
 	workspaces := NewWorkspaceStore()
-	scheduler := NewScheduler(engine, cfg.MaxVisits)
+	scheduler := NewScheduler(engine)
 	handler := NewHandlerWithOptions(repo, files, workspaces, scheduler, HandlerOptions{
-		YuanluoboAuthStore:   NewYuanluoboFileAuthStore(filepath.Join(cfg.DataDir, "yuanluobo_auth.json")),
+		YuanluoboAuthStore:   NewYuanluoboFileAuthStore(filepath.Join(cfg.Dir, "config", "yuanluobo_auth.json")),
 		WorkerStatusProvider: workers,
 	})
 	return &App{
@@ -58,11 +53,4 @@ func (a *App) EngineStatus() katago.Status {
 func (a *App) Close() error {
 	_ = a.Scheduler.Close()
 	return a.Repo.Close()
-}
-
-func startEngine(ctx context.Context, cfg config.Config) (katago.Analyzer, error) {
-	if cfg.KatagoPath == "" || cfg.ModelPath == "" || cfg.AnalysisConfigPath == "" {
-		return nil, errors.New("katago path, model path, and analysis config path are required for analysis")
-	}
-	return katago.StartLocal(ctx, cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
 }

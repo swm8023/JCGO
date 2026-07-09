@@ -324,7 +324,7 @@ func TestAnalysisStartStoresResultInWorkspace(t *testing.T) {
 	}
 	defer repo.Close()
 	workspaces := NewWorkspaceStore()
-	scheduler := NewScheduler(&fakeAnalyzer{}, 500)
+	scheduler := NewScheduler(&fakeAnalyzer{})
 	defer scheduler.Close()
 	handler := NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), workspaces, scheduler)
 
@@ -364,7 +364,7 @@ func TestAnalysisResultsPersistNextToSGFAndReloadInNewWorkspace(t *testing.T) {
 	}
 	defer repo.Close()
 	files := store.NewFileStore(filepath.Join(dir, "games"))
-	scheduler := NewScheduler(&fakeAnalyzer{}, 500)
+	scheduler := NewScheduler(&fakeAnalyzer{})
 	defer scheduler.Close()
 	handler := NewHandler(repo, files, NewWorkspaceStore(), scheduler)
 
@@ -470,7 +470,7 @@ func TestPlayVariationQueuesAnalysisForCurrentNode(t *testing.T) {
 	}
 	defer repo.Close()
 	workspaces := NewWorkspaceStore()
-	scheduler := NewScheduler(&fakeAnalyzer{}, 500)
+	scheduler := NewScheduler(&fakeAnalyzer{})
 	defer scheduler.Close()
 	handler := NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), workspaces, scheduler)
 
@@ -637,7 +637,6 @@ func TestWorkspaceStateIncludesWorkerStatus(t *testing.T) {
 		Connected: 1,
 		Available: 1,
 		Busy:      0,
-		Local:     katago.Status{Available: true},
 		Workers: []worker.RuntimeStatus{{
 			ID:        "worker-1",
 			Name:      "gpu-worker",
@@ -684,7 +683,7 @@ func TestAnalysisNotificationPushesFullWorkspaceState(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer repo.Close()
-	scheduler := NewScheduler(&fakeAnalyzer{}, 500)
+	scheduler := NewScheduler(&fakeAnalyzer{})
 	defer scheduler.Close()
 	handler := NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), scheduler)
 

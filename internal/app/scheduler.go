@@ -31,7 +31,6 @@ type Subscriber func(Event)
 
 type Scheduler struct {
 	engine      katago.Analyzer
-	maxVisits   int
 	tasks       chan task
 	closed      chan struct{}
 	closeOnce   sync.Once
@@ -47,10 +46,9 @@ type task struct {
 	node   NodeInput
 }
 
-func NewScheduler(engine katago.Analyzer, maxVisits int) *Scheduler {
+func NewScheduler(engine katago.Analyzer) *Scheduler {
 	s := &Scheduler{
 		engine:      engine,
-		maxVisits:   maxVisits,
 		tasks:       make(chan task, 256),
 		closed:      make(chan struct{}),
 		stopped:     map[string]bool{},
@@ -117,7 +115,6 @@ func (s *Scheduler) run() {
 				ID:            task.node.NodeID,
 				Rules:         task.node.Rules,
 				Komi:          task.node.Komi,
-				MaxVisits:     s.maxVisits,
 				InitialStones: task.node.InitialStones,
 				InitialPlayer: string(task.node.InitialPlayer),
 				Moves:         task.node.Moves,

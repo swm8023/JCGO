@@ -15,8 +15,7 @@ import (
 )
 
 type Pool struct {
-	fallback katago.Analyzer
-	logger   *log.Logger
+	logger *log.Logger
 
 	seq uint64
 	mu  sync.Mutex
@@ -46,18 +45,16 @@ type StatusSnapshot struct {
 	Connected int             `json:"connected"`
 	Available int             `json:"available"`
 	Busy      int             `json:"busy"`
-	Local     katago.Status   `json:"local"`
 	Workers   []RuntimeStatus `json:"workers"`
 }
 
-func NewPool(fallback katago.Analyzer, logger *log.Logger) *Pool {
+func NewPool(logger *log.Logger) *Pool {
 	if logger == nil {
 		logger = log.Default()
 	}
 	return &Pool{
-		fallback: fallback,
-		logger:   logger,
-		ws:       map[string]*remoteWorker{},
+		logger: logger,
+		ws:     map[string]*remoteWorker{},
 	}
 }
 
@@ -68,8 +65,7 @@ func (p *Pool) Analyze(ctx context.Context, query katago.Query) (katago.Result, 
 func (p *Pool) AnalyzeWithProgress(ctx context.Context, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
 	worker := p.pickWorker()
 	if worker == nil {
-		p.logger.Printf("worker pool: no idle remote worker, using local analyzer for query %s", query.ID)
-		return p.analyzeFallback(ctx, query, progress)
+		return katago.Result{}, errors.New("no available worker")
 	}
 
 	result, err := p.analyzeRemote(ctx, worker, query, progress)
@@ -77,8 +73,8 @@ func (p *Pool) AnalyzeWithProgress(ctx context.Context, query katago.Query, prog
 	if err == nil {
 		return result, nil
 	}
-	p.logger.Printf("worker pool: remote worker %s failed query %s: %v; using local analyzer", worker.info.Name, query.ID, err)
-	return p.analyzeFallback(ctx, query, progress)
+	p.logger.Printf("worker pool: remote worker %s failed query %s: %v", worker.info.Name, query.ID, err)
+	return katago.Result{}, err
 }
 
 func (p *Pool) Available() bool {
@@ -90,14 +86,14 @@ func (p *Pool) Available() bool {
 		}
 	}
 	p.mu.Unlock()
-	return p.fallback.Available()
+	return false
 }
 
 func (p *Pool) Status() katago.Status {
 	if p.Available() {
 		return katago.Status{Available: true}
 	}
-	return p.fallback.Status()
+	return katago.Status{Available: false, Error: "no available worker"}
 }
 
 func (p *Pool) StatusSnapshot() StatusSnapshot {
@@ -133,7 +129,6 @@ func (p *Pool) StatusSnapshot() StatusSnapshot {
 		return workers[i].ID < workers[j].ID
 	})
 	status.Workers = workers
-	status.Local = p.fallback.Status()
 	return status
 }
 
@@ -147,7 +142,7 @@ func (p *Pool) Close() error {
 	for _, worker := range workers {
 		_ = worker.conn.Close()
 	}
-	return p.fallback.Close()
+	return nil
 }
 
 func (p *Pool) ServeWS(conn *websocket.Conn) {
@@ -298,11 +293,4 @@ func (p *Pool) deliver(worker *remoteWorker, msg Envelope) {
 		return
 	}
 	ch <- msg
-}
-
-func (p *Pool) analyzeFallback(ctx context.Context, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
-	if engine, ok := p.fallback.(katago.ProgressAnalyzer); ok {
-		return engine.AnalyzeWithProgress(ctx, query, progress)
-	}
-	return p.fallback.Analyze(ctx, query)
 }

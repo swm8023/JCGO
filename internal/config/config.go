@@ -1,65 +1,191 @@
 package config
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
+	"runtime"
+	"strings"
 )
 
 type Config struct {
+	Dir                string
+	Server             ServerConfig
+	Worker             WorkerConfig
+	Log                LogConfig
 	ListenAddr         string
 	AccessToken        string
-	DataDir            string
 	DatabasePath       string
 	GamesDir           string
+	WebDir             string
+	ServerLogPath      string
+	WorkerLogPath      string
 	KatagoPath         string
 	ModelPath          string
 	AnalysisConfigPath string
-	MaxVisits          int
+}
+
+type ServerConfig struct {
+	Enabled bool   `json:"enabled"`
+	Port    int    `json:"port"`
+	Token   string `json:"token"`
+}
+
+type WorkerConfig struct {
+	Enabled   bool   `json:"enabled"`
+	Name      string `json:"name"`
+	URL       string `json:"url"`
+	Token     string `json:"token"`
+	Model     string `json:"model"`
+	MaxVisits int    `json:"maxVisits"`
+}
+
+type LogConfig struct {
+	Level string `json:"level"`
+}
+
+type fileConfig struct {
+	Server ServerConfig `json:"server"`
+	Worker WorkerConfig `json:"worker"`
+	Log    LogConfig    `json:"log"`
+}
+
+func DefaultDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("home dir: %w", err)
+	}
+	return filepath.Join(home, ".jcgo"), nil
 }
 
 func Load() (Config, error) {
-	dataDir := env("JCGO_DATA_DIR", filepath.Join(".", "data"))
-	cfg := Config{
-		ListenAddr:         env("JCGO_LISTEN_ADDR", "127.0.0.1:4380"),
-		AccessToken:        os.Getenv("JCGO_ACCESS_TOKEN"),
-		DataDir:            dataDir,
-		DatabasePath:       filepath.Join(dataDir, "jcgo.sqlite"),
-		GamesDir:           filepath.Join(dataDir, "games"),
-		KatagoPath:         os.Getenv("JCGO_KATAGO_PATH"),
-		ModelPath:          os.Getenv("JCGO_MODEL_PATH"),
-		AnalysisConfigPath: os.Getenv("JCGO_ANALYSIS_CONFIG_PATH"),
-		MaxVisits:          envInt("JCGO_MAX_VISITS", 500),
+	dir, err := DefaultDir()
+	if err != nil {
+		return Config{}, err
 	}
-	if cfg.AccessToken == "" {
-		return Config{}, errors.New("JCGO_ACCESS_TOKEN is required")
+	return LoadDir(dir)
+}
+
+func LoadDir(dir string) (Config, error) {
+	if strings.TrimSpace(dir) == "" {
+		defaultDir, err := DefaultDir()
+		if err != nil {
+			return Config{}, err
+		}
+		dir = defaultDir
+	}
+	dir = filepath.Clean(dir)
+	path := filepath.Join(dir, "config.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return Config{}, fmt.Errorf("config file not found at %s", path)
+		}
+		return Config{}, fmt.Errorf("read config %s: %w", path, err)
+	}
+
+	var raw fileConfig
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&raw); err != nil {
+		return Config{}, fmt.Errorf("parse config %s: %w", path, err)
+	}
+	if err := validate(raw); err != nil {
+		return Config{}, fmt.Errorf("validate config %s: %w", path, err)
+	}
+
+	cfg := Config{
+		Dir:                dir,
+		Server:             raw.Server,
+		Worker:             raw.Worker,
+		Log:                raw.Log,
+		ListenAddr:         fmt.Sprintf("127.0.0.1:%d", raw.Server.Port),
+		AccessToken:        raw.Server.Token,
+		DatabasePath:       filepath.Join(dir, "db", "jcgo.sqlite"),
+		GamesDir:           filepath.Join(dir, "games"),
+		WebDir:             filepath.Join(dir, "web"),
+		ServerLogPath:      filepath.Join(dir, "log", "server.log"),
+		WorkerLogPath:      filepath.Join(dir, "log", "worker.log"),
+		KatagoPath:         filepath.Join(dir, "bin", exeName("katago")),
+		ModelPath:          filepath.Join(dir, "model", raw.Worker.Model),
+		AnalysisConfigPath: filepath.Join(dir, "config", "analysis_config.cfg"),
 	}
 	return cfg, nil
 }
 
 func EnsureDirs(cfg Config) error {
-	if err := os.MkdirAll(cfg.GamesDir, 0o755); err != nil {
-		return err
+	for _, dir := range []string{
+		filepath.Join(cfg.Dir, "bin"),
+		filepath.Dir(cfg.DatabasePath),
+		cfg.GamesDir,
+		filepath.Dir(cfg.ServerLogPath),
+		filepath.Join(cfg.Dir, "model"),
+		filepath.Dir(cfg.AnalysisConfigPath),
+		cfg.WebDir,
+	} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create %s: %w", dir, err)
+		}
 	}
-	return os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0o755)
+	return nil
 }
 
-func env(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+func DefaultFile(model string) []byte {
+	raw := fileConfig{
+		Server: ServerConfig{Enabled: true, Port: 4380, Token: "dev-token"},
+		Worker: WorkerConfig{
+			Enabled:   true,
+			Name:      "local-gpu",
+			URL:       "ws://127.0.0.1:4380/worker",
+			Token:     "dev-token",
+			Model:     model,
+			MaxVisits: 500,
+		},
+		Log: LogConfig{Level: "warn"},
 	}
-	return fallback
+	data, err := json.MarshalIndent(raw, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	return append(data, '\n')
 }
 
-func envInt(key string, fallback int) int {
-	value := os.Getenv(key)
-	if value == "" {
-		return fallback
+func validate(raw fileConfig) error {
+	var missing []string
+	if raw.Server.Enabled {
+		if raw.Server.Port <= 0 {
+			missing = append(missing, "server.port")
+		}
+		if strings.TrimSpace(raw.Server.Token) == "" {
+			missing = append(missing, "server.token")
+		}
 	}
-	parsed, err := strconv.Atoi(value)
-	if err != nil || parsed <= 0 {
-		return fallback
+	if raw.Worker.Enabled {
+		if strings.TrimSpace(raw.Worker.Name) == "" {
+			missing = append(missing, "worker.name")
+		}
+		if strings.TrimSpace(raw.Worker.URL) == "" {
+			missing = append(missing, "worker.url")
+		}
+		if strings.TrimSpace(raw.Worker.Token) == "" {
+			missing = append(missing, "worker.token")
+		}
+		if raw.Worker.MaxVisits <= 0 {
+			missing = append(missing, "worker.maxVisits")
+		}
 	}
-	return parsed
+	if len(missing) > 0 {
+		return fmt.Errorf("missing or invalid fields: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func exeName(name string) string {
+	if runtime.GOOS == "windows" && !strings.HasSuffix(name, ".exe") {
+		return name + ".exe"
+	}
+	return name
 }
