@@ -40,7 +40,7 @@ func TestRunConnectsWithDerivedRuntimePathsAndMaxVisits(t *testing.T) {
 		Logger: log.New(&bytes.Buffer{}, "", 0),
 		StartLocal: func(ctx context.Context, katagoPath string, modelPath string, configPath string) (katago.Analyzer, error) {
 			gotKatago, gotModel, gotAnalysis = katagoPath, modelPath, configPath
-			return katago.NewUnavailable("stop after connect"), nil
+			return staticAnalyzer{status: katago.Status{Available: true}}, nil
 		},
 		ServeConnection: func(ctx context.Context, serverURL string, token string, info worker.Info, engine katago.Analyzer, maxVisits int) error {
 			gotInfo = info
@@ -64,6 +64,34 @@ func TestRunConnectsWithDerivedRuntimePathsAndMaxVisits(t *testing.T) {
 	}
 	if gotInfo.Name != "local-gpu" || !gotInfo.Available || gotVisits != 700 {
 		t.Fatalf("info=%#v visits=%d", gotInfo, gotVisits)
+	}
+}
+
+func TestRunRegistersUnavailableEngineStatusAfterStart(t *testing.T) {
+	dir := t.TempDir()
+	writeConfig(t, dir, `"model": "model.bin.gz"`)
+	var gotInfo worker.Info
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	err := run(ctx, runOptions{
+		Dir:    dir,
+		Logger: log.New(&bytes.Buffer{}, "", 0),
+		StartLocal: func(context.Context, string, string, string) (katago.Analyzer, error) {
+			return staticAnalyzer{status: katago.Status{Available: false, Error: "katago exited: missing runtime dependency"}}, nil
+		},
+		ServeConnection: func(ctx context.Context, serverURL string, token string, info worker.Info, engine katago.Analyzer, maxVisits int) error {
+			gotInfo = info
+			cancel()
+			return context.Canceled
+		},
+		Sleep: func(time.Duration) {},
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+	if gotInfo.Available || !strings.Contains(gotInfo.Error, "missing runtime dependency") {
+		t.Fatalf("info = %#v", gotInfo)
 	}
 }
 
@@ -106,4 +134,24 @@ func writeConfig(t *testing.T, dir string, modelLine string) {
 	if err := os.WriteFile(filepath.Join(dir, "config.json"), []byte(raw), 0o644); err != nil {
 		t.Fatal(err)
 	}
+}
+
+type staticAnalyzer struct {
+	status katago.Status
+}
+
+func (a staticAnalyzer) Analyze(context.Context, katago.Query) (katago.Result, error) {
+	return katago.Result{}, errors.New("not used")
+}
+
+func (a staticAnalyzer) Available() bool {
+	return a.status.Available
+}
+
+func (a staticAnalyzer) Status() katago.Status {
+	return a.status
+}
+
+func (a staticAnalyzer) Close() error {
+	return nil
 }

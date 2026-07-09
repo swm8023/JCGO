@@ -120,7 +120,16 @@ func TestCopyReleaseAssetsOverwritesRuntimeAssets(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(repo, "release-assets", "model"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(repo, "release-assets", "bin", "KataGoData"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.WriteFile(filepath.Join(repo, "release-assets", "katago.exe"), []byte("new-katago"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "release-assets", "bin", "OpenCL.dll"), []byte("runtime-dll"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repo, "release-assets", "bin", "KataGoData", "tune.txt"), []byte("runtime-data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(repo, "release-assets", "analysis_config.cfg"), []byte("new-config"), 0o644); err != nil {
@@ -142,6 +151,8 @@ func TestCopyReleaseAssetsOverwritesRuntimeAssets(t *testing.T) {
 	}
 
 	assertFile(t, filepath.Join(state, "bin", "katago.exe"), "new-katago")
+	assertFile(t, filepath.Join(state, "bin", "OpenCL.dll"), "runtime-dll")
+	assertFile(t, filepath.Join(state, "bin", "KataGoData", "tune.txt"), "runtime-data")
 	assertFile(t, filepath.Join(state, "config", "analysis_config.cfg"), "new-config")
 	assertFile(t, filepath.Join(state, "model", "model.bin.gz"), "new-model")
 }

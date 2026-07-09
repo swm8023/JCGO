@@ -136,6 +136,9 @@ func CopyReleaseAssets(opts Options) error {
 	opts = resolve(opts)
 	state := StateDir(opts)
 	assets := filepath.Join(opts.RepoRoot, "release-assets")
+	if err := copyOptionalDir(filepath.Join(assets, "bin"), filepath.Join(state, "bin")); err != nil {
+		return err
+	}
 	if err := copyOptionalFile(filepath.Join(assets, "katago.exe"), filepath.Join(state, "bin", "katago.exe")); err != nil {
 		return err
 	}
@@ -282,6 +285,20 @@ func copyOptionalFile(src string, dst string) error {
 		return fmt.Errorf("stat %s: %w", src, err)
 	}
 	return copyFile(src, dst)
+}
+
+func copyOptionalDir(src string, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("stat %s: %w", src, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("source is not a directory: %s", src)
+	}
+	return copyDir(src, dst)
 }
 
 func copyFile(src string, dst string) error {

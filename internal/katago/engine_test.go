@@ -3,9 +3,19 @@ package katago
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
+	"time"
 )
+
+func TestMain(m *testing.M) {
+	if os.Getenv("JCGO_TEST_KATAGO_HELPER") == "exit-with-stderr" {
+		_, _ = os.Stderr.WriteString("katago helper: missing runtime dependency\n")
+		os.Exit(2)
+	}
+	os.Exit(m.Run())
+}
 
 func TestBuildQueryUsesBlackPerspectiveInitialPlayerAndInitialStones(t *testing.T) {
 	query := BuildQuery(BuildInput{
@@ -103,5 +113,39 @@ func TestUnavailableEngineReturnsError(t *testing.T) {
 	_, err := engine.Analyze(context.Background(), Query{ID: "q-1"})
 	if err == nil {
 		t.Fatal("Analyze returned nil error")
+	}
+}
+
+func TestLocalEngineReportsKatagoStderrAfterProcessExit(t *testing.T) {
+	t.Setenv("JCGO_TEST_KATAGO_HELPER", "exit-with-stderr")
+	engine, err := StartLocal(context.Background(), os.Args[0], "model.bin.gz", "analysis.cfg")
+	if err != nil {
+		t.Fatalf("StartLocal returned error: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = engine.Close()
+	})
+
+	time.Sleep(50 * time.Millisecond)
+	if engine.Available() {
+		t.Fatal("Available = true after KataGo process exited")
+	}
+	status := engine.Status()
+	if status.Available {
+		t.Fatalf("status = %#v, want unavailable", status)
+	}
+	if !strings.Contains(status.Error, "missing runtime dependency") {
+		t.Fatalf("status error = %q, want stderr details", status.Error)
+	}
+
+	_, err = engine.Analyze(context.Background(), Query{ID: "q-1"})
+	if err == nil {
+		t.Fatal("Analyze returned nil error")
+	}
+	if !strings.Contains(err.Error(), "katago exited") {
+		t.Fatalf("error = %q, want katago exited context", err)
+	}
+	if !strings.Contains(err.Error(), "missing runtime dependency") {
+		t.Fatalf("error = %q, want stderr details", err)
 	}
 }

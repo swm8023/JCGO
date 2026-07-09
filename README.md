@@ -24,7 +24,11 @@ Put optional runtime assets under `release-assets` before deploying:
 
 ```text
 release-assets/
-  katago.exe
+  bin/
+    katago.exe
+    *.dll
+    KataGoData/
+  katago.exe        # optional legacy override
   analysis_config.cfg
   model/
     your-model.bin.gz

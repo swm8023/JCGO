@@ -101,9 +101,16 @@ func run(ctx context.Context, opts runOptions) error {
 			opts.Logger.Printf("katago unavailable: %v", engineErr)
 		} else {
 			engine = started
-			available = true
 			defer engine.Close()
-			opts.Logger.Printf("katago started: path=%s model=%s config=%s", cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
+			opts.Sleep(300 * time.Millisecond)
+			status := engine.Status()
+			available = status.Available
+			errorMessage = status.Error
+			if available {
+				opts.Logger.Printf("katago started: path=%s model=%s config=%s", cfg.KatagoPath, cfg.ModelPath, cfg.AnalysisConfigPath)
+			} else {
+				opts.Logger.Printf("katago unavailable after start: %s", errorMessage)
+			}
 		}
 	}
 

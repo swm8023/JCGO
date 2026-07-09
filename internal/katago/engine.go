@@ -2,11 +2,14 @@ package katago
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 )
 
@@ -76,10 +79,13 @@ func (u unavailable) Close() error {
 }
 
 type localEngine struct {
-	mu     sync.Mutex
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout *bufio.Reader
+	mu       sync.Mutex
+	cmd      *exec.Cmd
+	stdin    io.WriteCloser
+	stdout   *bufio.Reader
+	stderr   *lockedBuffer
+	waitDone chan struct{}
+	waitErr  error
 }
 
 func StartLocal(ctx context.Context, katagoPath, modelPath, configPath string) (Analyzer, error) {
@@ -92,11 +98,32 @@ func StartLocal(ctx context.Context, katagoPath, modelPath, configPath string) (
 	if err != nil {
 		return nil, err
 	}
-	cmd.Stderr = io.Discard
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+	stderr := &lockedBuffer{}
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	return &localEngine{cmd: cmd, stdin: stdin, stdout: bufio.NewReader(stdout)}, nil
+	stderrDone := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(stderr, stderrPipe)
+		close(stderrDone)
+	}()
+	engine := &localEngine{
+		cmd:      cmd,
+		stdin:    stdin,
+		stdout:   bufio.NewReader(stdout),
+		stderr:   stderr,
+		waitDone: make(chan struct{}),
+	}
+	go func() {
+		<-stderrDone
+		engine.waitErr = cmd.Wait()
+		close(engine.waitDone)
+	}()
+	return engine, nil
 }
 
 func (e *localEngine) Analyze(ctx context.Context, query Query) (Result, error) {
@@ -112,7 +139,7 @@ func (e *localEngine) AnalyzeWithProgress(ctx context.Context, query Query, prog
 		return Result{}, err
 	}
 	if _, err := e.stdin.Write(append(data, '\n')); err != nil {
-		return Result{}, err
+		return Result{}, e.withProcessExit(err)
 	}
 	for {
 		if err := ctx.Err(); err != nil {
@@ -120,7 +147,7 @@ func (e *localEngine) AnalyzeWithProgress(ctx context.Context, query Query, prog
 		}
 		line, err := e.stdout.ReadBytes('\n')
 		if err != nil {
-			return Result{}, err
+			return Result{}, e.withProcessExit(err)
 		}
 		var result Result
 		if err := json.Unmarshal(line, &result); err != nil {
@@ -140,10 +167,14 @@ func (e *localEngine) AnalyzeWithProgress(ctx context.Context, query Query, prog
 }
 
 func (e *localEngine) Available() bool {
-	return true
+	_, exited := e.exitStatus()
+	return !exited
 }
 
 func (e *localEngine) Status() Status {
+	if err, exited := e.exitStatus(); exited {
+		return Status{Available: false, Error: e.exitMessage(err)}
+	}
 	return Status{Available: true}
 }
 
@@ -152,5 +183,60 @@ func (e *localEngine) Close() error {
 	if e.cmd.Process != nil {
 		_ = e.cmd.Process.Kill()
 	}
-	return e.cmd.Wait()
+	<-e.waitDone
+	return e.waitErr
+}
+
+func (e *localEngine) exitStatus() (error, bool) {
+	select {
+	case <-e.waitDone:
+		return e.waitErr, true
+	default:
+		return nil, false
+	}
+}
+
+func (e *localEngine) withProcessExit(err error) error {
+	if waitErr, exited := e.exitStatus(); exited {
+		return errors.New(e.exitMessage(firstError(waitErr, err)))
+	}
+	return err
+}
+
+func (e *localEngine) exitMessage(err error) string {
+	stderr := strings.TrimSpace(e.stderr.String())
+	if stderr != "" {
+		if err != nil {
+			return fmt.Sprintf("katago exited: %s: %v", stderr, err)
+		}
+		return fmt.Sprintf("katago exited: %s", stderr)
+	}
+	if err != nil {
+		return fmt.Sprintf("katago exited: %v", err)
+	}
+	return "katago exited"
+}
+
+func firstError(primary error, fallback error) error {
+	if primary != nil {
+		return primary
+	}
+	return fallback
+}
+
+type lockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
