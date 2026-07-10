@@ -14,17 +14,18 @@ import (
 )
 
 type GameRecord struct {
-	ID             string    `json:"gameId"`
-	DisplayName    string    `json:"displayName"`
-	Result         string    `json:"result"`
-	GameDate       string    `json:"gameDate,omitempty"`
-	BlackName      string    `json:"blackName,omitempty"`
-	WhiteName      string    `json:"whiteName,omitempty"`
-	SGFFilename    string    `json:"sgfFilename"`
-	CreatedAt      time.Time `json:"createdAt"`
-	AnalysisStatus string    `json:"analysisStatus,omitempty"`
-	SourcePlatform string    `json:"-"`
-	SourceID       string    `json:"-"`
+	ID                 string    `json:"gameId"`
+	DisplayName        string    `json:"displayName"`
+	Result             string    `json:"result"`
+	GameDate           string    `json:"gameDate,omitempty"`
+	BlackName          string    `json:"blackName,omitempty"`
+	WhiteName          string    `json:"whiteName,omitempty"`
+	AnalysisWorkerName string    `json:"analysisWorkerName,omitempty"`
+	SGFFilename        string    `json:"sgfFilename"`
+	CreatedAt          time.Time `json:"createdAt"`
+	AnalysisStatus     string    `json:"analysisStatus,omitempty"`
+	SourcePlatform     string    `json:"-"`
+	SourceID           string    `json:"-"`
 }
 
 type CreateGameInput struct {
@@ -90,16 +91,17 @@ func (r *Repository) CreateGame(ctx context.Context, input CreateGameInput) (Gam
 		sgfFilename = id + ".sgf"
 	}
 	game := GameRecord{
-		ID:             id,
-		DisplayName:    input.DisplayName,
-		Result:         input.Result,
-		GameDate:       input.GameDate,
-		BlackName:      input.BlackName,
-		WhiteName:      input.WhiteName,
-		SGFFilename:    sgfFilename,
-		CreatedAt:      time.Now().UTC(),
-		SourcePlatform: strings.TrimSpace(input.SourcePlatform),
-		SourceID:       strings.TrimSpace(input.SourceID),
+		ID:                 id,
+		DisplayName:        input.DisplayName,
+		Result:             input.Result,
+		GameDate:           input.GameDate,
+		BlackName:          input.BlackName,
+		WhiteName:          input.WhiteName,
+		AnalysisWorkerName: "",
+		SGFFilename:        sgfFilename,
+		CreatedAt:          time.Now().UTC(),
+		SourcePlatform:     strings.TrimSpace(input.SourcePlatform),
+		SourceID:           strings.TrimSpace(input.SourceID),
 	}
 	_, err = r.db.ExecContext(ctx, `
 		INSERT INTO games (id, display_name, result, game_date, black_name, white_name, sgf_filename, created_at, source_platform, source_id)
@@ -113,7 +115,7 @@ func (r *Repository) CreateGame(ctx context.Context, input CreateGameInput) (Gam
 
 func (r *Repository) ListGames(ctx context.Context) ([]GameRecord, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, display_name, result, game_date, black_name, white_name, sgf_filename, created_at, source_platform, source_id
+		SELECT id, display_name, result, game_date, black_name, white_name, analysis_worker_name, sgf_filename, created_at, source_platform, source_id
 		FROM games
 		ORDER BY created_at DESC
 	`)
@@ -138,7 +140,7 @@ func (r *Repository) ListGames(ctx context.Context) ([]GameRecord, error) {
 
 func (r *Repository) GetGame(ctx context.Context, id string) (GameRecord, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, display_name, result, game_date, black_name, white_name, sgf_filename, created_at, source_platform, source_id
+		SELECT id, display_name, result, game_date, black_name, white_name, analysis_worker_name, sgf_filename, created_at, source_platform, source_id
 		FROM games
 		WHERE id = ?
 	`, id)
@@ -152,7 +154,7 @@ func (r *Repository) FindGameBySource(ctx context.Context, platform, sourceID st
 		return GameRecord{}, false, nil
 	}
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, display_name, result, game_date, black_name, white_name, sgf_filename, created_at, source_platform, source_id
+		SELECT id, display_name, result, game_date, black_name, white_name, analysis_worker_name, sgf_filename, created_at, source_platform, source_id
 		FROM games
 		WHERE source_platform = ? AND source_id = ?
 	`, platform, sourceID)
@@ -192,6 +194,19 @@ func (r *Repository) UpdateGameMetadata(ctx context.Context, id, gameDate, black
 
 func (r *Repository) DeleteGame(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx, `DELETE FROM games WHERE id = ?`, id)
+	if err != nil {
+		return err
+	}
+	return requireAffected(result)
+}
+
+func (r *Repository) UpdateGameAnalysisWorker(ctx context.Context, id, workerName string) error {
+	workerName = strings.TrimSpace(workerName)
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE games
+		SET analysis_worker_name = ?
+		WHERE id = ?
+	`, workerName, id)
 	if err != nil {
 		return err
 	}
@@ -299,6 +314,9 @@ func (r *Repository) migrate(ctx context.Context) error {
 	if err := r.ensureColumn(ctx, "white_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
+	if err := r.ensureColumn(ctx, "analysis_worker_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
+		return err
+	}
 	if err := r.ensureColumn(ctx, "source_platform", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
@@ -338,6 +356,7 @@ func scanGame(scanner gameScanner) (GameRecord, error) {
 		&game.GameDate,
 		&game.BlackName,
 		&game.WhiteName,
+		&game.AnalysisWorkerName,
 		&game.SGFFilename,
 		&createdAt,
 		&game.SourcePlatform,

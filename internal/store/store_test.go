@@ -196,6 +196,42 @@ func TestRepositoryStoresWorkerConfigsWithDefaults(t *testing.T) {
 	}
 }
 
+func TestRepositoryStoresGameAnalysisWorkerName(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+
+	game, err := repo.CreateGame(ctx, CreateGameInput{DisplayName: "Demo", Result: "B+R"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if game.AnalysisWorkerName != "" {
+		t.Fatalf("new game analysis worker = %q", game.AnalysisWorkerName)
+	}
+
+	if err := repo.UpdateGameAnalysisWorker(ctx, game.ID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.GetGame(ctx, game.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.AnalysisWorkerName != "local-gpu" {
+		t.Fatalf("stored worker = %q", stored.AnalysisWorkerName)
+	}
+	listed, err := repo.ListGames(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].AnalysisWorkerName != "local-gpu" {
+		t.Fatalf("listed games = %#v", listed)
+	}
+}
+
 func TestRepositoryMigratesExistingGamesTableWithSourceColumns(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
