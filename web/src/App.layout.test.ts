@@ -57,14 +57,20 @@ describe('right rail layout', () => {
     expect(app).toContain("import { computeSideActionPlacement")
     expect(app).toContain("const appLayoutClass = sideActionPlacement.enabled ? 'app-layout side-action-layout' : 'app-layout'")
     expect(app).toContain('boardStageLeft: stageRect.left - layoutRect.left')
+    expect(app).toContain('boardStageTop: stageRect.top - layoutRect.top')
     expect(app).toContain('boardStageWidth: stageRect.width')
     expect(app).toContain('const actionRect = actionRailRef.current?.getBoundingClientRect()')
-    expect(app).toContain('const boardActionHeight = Math.max(0, layoutRect.height - (stageRect.top - layoutRect.top) - horizontalActionHeight(actionRect) - analysisMinimumHeight(layout, stageRect.width))')
+    expect(app).toContain('const boardActionHeight = Math.max(0, layoutRect.height - (stageRect.top - layoutRect.top) - actionHeight - analysisMinimumHeight(layout, stageRect.width))')
     expect(app).toContain('boardStageHeight: boardActionHeight')
     expect(app).toContain('ref={layoutRef}')
     expect(app).toContain('ref={boardStageRef}')
     expect(app).toContain('ref={boardFrameRef}')
     expect(app).toContain('ref={actionRailRef}')
+  })
+
+  it('does not subtract the vertical side rail from available board height', () => {
+    expect(app).toContain('const actionHeight = sideActionEnabledRef.current ? 0 : horizontalActionHeight(actionRect)')
+    expect(app).toContain('const boardActionHeight = Math.max(0, layoutRect.height - (stageRect.top - layoutRect.top) - actionHeight - analysisMinimumHeight(layout, stageRect.width))')
   })
 
   it('derives the analysis minimum height from CSS variables', () => {

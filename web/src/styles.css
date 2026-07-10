@@ -1540,7 +1540,7 @@ textarea:focus-visible {
   position: absolute;
   left: var(--side-action-left, 0px);
   top: var(--side-action-top, 0px);
-  width: var(--side-action-width, 42px);
+  width: var(--side-action-width, 36px);
   transform: translateY(-50%);
   align-content: center;
   justify-content: center;
@@ -1567,42 +1567,43 @@ textarea:focus-visible {
 }
 
 .side-action-layout .navigation-controls {
-  width: var(--side-action-width, 42px);
-  max-width: var(--side-action-width, 42px);
+  width: var(--side-action-width, 36px);
+  max-width: var(--side-action-width, 36px);
   box-sizing: border-box;
   grid-auto-flow: row;
-  grid-auto-rows: minmax(30px, auto);
+  grid-auto-rows: var(--side-action-row-height, 36px);
   grid-auto-columns: auto;
   grid-template-columns: 1fr;
   justify-content: center;
   gap: 3px;
-  padding: 3px 5px;
+  padding: 3px 0;
   overflow: visible;
 }
 
-.side-action-layout .navigation-controls button {
-  width: 32px;
-  min-width: 32px;
-  max-width: 32px;
-  height: 30px;
+.side-action-layout .navigation-controls button,
+.side-action-layout .navigation-controls .try-action-button,
+.side-action-layout .move-number-stone {
+  width: var(--side-action-row-height, 36px);
+  min-width: var(--side-action-row-height, 36px);
+  max-width: var(--side-action-row-height, 36px);
+  height: var(--side-action-row-height, 36px);
+  box-sizing: border-box;
+  justify-self: center;
   padding: 0;
   border-radius: 999px;
   text-overflow: clip;
 }
 
 .side-action-layout .navigation-controls .try-action-button {
-  width: 30px;
-  min-width: 30px;
-  max-width: 30px;
-  height: 30px;
-  padding: 0;
-  font-size: 14px;
+  font-size: clamp(14px, 2.8cqw, 17px);
 }
 
 .side-action-layout .move-number-stone {
-  width: 30px;
-  height: 30px;
-  font-size: 11px;
+  font-size: clamp(11px, 2.2cqw, 14px);
+}
+
+.side-action-layout .navigation-controls button:not(.try-action-button) {
+  font-size: clamp(12px, 2.4cqw, 15px);
 }
 
 .move-number-stone {

@@ -1,17 +1,21 @@
-export const sideActionRailWidth = 42
-export const sideActionRailHeight = 267
-export const sideActionRowHeight = 0
 export const sideActionEdgeGap = 12
 export const sideActionGap = 18
 
 const viewportEdgeGap = 4
 const fullWidthEnterTolerance = 2
 const fullWidthExitTolerance = 2
+const sideActionControlMin = 36
+const sideActionControlMax = 44
+const sideActionBoardRatio = 0.09
+const sideActionControlCount = 8
+const sideActionControlGap = 3
+const sideActionVerticalPadding = 6
 
 export interface SideActionMeasurement {
   layoutWidth: number
   layoutHeight: number
   boardStageLeft: number
+  boardStageTop?: number
   boardStageWidth: number
   boardStageHeight: number
   boardStageRight: number
@@ -37,23 +41,41 @@ export function computeSideActionPlacement(measurement: SideActionMeasurement, c
   const requiredFullWidthHeight = measurement.boardStageWidth + (currentlyEnabled ? fullWidthExitTolerance : -fullWidthEnterTolerance)
   if (measurement.boardStageHeight >= requiredFullWidthHeight) return disabled
 
-  const railSpace = sideActionGap + sideActionRailWidth
+  const controlSize = sideActionControlSize(measurement)
+  const railWidth = controlSize
+  const railHeight = sideActionRailHeight(controlSize)
+  const railSpace = sideActionGap + railWidth
   const boardSize = Math.min(measurement.boardHeight, Math.max(0, measurement.boardStageWidth - railSpace))
   if (boardSize <= 0) return disabled
 
   const preferredLeft = measurement.boardRight + sideActionGap
   const preferredTop = measurement.boardTop + measurement.boardHeight / 2
-  const minTop = sideActionRailHeight / 2 + viewportEdgeGap
-  const maxTop = measurement.layoutHeight - sideActionRailHeight / 2 - viewportEdgeGap
+  const minTop = (measurement.boardStageTop ?? 0) + railHeight / 2 + viewportEdgeGap
+  const maxTop = measurement.layoutHeight - railHeight / 2 - viewportEdgeGap
   return {
     enabled: true,
-    left: Math.max(0, Math.min(preferredLeft, measurement.layoutWidth - sideActionEdgeGap - sideActionRailWidth)),
+    left: Math.max(0, Math.min(preferredLeft, measurement.layoutWidth - sideActionEdgeGap - railWidth)),
     top: Math.max(minTop, Math.min(preferredTop, maxTop)),
-    width: sideActionRailWidth,
-    rowHeight: sideActionRowHeight,
+    width: railWidth,
+    rowHeight: controlSize,
   }
 }
 
+function sideActionControlSize(measurement: SideActionMeasurement) {
+  const proportionalSize = Math.round(measurement.boardHeight * sideActionBoardRatio)
+  const fixedRailSpace = viewportEdgeGap * 2
+    + sideActionVerticalPadding
+    + sideActionControlGap * (sideActionControlCount - 1)
+  const heightLimitedSize = Math.floor((measurement.layoutHeight - fixedRailSpace) / sideActionControlCount)
+  return Math.max(sideActionControlMin, Math.min(sideActionControlMax, proportionalSize, heightLimitedSize))
+}
+
+function sideActionRailHeight(controlSize: number) {
+  return controlSize * sideActionControlCount
+    + sideActionControlGap * (sideActionControlCount - 1)
+    + sideActionVerticalPadding
+}
+
 function disabledPlacement(): SideActionPlacement {
-  return { enabled: false, left: 0, top: 0, width: sideActionRailWidth, rowHeight: sideActionRowHeight }
+  return { enabled: false, left: 0, top: 0, width: sideActionControlMin, rowHeight: sideActionControlMin }
 }

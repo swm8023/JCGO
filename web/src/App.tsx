@@ -293,11 +293,13 @@ export default function App() {
       const stageRect = boardStage.getBoundingClientRect()
       const boardRect = board.getBoundingClientRect()
       const actionRect = actionRailRef.current?.getBoundingClientRect()
-      const boardActionHeight = Math.max(0, layoutRect.height - (stageRect.top - layoutRect.top) - horizontalActionHeight(actionRect) - analysisMinimumHeight(layout, stageRect.width))
+      const actionHeight = sideActionEnabledRef.current ? 0 : horizontalActionHeight(actionRect)
+      const boardActionHeight = Math.max(0, layoutRect.height - (stageRect.top - layoutRect.top) - actionHeight - analysisMinimumHeight(layout, stageRect.width))
       const next = computeSideActionPlacement({
         layoutWidth: layoutRect.width,
         layoutHeight: layoutRect.height,
         boardStageLeft: stageRect.left - layoutRect.left,
+        boardStageTop: stageRect.top - layoutRect.top,
         boardStageWidth: stageRect.width,
         boardStageHeight: boardActionHeight,
         boardStageRight: stageRect.right - layoutRect.left,

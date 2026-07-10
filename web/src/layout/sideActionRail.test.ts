@@ -3,8 +3,6 @@ import {
   computeSideActionPlacement,
   sideActionEdgeGap,
   sideActionGap,
-  sideActionRailHeight,
-  sideActionRailWidth,
 } from './sideActionRail'
 
 describe('side action rail placement', () => {
@@ -38,9 +36,64 @@ describe('side action rail placement', () => {
     }, false)
 
     expect(placement.enabled).toBe(true)
-    expect(placement.width).toBe(sideActionRailWidth)
+    expect(placement.width).toBe(36)
+    expect(placement.rowHeight).toBe(36)
     expect(placement.left).toBe(316 + sideActionGap)
     expect(placement.top).toBe(52 + 316 / 2)
+  })
+
+  it('scales side controls to nine percent of the measured board edge', () => {
+    const placement = computeSideActionPlacement({
+      layoutWidth: 600,
+      layoutHeight: 720,
+      boardStageLeft: 0,
+      boardStageWidth: 600,
+      boardStageHeight: 500,
+      boardStageRight: 600,
+      boardRight: 522,
+      boardTop: 69,
+      boardHeight: 444,
+    }, false)
+
+    expect(placement.enabled).toBe(true)
+    expect(placement.rowHeight).toBe(40)
+    expect(placement.width).toBe(40)
+  })
+
+  it('caps proportional side controls at 44px', () => {
+    const placement = computeSideActionPlacement({
+      layoutWidth: 800,
+      layoutHeight: 900,
+      boardStageLeft: 0,
+      boardStageWidth: 800,
+      boardStageHeight: 650,
+      boardStageRight: 800,
+      boardRight: 650,
+      boardTop: 70,
+      boardHeight: 600,
+    }, false)
+
+    expect(placement.enabled).toBe(true)
+    expect(placement.rowHeight).toBe(44)
+    expect(placement.width).toBe(44)
+  })
+
+  it('limits proportional side controls so the full rail fits the app height', () => {
+    const placement = computeSideActionPlacement({
+      layoutWidth: 800,
+      layoutHeight: 360,
+      boardStageLeft: 0,
+      boardStageWidth: 800,
+      boardStageHeight: 300,
+      boardStageRight: 800,
+      boardRight: 650,
+      boardTop: 0,
+      boardHeight: 600,
+    }, false)
+
+    expect(placement.enabled).toBe(true)
+    expect(placement.rowHeight).toBe(40)
+    expect(placement.width).toBe(40)
   })
 
   it('places the right-side action rail beside the measured board with a comfortable gap', () => {
@@ -124,7 +177,28 @@ describe('side action rail placement', () => {
     }, false)
 
     expect(placement.enabled).toBe(true)
-    expect(placement.left).toBeLessThanOrEqual(840 - sideActionEdgeGap - sideActionRailWidth)
-    expect(placement.top).toBeGreaterThanOrEqual(sideActionRailHeight / 2 + 4)
+    expect(placement.left).toBeLessThanOrEqual(840 - sideActionEdgeGap - placement.width)
+    const railHeight = placement.rowHeight * 8 + 27
+    expect(placement.top).toBeGreaterThanOrEqual(railHeight / 2 + 4)
+  })
+
+  it('keeps the vertical controls below the workspace topbar', () => {
+    const measurement = {
+      layoutWidth: 360,
+      layoutHeight: 480,
+      boardStageLeft: 0,
+      boardStageTop: 44,
+      boardStageWidth: 360,
+      boardStageHeight: 208,
+      boardStageRight: 360,
+      boardRight: 288,
+      boardTop: 73,
+      boardHeight: 216,
+    }
+    const placement = computeSideActionPlacement(measurement, true)
+    const railHeight = placement.rowHeight * 8 + 27
+
+    expect(placement.enabled).toBe(true)
+    expect(placement.top).toBeGreaterThanOrEqual(measurement.boardStageTop + railHeight / 2 + 4)
   })
 })
