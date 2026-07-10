@@ -367,7 +367,7 @@ func (h *Handler) play(ctx context.Context, token string, params json.RawMessage
 	}
 	snapshot, err := ws.Play(in.GameID, in.Move)
 	if err == nil {
-		h.analyzeCurrentNode(token, ws, in.GameID, snapshot.NodeID)
+		h.analyzeCurrentNode(ctx, token, ws, in.GameID, snapshot.NodeID)
 	}
 	if err != nil {
 		return nil, err
@@ -386,7 +386,7 @@ func (h *Handler) pass(ctx context.Context, token string, params json.RawMessage
 	}
 	snapshot, err := ws.Pass(in.GameID)
 	if err == nil {
-		h.analyzeCurrentNode(token, ws, in.GameID, snapshot.NodeID)
+		h.analyzeCurrentNode(ctx, token, ws, in.GameID, snapshot.NodeID)
 	}
 	if err != nil {
 		return nil, err
@@ -605,7 +605,7 @@ func (h *Handler) ensureWorkspaceGame(ctx context.Context, token string, gameID 
 	return ws, nil
 }
 
-func (h *Handler) analyzeCurrentNode(token string, ws *Workspace, gameID string, nodeID string) {
+func (h *Handler) analyzeCurrentNode(ctx context.Context, token string, ws *Workspace, gameID string, nodeID string) {
 	if h.analysis == nil {
 		return
 	}
@@ -613,9 +613,15 @@ func (h *Handler) analyzeCurrentNode(token string, ws *Workspace, gameID string,
 	if !ok || input.NodeID != nodeID {
 		return
 	}
+	workerName, err := h.requireGameAnalysisWorker(ctx, gameID)
+	if err != nil {
+		ws.SetAnalysisError(gameID, err.Error())
+		return
+	}
 	h.analysis.AnalyzeNow(StartInput{
 		Token:       token,
 		GameID:      gameID,
+		WorkerName:  workerName,
 		FocusNodeID: nodeID,
 		Nodes:       []NodeInput{input},
 	})

@@ -28,6 +28,10 @@ func (f *fakeAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.
 	}, nil
 }
 
+func (f *fakeAnalyzer) AnalyzeWithWorker(ctx context.Context, workerName string, query katago.Query) (katago.Result, error) {
+	return f.Analyze(ctx, query)
+}
+
 func (f *fakeAnalyzer) Available() bool { return true }
 func (f *fakeAnalyzer) Status() katago.Status {
 	return katago.Status{Available: true}

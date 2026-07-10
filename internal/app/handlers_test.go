@@ -326,13 +326,16 @@ func TestAnalysisStartStoresResultInWorkspace(t *testing.T) {
 	workspaces := NewWorkspaceStore()
 	scheduler := NewScheduler(&fakeAnalyzer{})
 	defer scheduler.Close()
-	handler := NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), workspaces, scheduler)
+	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), workspaces, scheduler, handlerOptionsWithWorker("local-gpu"))
 
 	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","sgfText":"(;GM[1]FF[4]SZ[19];B[pd])"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	gameID := result.(ImportResult).Game.ID
+	if err := repo.UpdateGameAnalysisWorker(ctx, gameID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := handler.Call(ctx, "secret", "analysis.start", json.RawMessage(`{"gameId":"`+gameID+`"}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -366,13 +369,16 @@ func TestAnalysisResultsPersistNextToSGFAndReloadInNewWorkspace(t *testing.T) {
 	files := store.NewFileStore(filepath.Join(dir, "games"))
 	scheduler := NewScheduler(&fakeAnalyzer{})
 	defer scheduler.Close()
-	handler := NewHandler(repo, files, NewWorkspaceStore(), scheduler)
+	handler := NewHandlerWithOptions(repo, files, NewWorkspaceStore(), scheduler, handlerOptionsWithWorker("local-gpu"))
 
 	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","sgfText":"(;GM[1]FF[4]SZ[19];B[pd];W[dd])"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	imported := result.(ImportResult)
+	if err := repo.UpdateGameAnalysisWorker(ctx, imported.Game.ID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := handler.Call(ctx, "secret", "analysis.start", json.RawMessage(`{"gameId":"`+imported.Game.ID+`"}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -405,11 +411,14 @@ func TestAnalysisResultsPersistNextToSGFAndReloadInNewWorkspace(t *testing.T) {
 }
 
 func TestAnalysisStartSchedulesOnlyMissingPersistedMainlineNodes(t *testing.T) {
-	h, token := newTestHandler(t)
+	h, token := newTestHandlerWithWorker(t, "local-gpu")
 	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
 		"displayName": "Demo",
 		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd];W[dd])",
 	})
+	if err := h.repo.UpdateGameAnalysisWorker(context.Background(), imported.Game.ID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := h.files.WriteAnalysis(imported.Game.SGFFilename, []byte(`{
 		"schema":1,
 		"gameId":"`+imported.Game.ID+`",
@@ -420,7 +429,7 @@ func TestAnalysisStartSchedulesOnlyMissingPersistedMainlineNodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	recorder := &recordingAnalysisController{}
-	reloaded := NewHandler(h.repo, h.files, NewWorkspaceStore(), recorder)
+	reloaded := NewHandlerWithOptions(h.repo, h.files, NewWorkspaceStore(), recorder, handlerOptionsWithWorker("local-gpu"))
 	_ = callResult[StatePayload](t, reloaded, token, "game.select", map[string]any{"gameId": imported.Game.ID})
 
 	_ = callResult[StatePayload](t, reloaded, token, "analysis.start", map[string]any{"gameId": imported.Game.ID})
@@ -435,16 +444,19 @@ func TestAnalysisStartSchedulesOnlyMissingPersistedMainlineNodes(t *testing.T) {
 }
 
 func TestAnalysisRestartDeletesPersistedAnalysisAndSchedulesAllMainlineNodes(t *testing.T) {
-	h, token := newTestHandler(t)
+	h, token := newTestHandlerWithWorker(t, "local-gpu")
 	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
 		"displayName": "Demo",
 		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd];W[dd])",
 	})
+	if err := h.repo.UpdateGameAnalysisWorker(context.Background(), imported.Game.ID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := h.files.WriteAnalysis(imported.Game.SGFFilename, []byte(`{"schema":1,"gameId":"`+imported.Game.ID+`","nodes":{"main:0":{"root":{"visits":10}}}}`)); err != nil {
 		t.Fatal(err)
 	}
 	recorder := &recordingAnalysisController{}
-	reloaded := NewHandler(h.repo, h.files, NewWorkspaceStore(), recorder)
+	reloaded := NewHandlerWithOptions(h.repo, h.files, NewWorkspaceStore(), recorder, handlerOptionsWithWorker("local-gpu"))
 	_ = callResult[StatePayload](t, reloaded, token, "game.select", map[string]any{"gameId": imported.Game.ID})
 
 	_ = callResult[StatePayload](t, reloaded, token, "analysis.restart", map[string]any{"gameId": imported.Game.ID})
@@ -472,13 +484,16 @@ func TestPlayVariationQueuesAnalysisForCurrentNode(t *testing.T) {
 	workspaces := NewWorkspaceStore()
 	scheduler := NewScheduler(&fakeAnalyzer{})
 	defer scheduler.Close()
-	handler := NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), workspaces, scheduler)
+	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), workspaces, scheduler, handlerOptionsWithWorker("local-gpu"))
 
 	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","sgfText":"(;GM[1]FF[4]SZ[19];B[pd];W[dd])"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	gameID := result.(ImportResult).Game.ID
+	if err := repo.UpdateGameAnalysisWorker(ctx, gameID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := handler.Call(ctx, "secret", "game.goto", json.RawMessage(`{"gameId":"`+gameID+`","moveNumber":1}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -798,6 +813,60 @@ func TestAnalysisStartRejectsUnavailableSelectedWorker(t *testing.T) {
 	}
 }
 
+func TestAnalysisRestartPassesSelectedWorker(t *testing.T) {
+	h, token := newTestHandlerWithWorker(t, "local-gpu")
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd];W[dd])",
+	})
+	if err := h.repo.UpdateGameAnalysisWorker(context.Background(), imported.Game.ID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
+	recorder := &recordingAnalysisController{}
+	h.analysis = recorder
+
+	_ = callResult[StatePayload](t, h, token, "analysis.restart", map[string]any{"gameId": imported.Game.ID})
+	if len(recorder.restarted) != 1 || recorder.restarted[0].WorkerName != "local-gpu" {
+		t.Fatalf("restarted = %#v", recorder.restarted)
+	}
+}
+
+func TestPlayQueuesCurrentNodeWithSelectedWorker(t *testing.T) {
+	h, token := newTestHandlerWithWorker(t, "local-gpu")
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd])",
+	})
+	if err := h.repo.UpdateGameAnalysisWorker(context.Background(), imported.Game.ID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
+	recorder := &recordingAnalysisController{}
+	h.analysis = recorder
+
+	_ = callResult[StatePayload](t, h, token, "game.play", map[string]any{"gameId": imported.Game.ID, "move": "D4"})
+	if len(recorder.analyzedNow) != 1 || recorder.analyzedNow[0].WorkerName != "local-gpu" {
+		t.Fatalf("analyzedNow = %#v", recorder.analyzedNow)
+	}
+}
+
+func TestPassQueuesCurrentNodeWithSelectedWorker(t *testing.T) {
+	h, token := newTestHandlerWithWorker(t, "local-gpu")
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd])",
+	})
+	if err := h.repo.UpdateGameAnalysisWorker(context.Background(), imported.Game.ID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
+	recorder := &recordingAnalysisController{}
+	h.analysis = recorder
+
+	_ = callResult[StatePayload](t, h, token, "game.pass", map[string]any{"gameId": imported.Game.ID})
+	if len(recorder.analyzedNow) != 1 || recorder.analyzedNow[0].WorkerName != "local-gpu" {
+		t.Fatalf("analyzedNow = %#v", recorder.analyzedNow)
+	}
+}
+
 func TestAnalysisUpdateNotificationContainsFullState(t *testing.T) {
 	h, token := newTestHandler(t)
 	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
@@ -823,13 +892,16 @@ func TestAnalysisNotificationPushesFullWorkspaceState(t *testing.T) {
 	defer repo.Close()
 	scheduler := NewScheduler(&fakeAnalyzer{})
 	defer scheduler.Close()
-	handler := NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), scheduler)
+	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), scheduler, handlerOptionsWithWorker("local-gpu"))
 
 	result, err := handler.Call(ctx, "secret", "game.importSgf", json.RawMessage(`{"displayName":"Demo","sgfText":"(;GM[1]FF[4]SZ[19];B[pd])"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	gameID := result.(ImportResult).Game.ID
+	if err := repo.UpdateGameAnalysisWorker(ctx, gameID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
 
 	srv := httptest.NewServer(server.New(server.Config{AccessToken: "secret"}, handler).Handler())
 	defer srv.Close()
@@ -890,6 +962,36 @@ func newTestHandler(t *testing.T) (*Handler, string) {
 	}
 	t.Cleanup(func() { _ = repo.Close() })
 	return NewHandler(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil), "secret"
+}
+
+func newTestHandlerWithWorker(t *testing.T, workerName string) (*Handler, string) {
+	t.Helper()
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = repo.Close() })
+	return NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil, handlerOptionsWithWorker(workerName)), "secret"
+}
+
+func handlerOptionsWithWorker(workerName string) HandlerOptions {
+	return HandlerOptions{
+		WorkerStatusProvider: fakeWorkerStatusProvider{status: workerStatusFor(workerName)},
+	}
+}
+
+func workerStatusFor(workerName string) worker.StatusSnapshot {
+	return worker.StatusSnapshot{
+		Connected: 1,
+		Available: 1,
+		Workers: []worker.RuntimeStatus{{
+			ID:        "worker-1",
+			Name:      workerName,
+			Available: true,
+		}},
+	}
 }
 
 func callResult[T any](t *testing.T, handler *Handler, token string, method string, params map[string]any) T {
@@ -956,9 +1058,10 @@ func nodeIDs(nodes []NodeInput) []string {
 }
 
 type recordingAnalysisController struct {
-	started   []StartInput
-	restarted []StartInput
-	stopped   []string
+	started     []StartInput
+	restarted   []StartInput
+	analyzedNow []StartInput
+	stopped     []string
 }
 
 type fakeWorkerStatusProvider struct {
@@ -981,7 +1084,9 @@ func (r *recordingAnalysisController) RestartGame(input StartInput) {
 	r.restarted = append(r.restarted, input)
 }
 
-func (r *recordingAnalysisController) AnalyzeNow(StartInput) {}
+func (r *recordingAnalysisController) AnalyzeNow(input StartInput) {
+	r.analyzedNow = append(r.analyzedNow, input)
+}
 
 func (r *recordingAnalysisController) Subscribe(Subscriber) func() {
 	return func() {}
