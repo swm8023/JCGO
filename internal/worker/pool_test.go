@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -237,6 +238,49 @@ func TestPoolAnalyzeWithWorkerRejectsUnavailableWorkerWithoutFallback(t *testing
 	}
 }
 
+func TestPoolSendsCancelToNamedWorkerWhenContextIsCancelled(t *testing.T) {
+	pool := NewPool(log.New(io.Discard, "", 0))
+	serverURL, closeServer := servePool(t, pool)
+	defer closeServer()
+
+	analyzeReceived := make(chan Envelope, 1)
+	cancelReceived := make(chan Envelope, 1)
+	go runNamedFakeWorker(t, serverURL, "local-gpu", func(conn *websocket.Conn, msg Envelope) {
+		analyzeReceived <- msg
+		if err := conn.SetReadDeadline(time.Now().Add(500 * time.Millisecond)); err != nil {
+			t.Error(err)
+			return
+		}
+		var cancelMsg Envelope
+		if err := conn.ReadJSON(&cancelMsg); err != nil {
+			t.Error(err)
+			return
+		}
+		cancelReceived <- cancelMsg
+	})
+
+	waitForWorkers(t, pool, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := pool.AnalyzeWithWorker(ctx, "local-gpu", katago.Query{ID: "main:cancel"})
+		done <- err
+	}()
+
+	analyze := waitEnvelope(t, analyzeReceived)
+	if analyze.Type != MessageAnalyze || analyze.ID == "" {
+		t.Fatalf("analyze message = %#v", analyze)
+	}
+	cancel()
+	if err := <-done; !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+	cancelMsg := waitEnvelope(t, cancelReceived)
+	if cancelMsg.Type != "cancel" || cancelMsg.ID != analyze.ID {
+		t.Fatalf("cancel message = %#v, analyze = %#v", cancelMsg, analyze)
+	}
+}
+
 func TestPoolStatusSnapshotCountsWorkers(t *testing.T) {
 	pool := NewPool(log.New(io.Discard, "", 0))
 	pool.addWorker(&remoteWorker{
@@ -267,6 +311,17 @@ func TestPoolStatusSnapshotCountsWorkers(t *testing.T) {
 	}
 	if status.Workers[1].ID != "worker-2" || status.Workers[1].Available || status.Workers[1].Error != "katago missing" {
 		t.Fatalf("second worker = %#v", status.Workers[1])
+	}
+}
+
+func waitEnvelope(t *testing.T, ch <-chan Envelope) Envelope {
+	t.Helper()
+	select {
+	case msg := <-ch:
+		return msg
+	case <-time.After(time.Second):
+		t.Fatal("expected worker message")
+		return Envelope{}
 	}
 }
 

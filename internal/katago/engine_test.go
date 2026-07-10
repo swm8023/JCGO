@@ -1,8 +1,10 @@
 package katago
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -13,6 +15,12 @@ func TestMain(m *testing.M) {
 	if os.Getenv("JCGO_TEST_KATAGO_HELPER") == "exit-with-stderr" {
 		_, _ = os.Stderr.WriteString("katago helper: missing runtime dependency\n")
 		os.Exit(2)
+	}
+	if os.Getenv("JCGO_TEST_KATAGO_HELPER") == "hang-analysis" {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+		}
+		select {}
 	}
 	os.Exit(m.Run())
 }
@@ -147,5 +155,32 @@ func TestLocalEngineReportsKatagoStderrAfterProcessExit(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "missing runtime dependency") {
 		t.Fatalf("error = %q, want stderr details", err)
+	}
+}
+
+func TestLocalEngineAnalyzeReturnsWhenContextIsCancelled(t *testing.T) {
+	t.Setenv("JCGO_TEST_KATAGO_HELPER", "hang-analysis")
+	engine, err := StartLocal(context.Background(), os.Args[0], "model.bin.gz", "analysis.cfg")
+	if err != nil {
+		t.Fatalf("StartLocal returned error: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, err := engine.Analyze(ctx, Query{ID: "q-cancel"})
+		done <- err
+	}()
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("err = %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		_ = engine.Close()
+		t.Fatal("Analyze did not return after context cancellation")
 	}
 }

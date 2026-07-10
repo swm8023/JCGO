@@ -377,6 +377,7 @@ func (p *Pool) analyzeRemote(ctx context.Context, worker *remoteWorker, query ka
 	for {
 		select {
 		case <-ctx.Done():
+			p.cancelRemote(worker, id)
 			return katago.Result{}, ctx.Err()
 		case msg, ok := <-ch:
 			if !ok {
@@ -400,6 +401,12 @@ func (p *Pool) analyzeRemote(ctx context.Context, worker *remoteWorker, query ka
 			return *msg.Result, nil
 		}
 	}
+}
+
+func (p *Pool) cancelRemote(worker *remoteWorker, id string) {
+	worker.writeMu.Lock()
+	defer worker.writeMu.Unlock()
+	_ = worker.conn.WriteJSON(Envelope{Type: MessageCancel, ID: id})
 }
 
 func (p *Pool) runtimeConfig(ctx context.Context, workerName string) (RuntimeConfig, error) {

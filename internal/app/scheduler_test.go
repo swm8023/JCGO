@@ -95,6 +95,37 @@ func (f *fakeWorkerBoundAnalyzer) AnalyzeWithWorkerProgress(ctx context.Context,
 	}, nil
 }
 
+type cancellableWorkerAnalyzer struct {
+	started     chan struct{}
+	cancelled   chan error
+	release     chan struct{}
+	workerNames []string
+}
+
+func (f *cancellableWorkerAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
+	return katago.Result{}, errors.New("unexpected unbound analysis")
+}
+
+func (f *cancellableWorkerAnalyzer) AnalyzeWithWorkerProgress(ctx context.Context, workerName string, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
+	f.workerNames = append(f.workerNames, workerName)
+	close(f.started)
+	select {
+	case <-ctx.Done():
+		f.cancelled <- ctx.Err()
+		return katago.Result{}, ctx.Err()
+	case <-f.release:
+		return katago.Result{ID: query.ID, RootInfo: katago.RootInfo{Visits: 1}}, nil
+	}
+}
+
+func (f *cancellableWorkerAnalyzer) Available() bool { return true }
+
+func (f *cancellableWorkerAnalyzer) Status() katago.Status {
+	return katago.Status{Available: true}
+}
+
+func (f *cancellableWorkerAnalyzer) Close() error { return nil }
+
 func TestSchedulerPublishesAnalysisEvents(t *testing.T) {
 	engine := &fakeAnalyzer{}
 	scheduler := NewScheduler(engine)
@@ -157,6 +188,46 @@ func TestSchedulerUsesStartInputWorkerName(t *testing.T) {
 	}
 	if len(engine.calls) != 1 || engine.calls[0] != "main:0" {
 		t.Fatalf("calls = %v", engine.calls)
+	}
+}
+
+func TestSchedulerStopCancelsInFlightWorkerAnalysis(t *testing.T) {
+	engine := &cancellableWorkerAnalyzer{
+		started:   make(chan struct{}),
+		cancelled: make(chan error, 1),
+		release:   make(chan struct{}),
+	}
+	scheduler := NewScheduler(engine)
+	defer scheduler.Close()
+	defer close(engine.release)
+
+	scheduler.StartGame(StartInput{
+		Token:       "secret",
+		GameID:      "game-1",
+		FocusNodeID: "main:0",
+		WorkerName:  "gpu-1",
+		Nodes: []NodeInput{
+			{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5},
+		},
+	})
+
+	select {
+	case <-engine.started:
+	case <-time.After(time.Second):
+		t.Fatal("expected analysis to start")
+	}
+	scheduler.StopGame("secret", "game-1")
+
+	select {
+	case err := <-engine.cancelled:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancel error = %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("analysis context was not cancelled")
+	}
+	if len(engine.workerNames) != 1 || engine.workerNames[0] != "gpu-1" {
+		t.Fatalf("workerNames = %v", engine.workerNames)
 	}
 }
 

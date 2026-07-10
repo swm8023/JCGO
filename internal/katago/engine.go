@@ -134,11 +134,22 @@ func (e *localEngine) AnalyzeWithProgress(ctx context.Context, query Query, prog
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
+	stopCancel := context.AfterFunc(ctx, func() {
+		e.interrupt()
+	})
+	defer stopCancel()
+
 	data, err := json.Marshal(query)
 	if err != nil {
 		return Result{}, err
 	}
 	if _, err := e.stdin.Write(append(data, '\n')); err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return Result{}, ctxErr
+		}
 		return Result{}, e.withProcessExit(err)
 	}
 	for {
@@ -147,6 +158,9 @@ func (e *localEngine) AnalyzeWithProgress(ctx context.Context, query Query, prog
 		}
 		line, err := e.stdout.ReadBytes('\n')
 		if err != nil {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return Result{}, ctxErr
+			}
 			return Result{}, e.withProcessExit(err)
 		}
 		var result Result
@@ -179,12 +193,16 @@ func (e *localEngine) Status() Status {
 }
 
 func (e *localEngine) Close() error {
+	e.interrupt()
+	<-e.waitDone
+	return e.waitErr
+}
+
+func (e *localEngine) interrupt() {
 	_ = e.stdin.Close()
 	if e.cmd.Process != nil {
 		_ = e.cmd.Process.Kill()
 	}
-	<-e.waitDone
-	return e.waitErr
 }
 
 func (e *localEngine) exitStatus() (error, bool) {

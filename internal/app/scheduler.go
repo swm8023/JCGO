@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -37,15 +38,22 @@ type Scheduler struct {
 	closed      chan struct{}
 	closeOnce   sync.Once
 	mu          sync.Mutex
-	stopped     map[string]bool
+	runs        map[string]*analysisRun
 	subscribers map[int]Subscriber
 	nextSubID   int
+}
+
+type analysisRun struct {
+	stopped    bool
+	generation uint64
+	cancel     context.CancelFunc
 }
 
 type task struct {
 	token      string
 	gameID     string
 	workerName string
+	generation uint64
 	node       NodeInput
 }
 
@@ -62,7 +70,7 @@ func NewScheduler(engine katago.Analyzer) *Scheduler {
 		engine:      engine,
 		tasks:       make(chan task, 256),
 		closed:      make(chan struct{}),
-		stopped:     map[string]bool{},
+		runs:        map[string]*analysisRun{},
 		subscribers: map[int]Subscriber{},
 	}
 	go s.run()
@@ -83,9 +91,9 @@ func (s *Scheduler) Subscribe(subscriber Subscriber) func() {
 }
 
 func (s *Scheduler) StartGame(input StartInput) {
-	s.setStopped(input.Token, input.GameID, false)
+	generation := s.startRun(input.Token, input.GameID)
 	for _, node := range orderFocusFirst(input.Nodes, input.FocusNodeID) {
-		s.enqueue(task{token: input.Token, gameID: input.GameID, workerName: input.WorkerName, node: node})
+		s.enqueue(task{token: input.Token, gameID: input.GameID, workerName: input.WorkerName, generation: generation, node: node})
 	}
 }
 
@@ -99,7 +107,7 @@ func (s *Scheduler) AnalyzeNow(input StartInput) {
 }
 
 func (s *Scheduler) StopGame(token, gameID string) {
-	s.setStopped(token, gameID, true)
+	s.stopRun(token, gameID)
 }
 
 func (s *Scheduler) Status() katago.Status {
@@ -108,6 +116,7 @@ func (s *Scheduler) Status() katago.Status {
 
 func (s *Scheduler) Close() error {
 	s.closeOnce.Do(func() {
+		s.cancelAllRuns()
 		close(s.closed)
 	})
 	return s.engine.Close()
@@ -119,7 +128,7 @@ func (s *Scheduler) run() {
 		case <-s.closed:
 			return
 		case task := <-s.tasks:
-			if s.isStopped(task.token, task.gameID) {
+			if !s.isTaskActive(task) {
 				continue
 			}
 			query := katago.BuildQuery(katago.BuildInput{
@@ -131,13 +140,22 @@ func (s *Scheduler) run() {
 				Moves:         task.node.Moves,
 				AnalyzeTurn:   task.node.MoveNumber,
 			})
-			result, err := s.analyze(context.Background(), task, query)
+			ctx, cancel, ok := s.beginTask(task)
+			if !ok {
+				cancel()
+				continue
+			}
+			result, err := s.analyze(ctx, task, query)
+			s.finishTask(task, cancel)
 			if err != nil {
-				s.setStopped(task.token, task.gameID, true)
+				if errors.Is(err, context.Canceled) && !s.isTaskActive(task) {
+					continue
+				}
+				s.stopRun(task.token, task.gameID)
 				s.publishError(task, err)
 				continue
 			}
-			if s.isStopped(task.token, task.gameID) {
+			if !s.isTaskActive(task) {
 				continue
 			}
 			s.publishAnalysis(task, result)
@@ -149,7 +167,7 @@ func (s *Scheduler) analyze(ctx context.Context, task task, query katago.Query) 
 	if task.workerName != "" {
 		if engine, ok := s.engine.(workerProgressAnalyzer); ok {
 			return engine.AnalyzeWithWorkerProgress(ctx, task.workerName, query, func(result katago.Result) {
-				if s.isStopped(task.token, task.gameID) {
+				if !s.isTaskActive(task) {
 					return
 				}
 				s.publishAnalysis(task, result)
@@ -162,7 +180,7 @@ func (s *Scheduler) analyze(ctx context.Context, task task, query katago.Query) 
 	}
 	if engine, ok := s.engine.(katago.ProgressAnalyzer); ok {
 		return engine.AnalyzeWithProgress(ctx, query, func(result katago.Result) {
-			if s.isStopped(task.token, task.gameID) {
+			if !s.isTaskActive(task) {
 				return
 			}
 			s.publishAnalysis(task, result)
@@ -211,16 +229,90 @@ func (s *Scheduler) publish(event Event) {
 	}
 }
 
-func (s *Scheduler) setStopped(token, gameID string, stopped bool) {
+func (s *Scheduler) startRun(token, gameID string) uint64 {
+	key := analysisKey(token, gameID)
+	var cancel context.CancelFunc
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.stopped[analysisKey(token, gameID)] = stopped
+	run := s.runs[key]
+	if run == nil {
+		run = &analysisRun{}
+		s.runs[key] = run
+	}
+	cancel = run.cancel
+	run.cancel = nil
+	run.generation++
+	run.stopped = false
+	generation := run.generation
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	return generation
 }
 
-func (s *Scheduler) isStopped(token, gameID string) bool {
+func (s *Scheduler) stopRun(token, gameID string) {
+	key := analysisKey(token, gameID)
+	var cancel context.CancelFunc
+	s.mu.Lock()
+	run := s.runs[key]
+	if run == nil {
+		run = &analysisRun{}
+		s.runs[key] = run
+	}
+	cancel = run.cancel
+	run.cancel = nil
+	run.generation++
+	run.stopped = true
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func (s *Scheduler) beginTask(task task) (context.Context, context.CancelFunc, bool) {
+	ctx, cancel := context.WithCancel(context.Background())
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.stopped[analysisKey(token, gameID)]
+	run := s.runs[analysisKey(task.token, task.gameID)]
+	if run == nil || run.generation != task.generation || run.stopped {
+		return ctx, cancel, false
+	}
+	run.cancel = cancel
+	return ctx, cancel, true
+}
+
+func (s *Scheduler) finishTask(task task, cancel context.CancelFunc) {
+	cancel()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run := s.runs[analysisKey(task.token, task.gameID)]
+	if run != nil && run.generation == task.generation {
+		run.cancel = nil
+	}
+}
+
+func (s *Scheduler) isTaskActive(task task) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run := s.runs[analysisKey(task.token, task.gameID)]
+	return run != nil && run.generation == task.generation && !run.stopped
+}
+
+func (s *Scheduler) cancelAllRuns() {
+	s.mu.Lock()
+	cancels := make([]context.CancelFunc, 0, len(s.runs))
+	for _, run := range s.runs {
+		if run.cancel != nil {
+			cancels = append(cancels, run.cancel)
+			run.cancel = nil
+		}
+		run.stopped = true
+		run.generation++
+	}
+	s.mu.Unlock()
+	for _, cancel := range cancels {
+		cancel()
+	}
 }
 
 func analysisKey(token, gameID string) string {

@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,6 +21,12 @@ type clientBasicAnalyzer struct{}
 
 type clientRecordingAnalyzer struct {
 	queries chan katago.Query
+}
+
+type clientBlockingRuntime struct {
+	info      Info
+	started   chan struct{}
+	cancelled chan error
 }
 
 func (a clientBasicAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
@@ -196,6 +203,53 @@ func TestServeConnectionPassesAnalyzeConfigToRuntime(t *testing.T) {
 	}
 }
 
+func TestServeConnectionCancelsRunningAnalysisByJobID(t *testing.T) {
+	server, connCh := testWorkerServer(t)
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	runtime := &clientBlockingRuntime{
+		info:      Info{Name: "worker-1"},
+		started:   make(chan struct{}),
+		cancelled: make(chan error, 1),
+	}
+	go func() {
+		_ = ServeConnection(ctx, "ws"+server.URL[len("http"):], "secret", runtime)
+	}()
+
+	conn := <-connCh
+	defer conn.Close()
+	var register Envelope
+	if err := conn.ReadJSON(&register); err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.WriteJSON(Envelope{
+		Type:   MessageAnalyze,
+		ID:     "job-cancel",
+		Query:  &katago.Query{ID: "main:cancel"},
+		Config: &RuntimeConfig{Model: "b18.bin.gz", MaxVisits: 500},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-runtime.started:
+	case <-time.After(time.Second):
+		t.Fatal("expected runtime analysis to start")
+	}
+	if err := conn.WriteJSON(Envelope{Type: "cancel", ID: "job-cancel"}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-runtime.cancelled:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancel error = %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("runtime analysis was not cancelled")
+	}
+}
+
 func testWorkerServer(t *testing.T) (*httptest.Server, <-chan *websocket.Conn) {
 	t.Helper()
 	connCh := make(chan *websocket.Conn, 1)
@@ -260,4 +314,13 @@ func (r *clientRecordingRuntime) Analyze(ctx context.Context, query katago.Query
 
 func (r *clientRecordingRuntime) AnalyzeWithProgress(ctx context.Context, query katago.Query, cfg RuntimeConfig, progress func(katago.Result)) (katago.Result, error) {
 	return r.Analyze(ctx, query, cfg)
+}
+
+func (r *clientBlockingRuntime) Info() Info { return r.info }
+
+func (r *clientBlockingRuntime) Analyze(ctx context.Context, query katago.Query, cfg RuntimeConfig) (katago.Result, error) {
+	close(r.started)
+	<-ctx.Done()
+	r.cancelled <- ctx.Err()
+	return katago.Result{}, ctx.Err()
 }

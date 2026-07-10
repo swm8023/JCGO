@@ -7,6 +7,7 @@ const (
 
 	MessageRegister = "register"
 	MessageAnalyze  = "analyze"
+	MessageCancel   = "cancel"
 	MessageStatus   = "status"
 	MessageResult   = "result"
 	MessageError    = "error"
