@@ -480,6 +480,12 @@ export default function App() {
     applyWorkspaceState(state)
   }
 
+  const boostAnalysis = async (gameId: string) => {
+    if (!client) return
+    const state = await client.call<StatePayload>('analysis.boost', { gameId })
+    applyWorkspaceState(state)
+  }
+
   const configureWorker = async (input: WorkerConfigureInput) => {
     if (!client) return
     const status = await client.call<WorkerStatus>('worker.configure', input)
@@ -505,6 +511,7 @@ export default function App() {
         selectedGameId={selectedGameId}
         selectedAnalysisWorkerName={selectedGame?.analysisWorkerName}
         workerStatus={workspace?.workerStatus}
+        analysisSchedule={workspace?.analysisSchedule}
         analysisAvailable={analysisState !== 'unavailable'}
         analysisError={error}
         analysisState={analysisState}
@@ -520,6 +527,7 @@ export default function App() {
         onStartAnalysis={startAnalysis}
         onStopAnalysis={stopAnalysis}
         onRestartAnalysis={restartAnalysis}
+        onBoostAnalysis={boostAnalysis}
         onSetAnalysisWorker={setGameAnalysisWorker}
         toolbarSlot={<OverlayToggles value={overlays} onChange={updateOverlays} />}
       />

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { AnalysisProgress, AnalysisState, GameRecord, WorkerStatus } from '../api/types'
+import type { AnalysisProgress, AnalysisSchedule, AnalysisScheduleTask, AnalysisState, AnalysisWorkerLane, GameRecord, WorkerStatus } from '../api/types'
 import { Menu, Plus, Settings, Trash2 } from 'lucide-react'
 import { formatGameResult } from './gameResult'
 
@@ -9,6 +9,7 @@ interface GameSidebarProps {
   selectedGameId?: string
   selectedAnalysisWorkerName?: string
   workerStatus?: WorkerStatus
+  analysisSchedule?: AnalysisSchedule
   analysisAvailable: boolean
   analysisError?: string
   analysisState: AnalysisState
@@ -21,6 +22,7 @@ interface GameSidebarProps {
   onStartAnalysis(): void
   onStopAnalysis(): void
   onRestartAnalysis(): void
+  onBoostAnalysis?(gameId: string): Promise<void>
   onSetAnalysisWorker?(workerName: string): Promise<void>
   toolbarSlot?: ReactNode
 }
@@ -31,6 +33,7 @@ export function GameSidebar({
   selectedGameId,
   selectedAnalysisWorkerName,
   workerStatus,
+  analysisSchedule,
   analysisAvailable,
   analysisError,
   analysisState,
@@ -43,6 +46,7 @@ export function GameSidebar({
   onStartAnalysis,
   onStopAnalysis,
   onRestartAnalysis,
+  onBoostAnalysis,
   onSetAnalysisWorker,
   toolbarSlot,
 }: GameSidebarProps) {
@@ -68,6 +72,7 @@ export function GameSidebar({
           selectedGameId={selectedGameId}
           selectedWorkerName={selectedAnalysisWorkerName}
           workerStatus={workerStatus}
+          analysisSchedule={analysisSchedule}
           analysisAvailable={analysisAvailable}
           analysisError={analysisError}
           analysisState={analysisState}
@@ -76,6 +81,7 @@ export function GameSidebar({
           onStartAnalysis={onStartAnalysis}
           onStopAnalysis={onStopAnalysis}
           onRestartAnalysis={onRestartAnalysis}
+          onBoostAnalysis={onBoostAnalysis}
         />
       </div>
       <section className="game-list" role="region" aria-label="本地棋局列表" aria-hidden={!listOpen}>
@@ -162,6 +168,7 @@ function AnalysisMenu({
   selectedGameId,
   selectedWorkerName,
   workerStatus,
+  analysisSchedule,
   analysisAvailable,
   analysisError,
   analysisState,
@@ -170,10 +177,12 @@ function AnalysisMenu({
   onStartAnalysis,
   onStopAnalysis,
   onRestartAnalysis,
+  onBoostAnalysis,
 }: {
   selectedGameId?: string
   selectedWorkerName?: string
   workerStatus?: WorkerStatus
+  analysisSchedule?: AnalysisSchedule
   analysisAvailable: boolean
   analysisError?: string
   analysisState: AnalysisState
@@ -182,6 +191,7 @@ function AnalysisMenu({
   onStartAnalysis(): void
   onStopAnalysis(): void
   onRestartAnalysis(): void
+  onBoostAnalysis?(gameId: string): Promise<void>
 }) {
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -192,6 +202,7 @@ function AnalysisMenu({
   const baseActionDisabled = !selectedGameId || !workerReady || (!analysisAvailable && !running)
   const progressCompact = formatAnalysisProgress(analysisProgress)
   const progressSpaced = formatAnalysisProgressSpaced(analysisProgress)
+  const progressTitle = progressSpaced === '0 / 0' ? '当前棋局未分析' : `当前棋局 ${progressSpaced}`
   const modelLabel = selectedWorker?.model || '-'
   const visitsLabel = selectedWorker?.maxVisits ? String(selectedWorker.maxVisits) : '-'
 
@@ -217,6 +228,7 @@ function AnalysisMenu({
         className={running ? 'analysis-action-button analysis-action-wide' : 'analysis-action-button'}
         aria-label="打开分析菜单"
         aria-expanded={open}
+        title={progressTitle}
         onClick={() => setOpen((value) => !value)}
         disabled={!selectedGameId}
       >
@@ -259,6 +271,11 @@ function AnalysisMenu({
           {!selectedWorkerName && <small className="engine-error">请选择分析器</small>}
           {selectedWorkerName && !workerReady && <small className="engine-error">{selectedWorker?.error || '分析器不可用'}</small>}
           {analysisError && <small className="engine-error">{analysisError}</small>}
+          <AnalysisLaneList
+            schedule={analysisSchedule}
+            workerStatus={workerStatus}
+            onBoostAnalysis={onBoostAnalysis}
+          />
           <button
             type="button"
             role="menuitem"
@@ -296,6 +313,88 @@ function AnalysisMenu({
       )}
     </div>
   )
+}
+
+function AnalysisLaneList({
+  schedule,
+  workerStatus,
+  onBoostAnalysis,
+}: {
+  schedule?: AnalysisSchedule
+  workerStatus?: WorkerStatus
+  onBoostAnalysis?(gameId: string): Promise<void>
+}) {
+  const lanes = schedule?.lanes ?? []
+  const workers = workerStatus?.workers ?? []
+  const knownNames = new Set(lanes.map((lane) => lane.workerName))
+  const merged: AnalysisWorkerLane[] = [
+    ...lanes,
+    ...workers.flatMap((worker) => knownNames.has(worker.name) ? [] : [{ workerName: worker.name, current: undefined, highPriority: [], queue: [] }]),
+  ]
+  if (merged.length === 0) return <p className="analysis-lane-empty">暂无 Worker 队列</p>
+  return (
+    <section className="analysis-lanes" aria-label="Worker 分析队列">
+      {merged.map((lane) => {
+        const worker = workers.find((item) => item.name === lane.workerName)
+        return (
+          <article className="analysis-lane" key={lane.workerName}>
+            <header className="analysis-lane-header">
+              <strong>{lane.workerName}</strong>
+              <span title={worker?.model || undefined}>{compactWorkerModel(worker?.model)}</span>
+              <span>{worker?.maxVisits ? `${worker.maxVisits} visits` : '-'}</span>
+            </header>
+            {lane.current ? (
+              <AnalysisTaskRow label="正在分析" task={lane.current} />
+            ) : (
+              <small className="analysis-lane-idle">空闲</small>
+            )}
+            {lane.highPriority.map((task) => (
+              <AnalysisTaskRow key={task.id} label="试下" task={task} />
+            ))}
+            {lane.queue.map((task) => (
+              <AnalysisTaskRow key={task.id} label="排队" task={task} onBoostAnalysis={task.canBoost ? onBoostAnalysis : undefined} />
+            ))}
+          </article>
+        )
+      })}
+    </section>
+  )
+}
+
+function AnalysisTaskRow({
+  label,
+  task,
+  onBoostAnalysis,
+}: {
+  label: string
+  task: AnalysisScheduleTask
+  onBoostAnalysis?(gameId: string): Promise<void>
+}) {
+  return (
+    <div className="analysis-task-row">
+      <span className="analysis-task-kind">{label}</span>
+      <span className="analysis-task-main">
+        <strong title={task.displayName}>{task.displayName}</strong>
+        <small>{taskProgress(task)}</small>
+      </span>
+      {onBoostAnalysis && (
+        <button type="button" onClick={() => void onBoostAnalysis(task.gameId)} aria-label={`插队 ${task.displayName}`}>
+          插队
+        </button>
+      )}
+    </div>
+  )
+}
+
+function taskProgress(task: AnalysisScheduleTask) {
+  if (task.kind === 'trial') return task.nodeId || '试下'
+  return `${task.analyzed} / ${task.total}`
+}
+
+function compactWorkerModel(model?: string) {
+  if (!model) return '-'
+  const match = /kata1-(b\d+c\d+)/i.exec(model)
+  return match?.[1] ?? model
 }
 
 function localGameResultMarker(winner: LocalGameWinner, player?: 'black' | 'white') {

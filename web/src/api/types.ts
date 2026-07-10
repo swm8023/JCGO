@@ -92,6 +92,34 @@ export interface AnalysisProgress {
   total: number
 }
 
+export interface AnalysisSchedule {
+  lanes: AnalysisWorkerLane[]
+}
+
+export interface AnalysisWorkerLane {
+  workerName: string
+  current?: AnalysisScheduleTask
+  highPriority: AnalysisScheduleTask[]
+  queue: AnalysisScheduleTask[]
+}
+
+export type AnalysisScheduleTaskKind = 'background' | 'trial'
+export type AnalysisScheduleTaskStatus = 'queued' | 'running'
+
+export interface AnalysisScheduleTask {
+  id: string
+  kind: AnalysisScheduleTaskKind
+  gameId: string
+  displayName: string
+  nodeId?: string
+  moveNumber?: number
+  workerName: string
+  analyzed: number
+  total: number
+  status: AnalysisScheduleTaskStatus
+  canBoost: boolean
+}
+
 export interface ImportResult {
   game: GameRecord
   snapshot: Snapshot
@@ -133,6 +161,7 @@ export interface StatePayload {
   analysisState: AnalysisState
   analysisError?: string
   workerStatus?: WorkerStatus
+  analysisSchedule?: AnalysisSchedule
   snapshot?: Snapshot
   timeline?: TimelineColumns
   badMoves?: BadMoveColumns

@@ -126,6 +126,259 @@ func (f *cancellableWorkerAnalyzer) Status() katago.Status {
 
 func (f *cancellableWorkerAnalyzer) Close() error { return nil }
 
+type workerStart struct {
+	WorkerName string
+	QueryID    string
+}
+
+type blockingWorkerAnalyzer struct {
+	started chan workerStart
+	release chan struct{}
+}
+
+func (f *blockingWorkerAnalyzer) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
+	return katago.Result{}, errors.New("unexpected unbound analysis")
+}
+
+func (f *blockingWorkerAnalyzer) AnalyzeWithWorkerProgress(ctx context.Context, workerName string, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
+	f.started <- workerStart{WorkerName: workerName, QueryID: query.ID}
+	select {
+	case <-ctx.Done():
+		return katago.Result{}, ctx.Err()
+	case <-f.release:
+		return katago.Result{ID: query.ID, RootInfo: katago.RootInfo{Visits: 100}}, nil
+	}
+}
+
+func (f *blockingWorkerAnalyzer) Available() bool { return true }
+
+func (f *blockingWorkerAnalyzer) Status() katago.Status {
+	return katago.Status{Available: true}
+}
+
+func (f *blockingWorkerAnalyzer) Close() error { return nil }
+
+func waitWorkerStart(t *testing.T, ch <-chan workerStart) workerStart {
+	t.Helper()
+	select {
+	case start := <-ch:
+		return start
+	case <-time.After(time.Second):
+		t.Fatal("expected worker analysis to start")
+		return workerStart{}
+	}
+}
+
+func TestSchedulerSnapshotShowsQueuedBackgroundRunsByWorker(t *testing.T) {
+	engine := &blockingWorkerAnalyzer{
+		started: make(chan workerStart, 4),
+		release: make(chan struct{}),
+	}
+	scheduler := NewScheduler(engine)
+	defer scheduler.Close()
+	defer close(engine.release)
+
+	scheduler.StartGame(StartInput{
+		Token:       "secret",
+		GameID:      "game-a",
+		DisplayName: "Alpha vs Beta",
+		FocusNodeID: "main:0",
+		WorkerName:  "gpu-1",
+		Nodes: []NodeInput{
+			{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5},
+			{NodeID: "main:1", MoveNumber: 1, ToPlay: game.White, Rules: "chinese", Komi: 7.5},
+		},
+	})
+
+	start := waitWorkerStart(t, engine.started)
+	if start.WorkerName != "gpu-1" || start.QueryID != "main:0" {
+		t.Fatalf("start = %#v", start)
+	}
+
+	snapshot := scheduler.Snapshot()
+	if len(snapshot.Lanes) != 1 {
+		t.Fatalf("lanes = %#v", snapshot.Lanes)
+	}
+	lane := snapshot.Lanes[0]
+	if lane.WorkerName != "gpu-1" || lane.Current == nil {
+		t.Fatalf("lane = %#v", lane)
+	}
+	if lane.Current.GameID != "game-a" || lane.Current.DisplayName != "Alpha vs Beta" || lane.Current.Analyzed != 0 || lane.Current.Total != 2 {
+		t.Fatalf("current = %#v", lane.Current)
+	}
+	if len(lane.Queue) != 0 || len(lane.HighPriority) != 0 {
+		t.Fatalf("queues = high %#v normal %#v", lane.HighPriority, lane.Queue)
+	}
+}
+
+func TestSchedulerRunsDifferentWorkersInParallel(t *testing.T) {
+	engine := &blockingWorkerAnalyzer{
+		started: make(chan workerStart, 4),
+		release: make(chan struct{}),
+	}
+	scheduler := NewScheduler(engine)
+	defer scheduler.Close()
+	defer close(engine.release)
+
+	scheduler.StartGame(StartInput{
+		Token: "secret", GameID: "game-a", DisplayName: "A",
+		FocusNodeID: "main:0", WorkerName: "gpu-1",
+		Nodes: []NodeInput{{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+	})
+	scheduler.StartGame(StartInput{
+		Token: "secret", GameID: "game-b", DisplayName: "B",
+		FocusNodeID: "main:0", WorkerName: "gpu-2",
+		Nodes: []NodeInput{{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+	})
+
+	first := waitWorkerStart(t, engine.started)
+	second := waitWorkerStart(t, engine.started)
+	got := map[string]string{first.WorkerName: first.QueryID, second.WorkerName: second.QueryID}
+	if got["gpu-1"] != "main:0" || got["gpu-2"] != "main:0" {
+		t.Fatalf("starts = %#v", got)
+	}
+}
+
+func TestSchedulerSerializesGamesOnSameWorker(t *testing.T) {
+	engine := &blockingWorkerAnalyzer{
+		started: make(chan workerStart, 4),
+		release: make(chan struct{}),
+	}
+	scheduler := NewScheduler(engine)
+	defer scheduler.Close()
+	defer close(engine.release)
+
+	scheduler.StartGame(StartInput{
+		Token: "secret", GameID: "game-a", DisplayName: "A",
+		FocusNodeID: "main:0", WorkerName: "gpu-1",
+		Nodes: []NodeInput{{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+	})
+	scheduler.StartGame(StartInput{
+		Token: "secret", GameID: "game-b", DisplayName: "B",
+		FocusNodeID: "main:10", WorkerName: "gpu-1",
+		Nodes: []NodeInput{{NodeID: "main:10", MoveNumber: 10, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+	})
+
+	first := waitWorkerStart(t, engine.started)
+	if first.WorkerName != "gpu-1" || first.QueryID != "main:0" {
+		t.Fatalf("first = %#v", first)
+	}
+	select {
+	case second := <-engine.started:
+		t.Fatalf("second started before first released: %#v", second)
+	case <-time.After(100 * time.Millisecond):
+	}
+	engine.release <- struct{}{}
+	second := waitWorkerStart(t, engine.started)
+	if second.WorkerName != "gpu-1" || second.QueryID != "main:10" {
+		t.Fatalf("second = %#v", second)
+	}
+}
+
+func TestSchedulerRunsTrialTaskBeforeQueuedBackgroundGame(t *testing.T) {
+	engine := &blockingWorkerAnalyzer{
+		started: make(chan workerStart, 8),
+		release: make(chan struct{}),
+	}
+	scheduler := NewScheduler(engine)
+	defer scheduler.Close()
+	defer close(engine.release)
+
+	scheduler.StartGame(StartInput{
+		Token: "secret", GameID: "game-a", DisplayName: "A",
+		FocusNodeID: "main:0", WorkerName: "gpu-1",
+		Nodes: []NodeInput{
+			{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5},
+			{NodeID: "main:1", MoveNumber: 1, ToPlay: game.White, Rules: "chinese", Komi: 7.5},
+		},
+	})
+	_ = waitWorkerStart(t, engine.started)
+
+	scheduler.StartGame(StartInput{
+		Token: "secret", GameID: "game-b", DisplayName: "B",
+		FocusNodeID: "main:10", WorkerName: "gpu-1",
+		Nodes: []NodeInput{{NodeID: "main:10", MoveNumber: 10, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+	})
+	scheduler.AnalyzeNow(StartInput{
+		Token: "secret", GameID: "game-a", DisplayName: "A",
+		FocusNodeID: "var:1", WorkerName: "gpu-1",
+		Nodes: []NodeInput{{NodeID: "var:1", MoveNumber: 2, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+	})
+
+	engine.release <- struct{}{}
+	second := waitWorkerStart(t, engine.started)
+	if second.QueryID != "var:1" {
+		t.Fatalf("second query = %q, want trial var:1", second.QueryID)
+	}
+}
+
+func TestSchedulerBoostMovesQueuedGameToFront(t *testing.T) {
+	engine := &blockingWorkerAnalyzer{
+		started: make(chan workerStart, 8),
+		release: make(chan struct{}),
+	}
+	scheduler := NewScheduler(engine)
+	defer scheduler.Close()
+	defer close(engine.release)
+
+	for _, item := range []struct{ id, name, nodeID string }{
+		{"game-a", "A", "main:0"},
+		{"game-b", "B", "main:10"},
+		{"game-c", "C", "main:20"},
+	} {
+		scheduler.StartGame(StartInput{
+			Token: "secret", GameID: item.id, DisplayName: item.name,
+			FocusNodeID: item.nodeID, WorkerName: "gpu-1",
+			Nodes: []NodeInput{{NodeID: item.nodeID, MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+		})
+	}
+	_ = waitWorkerStart(t, engine.started)
+	if !scheduler.BoostGame("secret", "game-c") {
+		t.Fatal("BoostGame returned false")
+	}
+	engine.release <- struct{}{}
+	next := waitWorkerStart(t, engine.started)
+	if next.QueryID != "main:20" {
+		t.Fatalf("next = %#v", next)
+	}
+	snapshot := scheduler.Snapshot()
+	if snapshot.Lanes[0].Current == nil || snapshot.Lanes[0].Current.GameID != "game-c" {
+		t.Fatalf("snapshot = %#v", snapshot)
+	}
+}
+
+func TestSchedulerStopGameRemovesOnlyThatGame(t *testing.T) {
+	engine := &blockingWorkerAnalyzer{
+		started: make(chan workerStart, 8),
+		release: make(chan struct{}),
+	}
+	scheduler := NewScheduler(engine)
+	defer scheduler.Close()
+	defer close(engine.release)
+
+	scheduler.StartGame(StartInput{
+		Token: "secret", GameID: "game-a", DisplayName: "A",
+		FocusNodeID: "main:0", WorkerName: "gpu-1",
+		Nodes: []NodeInput{{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+	})
+	scheduler.StartGame(StartInput{
+		Token: "secret", GameID: "game-b", DisplayName: "B",
+		FocusNodeID: "main:10", WorkerName: "gpu-1",
+		Nodes: []NodeInput{{NodeID: "main:10", MoveNumber: 10, ToPlay: game.Black, Rules: "chinese", Komi: 7.5}},
+	})
+	_ = waitWorkerStart(t, engine.started)
+	scheduler.StopGame("secret", "game-a")
+
+	next := waitWorkerStart(t, engine.started)
+	if next.WorkerName != "gpu-1" || next.QueryID != "main:10" {
+		t.Fatalf("next = %#v", next)
+	}
+	snapshot := scheduler.Snapshot()
+	if snapshot.Lanes[0].Current == nil || snapshot.Lanes[0].Current.GameID != "game-b" {
+		t.Fatalf("snapshot = %#v", snapshot)
+	}
+}
+
 func TestSchedulerPublishesAnalysisEvents(t *testing.T) {
 	engine := &fakeAnalyzer{}
 	scheduler := NewScheduler(engine)

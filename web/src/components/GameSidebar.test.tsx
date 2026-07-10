@@ -151,6 +151,61 @@ describe('GameSidebar', () => {
     expect(onRestartAnalysis).toHaveBeenCalledTimes(1)
   })
 
+  it('shows all worker lanes in the analysis menu and boosts queued games', async () => {
+    const user = userEvent.setup()
+    const onBoostAnalysis = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <GameSidebar
+        games={[]}
+        listOpen={false}
+        selectedGameId="game-1"
+        selectedAnalysisWorkerName="local-gpu"
+        workerStatus={{
+          connected: 2,
+          available: 2,
+          busy: 1,
+          workers: [
+            { id: 'worker-1', name: 'local-gpu', platform: 'windows/amd64', model: 'kata1-b18c384nbt-s9996604416-d4316597426.bin.gz', maxVisits: 500, available: true, busy: true },
+            { id: 'worker-2', name: 'remote-gpu', platform: 'linux/amd64', model: 'kata1-b28c512nbt-s13255194368-d5935380940.bin.gz', maxVisits: 300, available: true, busy: false },
+          ],
+        }}
+        analysisSchedule={{ lanes: [
+          {
+            workerName: 'local-gpu',
+            current: { id: 'run-1:main:3', kind: 'background', gameId: 'game-1', displayName: 'Lee vs Cho', nodeId: 'main:3', moveNumber: 3, workerName: 'local-gpu', analyzed: 3, total: 180, status: 'running', canBoost: false },
+            highPriority: [{ id: 'trial-1', kind: 'trial', gameId: 'game-1', displayName: 'Lee vs Cho', nodeId: 'var:1', moveNumber: 4, workerName: 'local-gpu', analyzed: 0, total: 1, status: 'queued', canBoost: false }],
+            queue: [{ id: 'run-2', kind: 'background', gameId: 'game-2', displayName: 'Alpha vs Beta', nodeId: 'main:0', workerName: 'local-gpu', analyzed: 0, total: 120, status: 'queued', canBoost: true }],
+          },
+          { workerName: 'remote-gpu', highPriority: [], queue: [] },
+        ] }}
+        analysisAvailable
+        analysisState="running"
+        analysisProgress={{ analyzed: 3, total: 180 }}
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+        onBoostAnalysis={onBoostAnalysis}
+      />,
+    )
+
+    const action = within(container).getByRole('button', { name: '打开分析菜单' })
+    expect(action).toHaveAttribute('title', '当前棋局 3 / 180')
+    await user.click(action)
+    const menu = screen.getByRole('menu', { name: '分析' })
+    expect(within(menu).getAllByText('local-gpu').length).toBeGreaterThan(0)
+    expect(within(menu).getAllByText('remote-gpu').length).toBeGreaterThan(0)
+    expect(within(menu).getByText('正在分析')).toBeInTheDocument()
+    expect(within(menu).getAllByText('Lee vs Cho').length).toBeGreaterThan(0)
+    expect(within(menu).getByText('试下')).toBeInTheDocument()
+    expect(within(menu).getByText('Alpha vs Beta')).toBeInTheDocument()
+    await user.click(within(menu).getByRole('button', { name: '插队 Alpha vs Beta' }))
+    expect(onBoostAnalysis).toHaveBeenCalledWith('game-2')
+  })
+
   it('requires a worker before analysis actions are enabled', async () => {
     const user = userEvent.setup()
     const { container } = render(

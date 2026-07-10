@@ -23,6 +23,8 @@ type AnalysisController interface {
 	StopGame(token, gameID string)
 	RestartGame(StartInput)
 	AnalyzeNow(StartInput)
+	BoostGame(token, gameID string) bool
+	Snapshot() ScheduleSnapshot
 	Subscribe(Subscriber) func()
 	Status() katago.Status
 }
@@ -142,6 +144,8 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.analysisCall(ctx, token, params, "stop")
 	case "analysis.restart":
 		return h.analysisCall(ctx, token, params, "restart")
+	case "analysis.boost":
+		return h.boostAnalysis(ctx, token, params)
 	case "analysis.badMovePrompt":
 		return h.badMovePrompt(ctx, token, params)
 	case "yuanluobo.loginStart":
@@ -489,6 +493,10 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 	if err != nil {
 		return nil, err
 	}
+	record, err := h.repo.GetGame(ctx, in.GameID)
+	if err != nil {
+		return nil, err
+	}
 	workerName := ""
 	if action == "start" || action == "restart" {
 		workerName, err = h.requireGameAnalysisWorker(ctx, in.GameID)
@@ -499,6 +507,7 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 	input := StartInput{
 		Token:       token,
 		GameID:      in.GameID,
+		DisplayName: record.DisplayName,
 		WorkerName:  workerName,
 		FocusNodeID: snapshot.NodeID,
 		Nodes:       ws.MissingMainlineAnalysisInputs(in.GameID),
@@ -515,10 +524,6 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 		if err != nil {
 			return nil, err
 		}
-		record, err := h.repo.GetGame(ctx, in.GameID)
-		if err != nil {
-			return nil, err
-		}
 		if err := h.files.DeleteAnalysis(record.SGFFilename); err != nil {
 			return nil, err
 		}
@@ -527,6 +532,21 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 		ws.MarkAnalysisStarted(in.GameID)
 		h.analysis.RestartGame(input)
 	}
+	return h.workspaceState(ctx, token)
+}
+
+func (h *Handler) boostAnalysis(ctx context.Context, token string, params json.RawMessage) (any, error) {
+	var in gameIDParams
+	if err := decodeParams(params, &in); err != nil {
+		return nil, err
+	}
+	if h.analysis == nil {
+		return nil, errors.New("analysis is unavailable")
+	}
+	if _, err := h.ensureWorkspaceGame(ctx, token, in.GameID); err != nil {
+		return nil, err
+	}
+	h.analysis.BoostGame(token, in.GameID)
 	return h.workspaceState(ctx, token)
 }
 
@@ -618,9 +638,15 @@ func (h *Handler) analyzeCurrentNode(ctx context.Context, token string, ws *Work
 		ws.SetAnalysisError(gameID, err.Error())
 		return
 	}
+	record, err := h.repo.GetGame(ctx, gameID)
+	if err != nil {
+		ws.SetAnalysisError(gameID, err.Error())
+		return
+	}
 	h.analysis.AnalyzeNow(StartInput{
 		Token:       token,
 		GameID:      gameID,
+		DisplayName: record.DisplayName,
 		WorkerName:  workerName,
 		FocusNodeID: nodeID,
 		Nodes:       []NodeInput{input},

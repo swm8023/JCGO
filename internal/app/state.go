@@ -19,12 +19,13 @@ const (
 )
 
 type EmptyWorkspaceState struct {
-	Type          string                `json:"type"`
-	Schema        int                   `json:"schema"`
-	Games         []store.GameRecord    `json:"games"`
-	AnalysisState AnalysisState         `json:"analysisState"`
-	AnalysisError string                `json:"analysisError,omitempty"`
-	WorkerStatus  worker.StatusSnapshot `json:"workerStatus"`
+	Type             string                `json:"type"`
+	Schema           int                   `json:"schema"`
+	Games            []store.GameRecord    `json:"games"`
+	AnalysisState    AnalysisState         `json:"analysisState"`
+	AnalysisError    string                `json:"analysisError,omitempty"`
+	WorkerStatus     worker.StatusSnapshot `json:"workerStatus"`
+	AnalysisSchedule ScheduleSnapshot      `json:"analysisSchedule"`
 }
 
 func (h *Handler) workspaceState(ctx context.Context, token string) (any, error) {
@@ -37,9 +38,10 @@ func (h *Handler) workspaceState(ctx context.Context, token string) (any, error)
 	if err != nil {
 		return nil, err
 	}
+	schedule := h.analysisSchedule()
 	selectedGameID := ws.SelectedGameID()
 	if selectedGameID == "" {
-		return EmptyWorkspaceState{Type: "state", Schema: 1, Games: games, AnalysisState: AnalysisIdle, WorkerStatus: workerStatus}, nil
+		return EmptyWorkspaceState{Type: "state", Schema: 1, Games: games, AnalysisState: AnalysisIdle, WorkerStatus: workerStatus, AnalysisSchedule: schedule}, nil
 	}
 	if _, err := h.ensureWorkspaceGame(ctx, token, selectedGameID); err != nil {
 		return nil, err
@@ -50,7 +52,19 @@ func (h *Handler) workspaceState(ctx context.Context, token string) (any, error)
 	}
 	payload.Games = games
 	payload.WorkerStatus = workerStatus
+	payload.AnalysisSchedule = schedule
 	return payload, nil
+}
+
+func (h *Handler) analysisSchedule() ScheduleSnapshot {
+	if h.analysis == nil {
+		return ScheduleSnapshot{Lanes: []WorkerLaneSnapshot{}}
+	}
+	snapshot := h.analysis.Snapshot()
+	if snapshot.Lanes == nil {
+		snapshot.Lanes = []WorkerLaneSnapshot{}
+	}
+	return snapshot
 }
 
 func (h *Handler) currentWorkerStatus(ctx context.Context) (worker.StatusSnapshot, error) {

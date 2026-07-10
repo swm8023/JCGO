@@ -690,6 +690,52 @@ func TestWorkspaceStateIncludesWorkerStatus(t *testing.T) {
 	}
 }
 
+func TestWorkspaceStateIncludesAnalysisSchedule(t *testing.T) {
+	h, token := newTestHandlerWithWorker(t, "local-gpu")
+	recorder := &recordingAnalysisController{
+		snapshot: ScheduleSnapshot{Lanes: []WorkerLaneSnapshot{{
+			WorkerName: "local-gpu",
+			Current: &ScheduleTaskSnapshot{
+				ID: "run-1:main:1", Kind: "background", GameID: "game-1", DisplayName: "Lee vs Cho",
+				NodeID: "main:1", WorkerName: "local-gpu", Analyzed: 3, Total: 10, Status: "running",
+			},
+			HighPriority: []ScheduleTaskSnapshot{},
+			Queue: []ScheduleTaskSnapshot{{
+				ID: "run-2", Kind: "background", GameID: "game-2", DisplayName: "Queued",
+				NodeID: "main:0", WorkerName: "local-gpu", Analyzed: 0, Total: 5, Status: "queued", CanBoost: true,
+			}},
+		}}},
+	}
+	h.analysis = recorder
+
+	state := callResult[StatePayload](t, h, token, "workspace.state", nil)
+	if len(state.AnalysisSchedule.Lanes) != 1 {
+		t.Fatalf("schedule = %#v", state.AnalysisSchedule)
+	}
+	if state.AnalysisSchedule.Lanes[0].Current.DisplayName != "Lee vs Cho" {
+		t.Fatalf("schedule = %#v", state.AnalysisSchedule)
+	}
+	if !state.AnalysisSchedule.Lanes[0].Queue[0].CanBoost {
+		t.Fatalf("queued item = %#v", state.AnalysisSchedule.Lanes[0].Queue[0])
+	}
+}
+
+func TestAnalysisBoostCallsController(t *testing.T) {
+	h, token := newTestHandlerWithWorker(t, "local-gpu")
+	recorder := &recordingAnalysisController{}
+	h.analysis = recorder
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd])",
+	})
+
+	_ = callResult[StatePayload](t, h, token, "analysis.boost", map[string]any{"gameId": imported.Game.ID})
+
+	if len(recorder.boosted) != 1 || recorder.boosted[0] != token+"\x00"+imported.Game.ID {
+		t.Fatalf("boosted = %#v", recorder.boosted)
+	}
+}
+
 func TestWorkerConfigureStoresServerConfigAndReturnsMergedStatus(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
@@ -1062,6 +1108,8 @@ type recordingAnalysisController struct {
 	restarted   []StartInput
 	analyzedNow []StartInput
 	stopped     []string
+	boosted     []string
+	snapshot    ScheduleSnapshot
 }
 
 type fakeWorkerStatusProvider struct {
@@ -1086,6 +1134,18 @@ func (r *recordingAnalysisController) RestartGame(input StartInput) {
 
 func (r *recordingAnalysisController) AnalyzeNow(input StartInput) {
 	r.analyzedNow = append(r.analyzedNow, input)
+}
+
+func (r *recordingAnalysisController) BoostGame(token, gameID string) bool {
+	r.boosted = append(r.boosted, token+"\x00"+gameID)
+	return true
+}
+
+func (r *recordingAnalysisController) Snapshot() ScheduleSnapshot {
+	if r.snapshot.Lanes == nil {
+		return ScheduleSnapshot{Lanes: []WorkerLaneSnapshot{}}
+	}
+	return r.snapshot
 }
 
 func (r *recordingAnalysisController) Subscribe(Subscriber) func() {
