@@ -38,30 +38,31 @@ export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack, onConfi
         </header>
 
         <section className="settings-section" role="region" aria-label="Worker 状态">
-          <div className="worker-status-card" data-state={workerStatusTone(workerStatus)}>
-            <span className="worker-status-icon" aria-hidden="true">
-              <Cpu size={20} />
+          <div className="worker-status-summary" data-state={workerStatusTone(workerStatus)}>
+            <span className="worker-summary-state">
+              <span className="worker-status-icon" aria-hidden="true">
+                <Cpu size={18} />
+              </span>
+              <span className="worker-status-copy">
+                <strong>{statusLabel}</strong>
+                <small>Worker 运行状态</small>
+              </span>
             </span>
-            <span className="worker-status-copy">
-              <strong>{statusLabel}</strong>
-              <small>{workerStatus.connected} 个 Worker，{workerStatus.available} 个可用，{workerStatus.busy} 个忙碌</small>
-            </span>
+            <dl className="worker-summary-metrics" aria-label="Worker 数量">
+              <div>
+                <dt>连接</dt>
+                <dd>{workerStatus.connected}</dd>
+              </div>
+              <div>
+                <dt>可用</dt>
+                <dd>{workerStatus.available}</dd>
+              </div>
+              <div>
+                <dt>忙碌</dt>
+                <dd>{workerStatus.busy}</dd>
+              </div>
+            </dl>
           </div>
-
-          <dl className="worker-status-grid">
-            <div>
-              <dt>连接</dt>
-              <dd>{workerStatus.connected}</dd>
-            </div>
-            <div>
-              <dt>可用 Worker</dt>
-              <dd>{workerStatus.available}</dd>
-            </div>
-            <div>
-              <dt>忙碌 Worker</dt>
-              <dd>{workerStatus.busy}</dd>
-            </div>
-          </dl>
 
           {workerStatus.workers.length === 0 ? (
             <p className="worker-empty">暂无 Worker 连接</p>
@@ -105,33 +106,37 @@ function WorkerRow({ worker, onConfigureWorker }: { worker: WorkerRuntimeStatus;
 
   return (
     <article className="worker-row" data-state={state}>
-      <span className="worker-row-icon" aria-hidden="true">
-        <Server size={18} />
-      </span>
-      <span className="worker-row-main">
-        <strong>{workerName}</strong>
-        <small>{worker.platform || 'unknown platform'}</small>
-        <small>{backendLabel(worker.backend)}</small>
-        {worker.cpu && <small>{worker.cpu}</small>}
-        {worker.gpus?.map((gpu) => <small key={gpu}>{gpu}</small>)}
-        {worker.error && <small className="worker-row-error">{worker.error}</small>}
-        <span className="worker-controls">
-          <label>
-            模型
-            <select value={model} onChange={(event) => setModel(event.target.value)} disabled={controlsDisabled}>
-              {workerModels.map((candidate) => (
-                <option key={candidate.filename} value={candidate.filename}>{candidate.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Visits
-            <input value={maxVisits} inputMode="numeric" onChange={(event) => setMaxVisits(event.target.value)} disabled={controlsDisabled} />
-          </label>
-          <button type="button" onClick={() => void save()} disabled={!canSave}>保存</button>
+      <span className="worker-row-identity">
+        <span className="worker-row-icon" aria-hidden="true">
+          <Server size={17} />
+        </span>
+        <span className="worker-row-main">
+          <strong>{workerName}</strong>
+          <span className="worker-row-meta">
+            <small>{worker.platform || 'unknown platform'}</small>
+            <small>{backendLabel(worker.backend)}</small>
+            {worker.cpu && <small>{worker.cpu}</small>}
+            {worker.gpus?.map((gpu) => <small key={gpu}>{gpu}</small>)}
+          </span>
         </span>
       </span>
+      <span className="worker-controls">
+        <label>
+          模型
+          <select value={model} onChange={(event) => setModel(event.target.value)} disabled={controlsDisabled}>
+            {workerModels.map((candidate) => (
+              <option key={candidate.filename} value={candidate.filename}>{candidate.label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Visits
+          <input value={maxVisits} inputMode="numeric" onChange={(event) => setMaxVisits(event.target.value)} disabled={controlsDisabled} />
+        </label>
+        <button type="button" onClick={() => void save()} disabled={!canSave}>保存</button>
+      </span>
       <span className="worker-row-state">{worker.available ? worker.busy ? '忙碌' : '可用' : '不可用'}</span>
+      {worker.error && <small className="worker-row-error">{worker.error}</small>}
     </article>
   )
 }

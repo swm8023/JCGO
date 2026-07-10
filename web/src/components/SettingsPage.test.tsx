@@ -32,7 +32,9 @@ describe('SettingsPage', () => {
     )
 
     const section = screen.getByRole('region', { name: 'Worker 状态' })
-    expect(section).toHaveTextContent('1 个 Worker，1 个可用，0 个忙碌')
+    expect(within(section).getByText('连接')).toBeInTheDocument()
+    expect(within(section).getByText('可用', { selector: 'dt' })).toBeInTheDocument()
+    expect(within(section).getByText('忙碌', { selector: 'dt' })).toBeInTheDocument()
     expect(section).not.toHaveTextContent(`本机${'分析'}`)
     expect(section).not.toHaveTextContent(`远程${'连接'}`)
     expect(within(section).getByText('gpu-worker')).toBeInTheDocument()
@@ -40,6 +42,57 @@ describe('SettingsPage', () => {
     expect(within(section).getByText('OpenCL')).toBeInTheDocument()
     expect(within(section).getByText('AMD Ryzen')).toBeInTheDocument()
     expect(within(section).getByText('RTX 4070')).toBeInTheDocument()
+  })
+
+  it('combines worker counts into one compact status summary', () => {
+    const { container } = render(
+      <SettingsPage
+        workerStatus={{ connected: 3, available: 2, busy: 1, workers: [] }}
+        onBack={vi.fn()}
+      />,
+    )
+
+    const summary = container.querySelector('.worker-status-summary')
+    expect(summary).not.toBeNull()
+    expect(within(summary as HTMLElement).getByText('可用', { selector: 'strong' })).toBeInTheDocument()
+    expect(within(summary as HTMLElement).getByText('3', { selector: 'dd' })).toBeInTheDocument()
+    expect(within(summary as HTMLElement).getByText('2', { selector: 'dd' })).toBeInTheDocument()
+    expect(within(summary as HTMLElement).getByText('1', { selector: 'dd' })).toBeInTheDocument()
+    expect(container.querySelector('.worker-status-grid')).not.toBeInTheDocument()
+  })
+
+  it('groups worker identity, metadata, controls, and state in one compact row', () => {
+    const { container } = render(
+      <SettingsPage
+        workerStatus={{
+          connected: 1,
+          available: 1,
+          busy: 0,
+          workers: [{
+            id: 'worker-1',
+            name: 'gpu-worker',
+            platform: 'windows/amd64',
+            backend: 'cuda',
+            cpu: 'AMD Ryzen',
+            gpus: ['RTX 4070'],
+            available: true,
+            busy: false,
+          }],
+        }}
+        onBack={vi.fn()}
+        onConfigureWorker={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+
+    const row = container.querySelector('.worker-row')
+    expect(row).not.toBeNull()
+    expect(row?.querySelector('.worker-row-identity')).toHaveTextContent('gpu-worker')
+    expect(row?.querySelector('.worker-row-meta')).toHaveTextContent('windows/amd64')
+    expect(row?.querySelector('.worker-row-meta')).toHaveTextContent('CUDA')
+    expect(row?.querySelector('.worker-row-meta')).toHaveTextContent('AMD Ryzen')
+    expect(row?.querySelector('.worker-row-meta')).toHaveTextContent('RTX 4070')
+    expect(row?.querySelector('.worker-controls')).toBeInTheDocument()
+    expect(row?.querySelector('.worker-row-state')).toHaveTextContent('可用')
   })
 
   it('shows an empty worker-only state', () => {

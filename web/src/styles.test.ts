@@ -139,6 +139,15 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.game-row-action.danger')
   })
 
+  it('aligns worker settings with the compact local game library layout', () => {
+    expect(styles).toContain('.settings-panel {\n  width: min(1040px, 100%);')
+    expect(styles).toContain('.worker-status-summary {\n  min-height: 58px;\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) auto;')
+    expect(styles).toContain('.worker-summary-metrics {\n  display: grid;\n  grid-template-columns: repeat(3, minmax(72px, auto));')
+    expect(styles).toContain('.worker-row {\n  position: relative;\n  min-height: 72px;\n  display: grid;\n  grid-template-columns: minmax(220px, 0.9fr) minmax(360px, 1.4fr) auto;')
+    expect(styles).toContain('.worker-controls {\n  display: grid;\n  grid-template-columns: minmax(180px, 1fr) 88px auto;')
+    expect(styles).toContain('.worker-row::before {\n  content: "";')
+  })
+
   it('keeps portrait import controls styled for compact dialogs', () => {
     expect(styles).toContain('.portrait-import-button {\n  min-height: 42px;')
     expect(styles).toContain('.import-dialog {\n  position: fixed;\n  inset: 0;\n  z-index: 40;')
