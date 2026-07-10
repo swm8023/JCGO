@@ -307,4 +307,17 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.overlay-toggles .toggle {\n    width: 36px;\n    height: 36px;')
     expect(styles).toContain('.navigation-controls button {\n    width: 36px;\n    min-width: 36px;\n    max-width: 36px;\n    height: 34px;')
   })
+
+  it('keeps the try control and move stone the same rendered size on mobile', () => {
+    expect(styles).toContain('.move-number-stone {\n  width: var(--ui-move-stone-size);\n  height: var(--ui-move-stone-size);\n  display: grid;\n  place-items: center;\n  justify-self: center;\n  box-sizing: border-box;')
+    expect(styles).toContain('.navigation-controls .try-action-button,\n  .move-number-stone {\n    width: 36px;\n    min-width: 36px;\n    max-width: 36px;\n    height: 36px;\n    box-sizing: border-box;')
+  })
+
+  it('keeps the side action rail below the analysis menu stacking context', () => {
+    const ruleStart = styles.indexOf('.side-action-layout .action-rail {')
+    const sideActionRule = styles.slice(ruleStart, styles.indexOf('}', ruleStart))
+
+    expect(ruleStart).toBeGreaterThan(0)
+    expect(sideActionRule).toContain('z-index: 3;')
+  })
 })

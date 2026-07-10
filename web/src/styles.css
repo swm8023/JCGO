@@ -1544,7 +1544,7 @@ textarea:focus-visible {
   transform: translateY(-50%);
   align-content: center;
   justify-content: center;
-  z-index: 5;
+  z-index: 3;
   padding: 0;
   background: transparent;
   border: 0;
@@ -1611,6 +1611,7 @@ textarea:focus-visible {
   display: grid;
   place-items: center;
   justify-self: center;
+  box-sizing: border-box;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
   color: var(--ink);
@@ -4384,10 +4385,11 @@ textarea:focus-visible {
 
   .navigation-controls .try-action-button,
   .move-number-stone {
-    width: 34px;
-    min-width: 34px;
-    max-width: 34px;
-    height: 34px;
+    width: 36px;
+    min-width: 36px;
+    max-width: 36px;
+    height: 36px;
+    box-sizing: border-box;
   }
 
   .game-row-action {
