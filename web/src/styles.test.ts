@@ -315,6 +315,14 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.navigation-controls .try-action-button,\n  .move-number-stone {\n    width: 36px;\n    min-width: 36px;\n    max-width: 36px;\n    height: 36px;\n    box-sizing: border-box;')
   })
 
+  it('keeps the try control fill flush with its circular border', () => {
+    const tryActionRule = styles.match(/(?:^|\n)(\.navigation-controls \.try-action-button \{[^}]*\})/)?.[1]
+
+    expect(tryActionRule).toBeDefined()
+    expect(tryActionRule).toContain('box-shadow: 0 2px 8px rgb(42 30 14 / 0.05);')
+    expect(tryActionRule).not.toContain('inset')
+  })
+
   it('keeps the side action rail below the analysis menu stacking context', () => {
     const ruleStart = styles.indexOf('.side-action-layout .action-rail {')
     const sideActionRule = styles.slice(ruleStart, styles.indexOf('}', ruleStart))
