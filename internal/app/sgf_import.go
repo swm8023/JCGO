@@ -10,9 +10,14 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"jcgo/internal/game"
 )
 
-const yuanluoboAPIEndpoint = "https://jupiter.yuanluobo.com/r2/chess/wq/sdr/v3/record/detail"
+const (
+	yuanluoboAPIEndpoint = "https://jupiter.yuanluobo.com/r2/chess/wq/sdr/v3/record/detail"
+	foxwqAPIEndpoint     = "https://h5.foxwq.com/yehuDiamond/chessbook_local/YHWQFetchChess"
+)
 
 type yuanluoboResponse struct {
 	Code    int               `json:"code"`
@@ -44,6 +49,12 @@ type yuanluoboMove struct {
 	Coordinate string `json:"coordinate"`
 }
 
+type foxwqResponse struct {
+	Result  int    `json:"result"`
+	ChessID string `json:"chessid"`
+	Chess   string `json:"chess"`
+}
+
 // parseReviewURL extracts session_id from a review URL.
 // Returns platform identifier and session_id, or error if URL is not supported.
 func parseReviewURL(rawURL string) (platform string, sessionID string, err error) {
@@ -61,6 +72,18 @@ func parseReviewURL(rawURL string) (platform string, sessionID string, err error
 			return "", "", fmt.Errorf("session_id not found in URL")
 		}
 		return "yuanluobo", sid, nil
+	case host == "h5.foxwq.com":
+		if u.Scheme != "https" {
+			return "", "", fmt.Errorf("unsupported URL scheme: %s", u.Scheme)
+		}
+		if u.Path != "/yehunewshare/" {
+			return "", "", fmt.Errorf("unsupported URL path: %s", u.Path)
+		}
+		chessID := u.Query().Get("chessid")
+		if chessID == "" {
+			return "", "", fmt.Errorf("chessid not found in URL")
+		}
+		return "foxwq", chessID, nil
 	default:
 		return "", "", fmt.Errorf("unsupported URL host: %s", host)
 	}
@@ -68,6 +91,10 @@ func parseReviewURL(rawURL string) (platform string, sessionID string, err error
 
 // fetchFromURL dispatches to the appropriate platform fetcher based on URL domain.
 func fetchFromURL(rawURL string) (sgf string, displayName string, err error) {
+	return fetchFromURLAt(rawURL, foxwqAPIEndpoint)
+}
+
+func fetchFromURLAt(rawURL string, foxwqEndpoint string) (sgf string, displayName string, err error) {
 	platform, sessionID, err := parseReviewURL(rawURL)
 	if err != nil {
 		return "", "", err
@@ -76,6 +103,8 @@ func fetchFromURL(rawURL string) (sgf string, displayName string, err error) {
 	switch platform {
 	case "yuanluobo":
 		return fetchYuanluoboSGF(sessionID)
+	case "foxwq":
+		return fetchFoxwqSGFAt(sessionID, foxwqEndpoint)
 	default:
 		return "", "", fmt.Errorf("unsupported platform: %s", platform)
 	}
@@ -111,6 +140,114 @@ func fetchYuanluoboSGF(sessionID string) (sgf string, displayName string, err er
 	sgf = convertYuanluoboToSGF(result.Data)
 	displayName = yuanluoboDisplayName(result.Data)
 	return sgf, displayName, nil
+}
+
+func fetchFoxwqSGFAt(chessID string, endpoint string) (sgf string, displayName string, err error) {
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid FoxWQ API endpoint: %w", err)
+	}
+	query := u.Query()
+	query.Set("chessid", chessID)
+	u.RawQuery = query.Encode()
+
+	resp, err := http.Get(u.String())
+	if err != nil {
+		return "", "", fmt.Errorf("failed to call FoxWQ API: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("FoxWQ API returned status %d", resp.StatusCode)
+	}
+
+	var result foxwqResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", "", fmt.Errorf("failed to parse FoxWQ API response: %w", err)
+	}
+	if result.Result != 0 {
+		return "", "", fmt.Errorf("FoxWQ API returned result %d", result.Result)
+	}
+	if result.ChessID != chessID {
+		return "", "", fmt.Errorf("FoxWQ API returned chessid %q for %q", result.ChessID, chessID)
+	}
+	if result.Chess == "" {
+		return "", "", fmt.Errorf("FoxWQ API returned an empty SGF")
+	}
+	return normalizeFoxwqSGF(result.Chess)
+}
+
+func normalizeFoxwqSGF(raw string) (sgf string, displayName string, err error) {
+	doc, err := game.ParseSGF(raw)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid FoxWQ SGF: %w", err)
+	}
+
+	komi := doc.Komi
+	switch doc.Rules {
+	case "chinese":
+		komi /= 50
+	case "japanese":
+		komi /= 100
+	}
+	sgf, err = replaceSGFRootValue(raw, "KM", strconv.FormatFloat(komi, 'f', -1, 64))
+	if err != nil {
+		return "", "", err
+	}
+
+	if strings.EqualFold(doc.Result, "draw") {
+		sgf, err = replaceSGFRootValue(sgf, "RE", "Draw")
+		if err != nil {
+			return "", "", err
+		}
+	} else if doc.Rules == "chinese" {
+		parts := strings.SplitN(doc.Result, "+", 2)
+		if len(parts) == 2 {
+			margin, parseErr := strconv.ParseFloat(parts[1], 64)
+			if parseErr == nil {
+				sgf, err = replaceSGFRootValue(sgf, "RE", fmt.Sprintf("%s+%.2f", parts[0], margin*2))
+				if err != nil {
+					return "", "", err
+				}
+			}
+		}
+	}
+
+	return sgf, fmt.Sprintf("%s vs %s", doc.BlackName, doc.WhiteName), nil
+}
+
+func replaceSGFRootValue(sgf string, property string, value string) (string, error) {
+	propertyStart := strings.Index(sgf, property+"[")
+	rootEnd := foxwqSGFRootEnd(sgf)
+	if propertyStart < 0 || propertyStart >= rootEnd {
+		return "", fmt.Errorf("FoxWQ SGF missing root property %s", property)
+	}
+	valueStart := propertyStart + len(property) + 1
+	valueEnd := strings.Index(sgf[valueStart:], "]")
+	if valueEnd < 0 {
+		return "", fmt.Errorf("FoxWQ SGF has invalid root property %s", property)
+	}
+	valueEnd += valueStart
+	return sgf[:valueStart] + value + sgf[valueEnd:], nil
+}
+
+func foxwqSGFRootEnd(sgf string) int {
+	inValue := false
+	escaped := false
+	for i := 2; i < len(sgf); i++ {
+		switch {
+		case escaped:
+			escaped = false
+		case inValue && sgf[i] == '\\':
+			escaped = true
+		case inValue && sgf[i] == ']':
+			inValue = false
+		case !inValue && sgf[i] == '[':
+			inValue = true
+		case !inValue && (sgf[i] == ';' || sgf[i] == ')'):
+			return i
+		}
+	}
+	return len(sgf)
 }
 
 // convertYuanluoboToSGF converts YuanluoBo game data to SGF format.
