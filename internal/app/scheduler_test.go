@@ -66,6 +66,31 @@ func (f *fakeProgressAnalyzer) AnalyzeWithProgress(ctx context.Context, query ka
 	}, nil
 }
 
+type fakeWorkerBoundAnalyzer struct {
+	fakeAnalyzer
+	workerNames []string
+}
+
+func (f *fakeWorkerBoundAnalyzer) AnalyzeWithWorkerProgress(ctx context.Context, workerName string, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
+	f.calls = append(f.calls, query.ID)
+	f.workerNames = append(f.workerNames, workerName)
+	progress(katago.Result{
+		ID:             query.ID,
+		IsDuringSearch: true,
+		RootInfo:       katago.RootInfo{Visits: 33, Winrate: 0.47, ScoreLead: -0.6},
+		MoveInfos: []katago.MoveInfo{
+			{Move: "C4", Order: 0, Visits: 33, Winrate: 0.47, ScoreLead: -0.6},
+		},
+	})
+	return katago.Result{
+		ID:       query.ID,
+		RootInfo: katago.RootInfo{Visits: 600, Winrate: 0.52, ScoreLead: 1.4},
+		MoveInfos: []katago.MoveInfo{
+			{Move: "R16", Order: 0, Visits: 600, Winrate: 0.52, ScoreLead: 1.4},
+		},
+	}, nil
+}
+
 func TestSchedulerPublishesAnalysisEvents(t *testing.T) {
 	engine := &fakeAnalyzer{}
 	scheduler := NewScheduler(engine)
@@ -94,6 +119,39 @@ func TestSchedulerPublishesAnalysisEvents(t *testing.T) {
 		t.Fatal("expected analysis event")
 	}
 	if len(engine.calls) != 1 {
+		t.Fatalf("calls = %v", engine.calls)
+	}
+}
+
+func TestSchedulerUsesStartInputWorkerName(t *testing.T) {
+	engine := &fakeWorkerBoundAnalyzer{}
+	scheduler := NewScheduler(engine)
+	defer scheduler.Close()
+
+	received := make(chan Event, 2)
+	scheduler.Subscribe(func(event Event) { received <- event })
+	scheduler.StartGame(StartInput{
+		Token:       "secret",
+		GameID:      "game-1",
+		FocusNodeID: "main:0",
+		WorkerName:  "gpu-1",
+		Nodes: []NodeInput{
+			{NodeID: "main:0", MoveNumber: 0, ToPlay: game.Black, Rules: "chinese", Komi: 7.5},
+		},
+	})
+
+	progress := waitSchedulerEvent(t, received)
+	if !progress.IsDuringSearch || progress.Analysis.Root.Visits != 33 {
+		t.Fatalf("progress event = %#v", progress)
+	}
+	final := waitSchedulerEvent(t, received)
+	if final.Analysis.Root.Visits != 600 || final.Analysis.Candidates[0].Move != "R16" {
+		t.Fatalf("final event = %#v", final)
+	}
+	if len(engine.workerNames) != 1 || engine.workerNames[0] != "gpu-1" {
+		t.Fatalf("workerNames = %v", engine.workerNames)
+	}
+	if len(engine.calls) != 1 || engine.calls[0] != "main:0" {
 		t.Fatalf("calls = %v", engine.calls)
 	}
 }

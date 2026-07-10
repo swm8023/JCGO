@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"jcgo/internal/game"
@@ -14,6 +15,7 @@ type StartInput struct {
 	Token       string
 	GameID      string
 	FocusNodeID string
+	WorkerName  string
 	Nodes       []NodeInput
 }
 
@@ -41,9 +43,18 @@ type Scheduler struct {
 }
 
 type task struct {
-	token  string
-	gameID string
-	node   NodeInput
+	token      string
+	gameID     string
+	workerName string
+	node       NodeInput
+}
+
+type workerAnalyzer interface {
+	AnalyzeWithWorker(context.Context, string, katago.Query) (katago.Result, error)
+}
+
+type workerProgressAnalyzer interface {
+	AnalyzeWithWorkerProgress(context.Context, string, katago.Query, func(katago.Result)) (katago.Result, error)
 }
 
 func NewScheduler(engine katago.Analyzer) *Scheduler {
@@ -74,7 +85,7 @@ func (s *Scheduler) Subscribe(subscriber Subscriber) func() {
 func (s *Scheduler) StartGame(input StartInput) {
 	s.setStopped(input.Token, input.GameID, false)
 	for _, node := range orderFocusFirst(input.Nodes, input.FocusNodeID) {
-		s.enqueue(task{token: input.Token, gameID: input.GameID, node: node})
+		s.enqueue(task{token: input.Token, gameID: input.GameID, workerName: input.WorkerName, node: node})
 	}
 }
 
@@ -135,6 +146,20 @@ func (s *Scheduler) run() {
 }
 
 func (s *Scheduler) analyze(ctx context.Context, task task, query katago.Query) (katago.Result, error) {
+	if task.workerName != "" {
+		if engine, ok := s.engine.(workerProgressAnalyzer); ok {
+			return engine.AnalyzeWithWorkerProgress(ctx, task.workerName, query, func(result katago.Result) {
+				if s.isStopped(task.token, task.gameID) {
+					return
+				}
+				s.publishAnalysis(task, result)
+			})
+		}
+		if engine, ok := s.engine.(workerAnalyzer); ok {
+			return engine.AnalyzeWithWorker(ctx, task.workerName, query)
+		}
+		return katago.Result{}, fmt.Errorf("analysis worker %s is not supported by analyzer", task.workerName)
+	}
 	if engine, ok := s.engine.(katago.ProgressAnalyzer); ok {
 		return engine.AnalyzeWithProgress(ctx, query, func(result katago.Result) {
 			if s.isStopped(task.token, task.gameID) {
