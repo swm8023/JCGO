@@ -15,6 +15,7 @@ import { TokenGate } from './components/TokenGate'
 import type { YuanluoboImportAPI, YuanluoboPickerKind } from './components/YuanluoboImportDialog'
 import { playCaptureSound, playStoneSound } from './board/stoneSound'
 import { computeSideActionPlacement, sideActionEdgeGap, sideActionGap, type SideActionPlacement } from './layout/sideActionRail'
+import { appHistoryLayers, importModeForLayer, isImportLayer, yuanluoboPickerForLayer, type AppHistoryLayer } from './layout/appLayers'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
@@ -22,16 +23,6 @@ const jumpStep = 5
 
 type NavigationCommand = { method: 'game.goto'; moveNumber: number } | { method: 'game.gotoNode'; nodeId: string }
 type RememberedView = { gameId?: string; nodeId?: string }
-type AppHistoryLayer =
-  | 'home'
-  | 'game-list'
-  | 'settings'
-  | 'import-choose'
-  | 'import-url'
-  | 'import-yuanluobo'
-  | 'yuanluobo-player-picker'
-  | 'yuanluobo-platform-picker'
-
 type AppHistoryState = {
   jcgoLayer: AppHistoryLayer
   jcgoLayerSession: number
@@ -43,16 +34,6 @@ const viewGameKey = 'jcgo.view.gameId'
 const viewNodeKey = 'jcgo.view.nodeId'
 const sharedSGFURL = '/shared-sgf/latest'
 const shareTargetRedirectPath = '/?share-target=sgf'
-const appHistoryLayers = new Set<AppHistoryLayer>([
-  'home',
-  'game-list',
-  'settings',
-  'import-choose',
-  'import-url',
-  'import-yuanluobo',
-  'yuanluobo-player-picker',
-  'yuanluobo-platform-picker',
-])
 const emptySideActionPlacement = computeSideActionPlacement({
   layoutWidth: 0,
   layoutHeight: 0,
@@ -666,26 +647,6 @@ function appHistoryLayerFromState(state: unknown, session: number): AppHistoryLa
 
 function currentHistoryURL() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
-}
-
-function isImportLayer(layer: AppHistoryLayer) {
-  return layer === 'import-choose'
-    || layer === 'import-url'
-    || layer === 'import-yuanluobo'
-    || layer === 'yuanluobo-player-picker'
-    || layer === 'yuanluobo-platform-picker'
-}
-
-function importModeForLayer(layer: AppHistoryLayer): ImportDialogMode {
-  if (layer === 'import-url') return 'url'
-  if (layer === 'import-yuanluobo' || layer === 'yuanluobo-player-picker' || layer === 'yuanluobo-platform-picker') return 'yuanluobo'
-  return 'choose'
-}
-
-function yuanluoboPickerForLayer(layer: AppHistoryLayer): YuanluoboPickerKind | undefined {
-  if (layer === 'yuanluobo-player-picker') return 'player'
-  if (layer === 'yuanluobo-platform-picker') return 'platform'
-  return undefined
 }
 
 function websocketURL() {
