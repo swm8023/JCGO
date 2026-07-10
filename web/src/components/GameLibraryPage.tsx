@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { AnalysisState, GameRecord } from '../api/types'
 import { Trash2 } from 'lucide-react'
+import { AppSheet } from './AppSheet'
 import { formatGameResult } from './gameResult'
 
 interface GameLibraryPageProps {
@@ -10,20 +12,23 @@ interface GameLibraryPageProps {
 }
 
 export function GameLibraryPage({ games, selectedGameId, onSelect, onDelete }: GameLibraryPageProps) {
+  const [pendingDelete, setPendingDelete] = useState<GameRecord>()
+
   return (
-    <section className="app-page-body game-library-page" role="region" aria-label="本地棋局内容">
-      <div className="game-list-shell">
-        <header className="game-list-header">
-          <div>
-            <p className="game-list-eyebrow">Local games</p>
-            <h2>本地棋局</h2>
-          </div>
-          <span className="game-list-count">共 {games.length} 局</span>
-        </header>
-        <div className="game-list-body yuanluobo-record-list">
-          {games.length === 0 ? (
-            <p className="game-list-empty">还没有本地棋局</p>
-          ) : games.map((game) => {
+    <>
+      <section className="app-page-body game-library-page" role="region" aria-label="本地棋局内容">
+        <div className="game-list-shell">
+          <header className="game-list-header">
+            <div>
+              <p className="game-list-eyebrow">本地棋谱</p>
+              <h2>本地棋局</h2>
+            </div>
+            <span className="game-list-count">共 {games.length} 局</span>
+          </header>
+          <div className="game-list-body yuanluobo-record-list">
+            {games.length === 0 ? (
+              <p className="game-list-empty">还没有本地棋局</p>
+            ) : games.map((game) => {
             const selected = game.gameId === selectedGameId
             const winner = localGameWinner(game.result)
             const dateLabel = formatDateLabel(game.gameDate || game.createdAt)
@@ -71,20 +76,42 @@ export function GameLibraryPage({ games, selectedGameId, onSelect, onDelete }: G
                 <span className="game-row-actions">
                   <button
                     className="game-row-action danger"
-                    aria-label={`Delete ${game.displayName}`}
-                    onClick={() => {
-                      if (window.confirm(`Delete ${game.displayName}?`)) onDelete(game.gameId)
-                    }}
+                    aria-label={`删除 ${game.displayName}`}
+                    onClick={() => setPendingDelete(game)}
                   >
                     <Trash2 size={15} aria-hidden="true" />
                   </button>
                 </span>
               </div>
             )
-          })}
+            })}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+      {pendingDelete && (
+        <AppSheet
+          title="删除棋局"
+          onDismiss={() => setPendingDelete(undefined)}
+          actions={(
+            <>
+              <button className="app-sheet-button" type="button" onClick={() => setPendingDelete(undefined)}>取消</button>
+              <button
+                className="app-sheet-button danger"
+                type="button"
+                onClick={() => {
+                  onDelete(pendingDelete.gameId)
+                  setPendingDelete(undefined)
+                }}
+              >
+                删除
+              </button>
+            </>
+          )}
+        >
+          <p className="app-sheet-message">删除“{pendingDelete.displayName}”？此操作无法撤销。</p>
+        </AppSheet>
+      )}
+    </>
   )
 }
 
