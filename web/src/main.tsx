@@ -13,4 +13,3 @@ createRoot(document.getElementById('root')!).render(
 
 registerServiceWorker()
 installViewportInteractionGuards()
-screen.orientation?.lock?.('portrait')?.catch?.(() => undefined)

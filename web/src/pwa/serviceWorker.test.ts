@@ -26,4 +26,11 @@ describe('service worker', () => {
     expect(serviceWorker).toContain("'/icons/jcgo-maskable-512.png'")
     expect(serviceWorker).toContain("'/icons/apple-touch-icon.png'")
   })
+
+  it('refreshes orientation metadata instead of freezing the manifest in the static cache', () => {
+    expect(serviceWorker).toContain("const CACHE_NAME = 'jcgo-static-v6'")
+    expect(serviceWorker).not.toMatch(/STATIC_ASSETS\s*=\s*\[[^\]]*manifest\.webmanifest/)
+    expect(serviceWorker).toContain("url.pathname === '/manifest.webmanifest'")
+    expect(serviceWorker).toContain('fetch(event.request).catch(() => caches.match(event.request))')
+  })
 })

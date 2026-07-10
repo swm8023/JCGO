@@ -8,7 +8,9 @@ const indexHtml = readFileSync(join(process.cwd(), 'index.html'), 'utf8')
 
 describe('PWA install metadata', () => {
   it('locks orientation to portrait for portrait-only layout', () => {
-    expect(manifest.orientation).toBe('portrait')
+    expect(manifest.id).toBe('/')
+    expect(manifest.orientation).toBe('portrait-primary')
+    expect(indexHtml).toContain('<link rel="manifest" href="/manifest.webmanifest?v=portrait-primary" />')
   })
 
   it('registers as an installed app share target for SGF files', () => {

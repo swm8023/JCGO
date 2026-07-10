@@ -1,7 +1,7 @@
-const CACHE_NAME = 'jcgo-static-v5'
+const CACHE_NAME = 'jcgo-static-v6'
 const SHARED_CACHE_NAME = 'jcgo-shared-v1'
 const SHARED_SGF_URL = '/shared-sgf/latest'
-const STATIC_ASSETS = ['/manifest.webmanifest', '/icons/jcgo-192.png', '/icons/jcgo-512.png', '/icons/jcgo-maskable-512.png', '/icons/apple-touch-icon.png']
+const STATIC_ASSETS = ['/icons/jcgo-192.png', '/icons/jcgo-512.png', '/icons/jcgo-maskable-512.png', '/icons/apple-touch-icon.png']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()))
@@ -27,6 +27,10 @@ self.addEventListener('fetch', (event) => {
     return
   }
   if (event.request.method !== 'GET') return
+  if (url.pathname === '/manifest.webmanifest') {
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)))
+    return
+  }
   if (event.request.mode === 'navigate') {
     event.respondWith(fetch(event.request).catch(() => caches.match(event.request)))
     return

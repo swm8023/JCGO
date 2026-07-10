@@ -2,12 +2,15 @@ const gestureEvents = ['gesturestart', 'gesturechange', 'gestureend'] as const
 const nonPassiveListener: AddEventListenerOptions = { passive: false }
 const appWidthVariable = '--app-width'
 const appHeightVariable = '--app-height'
+const portraitFallbackRootProperties = ['position', 'left', 'top', 'transform', 'transform-origin'] as const
+const safeAreaVariables = ['--app-safe-top', '--app-safe-right', '--app-safe-bottom', '--app-safe-left'] as const
 const viewportDebugElementId = '__viewport-debug'
 const viewportDebugSampleLimit = 5
 
 export function installViewportInteractionGuards(windowTarget: Window = window, documentTarget: Document = document) {
   let stableHeight = windowTarget.innerHeight
   let appWidth: number | undefined
+  let effectiveAppWidth: number | undefined
   const debugOverlay = viewportDebugEnabled(windowTarget) ? createViewportDebugOverlay(documentTarget) : undefined
   const debugSamples: string[] = []
 
@@ -31,33 +34,37 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     while (debugSamples.length > viewportDebugSampleLimit) debugSamples.shift()
     debugOverlay.textContent = debugSamples.join('\n\n')
   }
-  const handleResize = () => {
+  const updateViewport = (source: string) => {
     const viewport = currentViewportSize(windowTarget)
-    const portraitViewport = portraitViewportSize(viewport, hasCoarsePointer(windowTarget))
-    appWidth = portraitViewport.width
-    if (!hasCoarsePointer(windowTarget)) {
+    const coarsePointer = hasCoarsePointer(windowTarget)
+    const portraitViewport = portraitViewportSize(viewport, coarsePointer)
+    const nextAppWidth = portraitViewport.width
+    const nextEffectiveAppWidth = nextAppWidth ?? viewport.width
+    const widthChanged = effectiveAppWidth !== undefined && Math.abs(nextEffectiveAppWidth - effectiveAppWidth) > 0.5
+    const canvasOrientationChanged = (appWidth === undefined) !== (nextAppWidth === undefined)
+    if (!coarsePointer || effectiveAppWidth === undefined || widthChanged || canvasOrientationChanged) {
       stableHeight = portraitViewport.height
     } else {
       stableHeight = Math.max(stableHeight, portraitViewport.height)
     }
+    appWidth = nextAppWidth
+    effectiveAppWidth = nextEffectiveAppWidth
     applyViewport()
-    writeDebug('resize')
+    applyPortraitFallback(windowTarget, documentTarget, appWidth !== undefined)
+    writeDebug(source)
+  }
+  const handleResize = () => {
+    updateViewport('resize')
   }
   const handleVisualViewportResize = () => {
-    const viewport = windowTarget.visualViewport
-    if (!viewport) return
-    const windowSize = currentViewportSize(windowTarget)
-    const portraitViewport = portraitViewportSize(windowSize, hasCoarsePointer(windowTarget))
-    appWidth = portraitViewport.width
-    if (!hasCoarsePointer(windowTarget)) {
-      stableHeight = portraitViewport.height
-    } else {
-      stableHeight = Math.max(stableHeight, portraitViewport.height)
-    }
-    applyViewport()
-    writeDebug('vv')
+    if (!windowTarget.visualViewport) return
+    updateViewport('vv')
+  }
+  const handleScreenOrientationChange = () => {
+    updateViewport('orientation')
   }
 
+  requestPrimaryPortraitOrientation(windowTarget)
   handleResize()
   for (const eventName of gestureEvents) {
     windowTarget.addEventListener(eventName, preventGestureZoom, nonPassiveListener)
@@ -66,6 +73,7 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   documentTarget.addEventListener('touchmove', preventMultiTouchMove, nonPassiveListener)
   windowTarget.addEventListener('resize', handleResize)
   windowTarget.visualViewport?.addEventListener('resize', handleVisualViewportResize)
+  windowTarget.screen.orientation?.addEventListener?.('change', handleScreenOrientationChange)
 
   return () => {
     for (const eventName of gestureEvents) {
@@ -75,6 +83,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     documentTarget.removeEventListener('touchmove', preventMultiTouchMove)
     windowTarget.removeEventListener('resize', handleResize)
     windowTarget.visualViewport?.removeEventListener('resize', handleVisualViewportResize)
+    windowTarget.screen.orientation?.removeEventListener?.('change', handleScreenOrientationChange)
+    clearPortraitFallback(documentTarget)
     debugOverlay?.remove()
   }
 }
@@ -109,6 +119,64 @@ function portraitViewportSize(viewport: ViewportSize, coarsePointer: boolean): A
   if (!coarsePointer) return { height: viewport.height }
   if (viewport.width <= viewport.height) return { height: viewport.height }
   return { width: viewport.height, height: viewport.width }
+}
+
+function requestPrimaryPortraitOrientation(windowTarget: Window) {
+  try {
+    windowTarget.screen.orientation?.lock?.('portrait-primary')?.catch?.(() => undefined)
+  } catch {
+    // The manifest remains authoritative when a runtime rejects programmatic orientation locking.
+  }
+}
+
+function applyPortraitFallback(windowTarget: Window, documentTarget: Document, enabled: boolean) {
+  const root = documentTarget.getElementById('root')
+  if (!root) return
+  if (!enabled) {
+    clearPortraitFallback(documentTarget)
+    return
+  }
+
+  const rotation = portraitFallbackRotation(windowTarget)
+  root.style.setProperty('position', 'fixed')
+  root.style.setProperty('left', '50%')
+  root.style.setProperty('top', '50%')
+  root.style.setProperty('transform-origin', 'center')
+  root.style.setProperty('transform', `translate(-50%, -50%) rotate(${rotation}deg)`)
+  applyRotatedSafeAreas(documentTarget, rotation)
+}
+
+function clearPortraitFallback(documentTarget: Document) {
+  const root = documentTarget.getElementById('root')
+  for (const property of portraitFallbackRootProperties) root?.style.removeProperty(property)
+  for (const property of safeAreaVariables) documentTarget.documentElement.style.removeProperty(property)
+}
+
+function portraitFallbackRotation(windowTarget: Window) {
+  const orientation = windowTarget.screen.orientation
+  const legacyAngle = (windowTarget as Window & { orientation?: number }).orientation
+  const angle = normalizeAngle(orientation?.angle ?? legacyAngle ?? 0)
+  if (angle === 270 || orientation?.type === 'landscape-secondary') return 90
+  return -90
+}
+
+function normalizeAngle(angle: number) {
+  return ((angle % 360) + 360) % 360
+}
+
+function applyRotatedSafeAreas(documentTarget: Document, rotation: number) {
+  const style = documentTarget.documentElement.style
+  if (rotation < 0) {
+    style.setProperty('--app-safe-top', 'env(safe-area-inset-left, 0px)')
+    style.setProperty('--app-safe-right', 'env(safe-area-inset-top, 0px)')
+    style.setProperty('--app-safe-bottom', 'env(safe-area-inset-right, 0px)')
+    style.setProperty('--app-safe-left', 'env(safe-area-inset-bottom, 0px)')
+    return
+  }
+  style.setProperty('--app-safe-top', 'env(safe-area-inset-right, 0px)')
+  style.setProperty('--app-safe-right', 'env(safe-area-inset-bottom, 0px)')
+  style.setProperty('--app-safe-bottom', 'env(safe-area-inset-left, 0px)')
+  style.setProperty('--app-safe-left', 'env(safe-area-inset-top, 0px)')
 }
 
 function hasCoarsePointer(windowTarget: Window) {

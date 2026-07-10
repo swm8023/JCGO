@@ -1,10 +1,11 @@
 {
   "name": "JCGO",
   "short_name": "JCGO",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "background_color": "#1e293b",
   "theme_color": "#1e293b",
   "share_target": {
