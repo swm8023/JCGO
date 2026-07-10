@@ -305,7 +305,10 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('.app-sheet {')
     expect(styles).toContain('@media (hover: none), (pointer: coarse) {\n  button:not(:disabled):active,')
     expect(styles).toContain('.overlay-toggles .toggle {\n    width: 36px;\n    height: 36px;')
-    expect(styles).toContain('.navigation-controls button {\n    width: 36px;\n    min-width: 36px;\n    max-width: 36px;\n    height: 34px;')
+  })
+
+  it('keeps every mobile navigation circle at the same 36px diameter', () => {
+    expect(styles).toContain('.navigation-controls button {\n    width: 36px;\n    min-width: 36px;\n    max-width: 36px;\n    height: 36px;')
   })
 
   it('keeps the try control and move stone the same rendered size on mobile', () => {
