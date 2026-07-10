@@ -27,11 +27,11 @@ describe('ImportDialog', () => {
     vi.restoreAllMocks()
   })
 
-  it('presents import sources as a compact tool panel', () => {
+  it('renders source selection as a page body instead of a dialog', () => {
     renderImportDialog()
 
-    expect(screen.getByRole('heading', { name: '导入棋局' })).toBeInTheDocument()
-    expect(screen.getByText('选择一个来源，导入后会进入当前棋盘。')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '导入棋局内容' })).toHaveClass('app-page-body', 'import-page')
+    expect(screen.queryByRole('dialog', { name: '导入棋局' })).not.toBeInTheDocument()
 
     const file = screen.getByRole('button', { name: /SGF 文件/ })
     const link = screen.getByRole('button', { name: /复盘链接/ })
@@ -40,6 +40,13 @@ describe('ImportDialog', () => {
     expect(file).toHaveClass('import-source-card')
     expect(link).toHaveClass('import-source-card')
     expect(yuanluobo).toHaveClass('import-source-card', 'primary')
+  })
+
+  it('renders URL entry as a page body instead of a dialog', () => {
+    renderImportDialog({ mode: 'url' })
+
+    expect(screen.getByRole('region', { name: '从链接导入内容' })).toHaveClass('app-page-body', 'import-page')
+    expect(screen.queryByRole('dialog', { name: '从链接导入' })).not.toBeInTheDocument()
   })
 
   it('uses the File System Access picker with a stable SGF directory id when available', async () => {
@@ -72,12 +79,11 @@ describe('ImportDialog', () => {
     expect(onOpenYuanluobo).toHaveBeenCalledOnce()
   })
 
-  it('renders the yuanluobo import entry as a fullscreen dialog', async () => {
+  it('renders the yuanluobo import entry as a page body', async () => {
     renderImportDialog({ mode: 'yuanluobo' })
 
-    const dialog = await screen.findByRole('dialog', { name: '元萝卜导入' })
-    expect(dialog).toHaveClass('yuanluobo-fullscreen-dialog')
-    expect(await screen.findByRole('region', { name: '元萝卜登录' })).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: '元萝卜导入' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '元萝卜登录内容' })).toBeInTheDocument()
   })
 })
 
@@ -86,7 +92,6 @@ function renderImportDialog(overrides: Partial<Parameters<typeof ImportDialog>[0
     mode: 'choose',
     onImport: vi.fn(),
     onImportUrl: vi.fn(),
-    onBack: vi.fn(),
     onOpenUrl: vi.fn(),
     onOpenYuanluobo: vi.fn(),
     yuanluoboApi: yuanluoboApi(),

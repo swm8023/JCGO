@@ -34,12 +34,13 @@ describe('right rail layout', () => {
     expect(app).toContain("'game.importSgf'")
   })
 
-  it('renders the import dialog outside the main layout', () => {
+  it('renders page workspaces outside the main layout', () => {
     const mainClose = app.indexOf('</main>')
-    const importDialog = app.indexOf('{showImport && client && (')
+    const pageWorkspace = app.indexOf('{pageOpen && (')
 
     expect(mainClose).toBeGreaterThan(0)
-    expect(importDialog).toBeGreaterThan(mainClose)
+    expect(pageWorkspace).toBeGreaterThan(mainClose)
+    expect(app).toContain('className="app-page-workspace"')
   })
 
   it('wraps the board in a measured frame after the game metadata', () => {
@@ -54,7 +55,7 @@ describe('right rail layout', () => {
 
   it('connects measured board/action allocation to the app layout', () => {
     expect(app).toContain("import { computeSideActionPlacement")
-    expect(app).toContain("className={sideActionPlacement.enabled ? 'app-layout side-action-layout' : 'app-layout'}")
+    expect(app).toContain("const appLayoutClass = sideActionPlacement.enabled ? 'app-layout side-action-layout' : 'app-layout'")
     expect(app).toContain('boardStageLeft: stageRect.left - layoutRect.left')
     expect(app).toContain('boardStageWidth: stageRect.width')
     expect(app).toContain('const actionRect = actionRailRef.current?.getBoundingClientRect()')

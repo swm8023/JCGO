@@ -29,9 +29,8 @@ describe('YuanluoboImportDialog', () => {
   it('shows scan login when yuanluobo is not logged in', async () => {
     renderYuanluoboImportDialog({ testAPI: api() })
 
-    const panel = await screen.findByRole('region', { name: '元萝卜登录' })
-    expect(panel).toHaveClass('yuanluobo-login-layout', 'yuanluobo-fullscreen-page')
-    expect(screen.getByRole('heading', { name: '元萝卜账号' })).toBeInTheDocument()
+    const panel = await screen.findByRole('region', { name: '元萝卜登录内容' })
+    expect(panel).toHaveClass('app-page-body', 'yuanluobo-login-layout')
     expect(screen.getByText('扫码后读取账号棋局，选择后导入到本地棋盘。')).toBeInTheDocument()
     expect(await screen.findByRole('img', { name: '元萝卜登录二维码' })).toHaveAttribute('data-qr-value', scanUrl)
     expect(screen.queryByAltText('元萝卜登录二维码')).not.toBeInTheDocument()
@@ -104,7 +103,7 @@ describe('YuanluoboImportDialog', () => {
 
     renderYuanluoboImportDialog({ testAPI })
 
-    expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toHaveClass('yuanluobo-fullscreen-page')
+    expect(await screen.findByRole('region', { name: '元萝卜棋局内容' })).toHaveClass('app-page-body', 'yuanluobo-browser')
     expect(await screen.findByText('棋手一')).toBeInTheDocument()
     expect(screen.getByText('棋局记录')).toBeInTheDocument()
     expect(screen.queryByText('按时间倒序')).not.toBeInTheDocument()
@@ -137,6 +136,7 @@ describe('YuanluoboImportDialog', () => {
     await userEvent.click(playerTrigger)
     const playerDialog = await screen.findByRole('dialog', { name: '选择棋手' })
     expect(playerDialog).toHaveClass('yuanluobo-picker-sheet')
+    expect(playerDialog).toHaveAttribute('aria-modal', 'true')
     expect(within(playerDialog).queryByPlaceholderText('搜索棋手')).not.toBeInTheDocument()
     expect(within(playerDialog).queryByRole('searchbox')).not.toBeInTheDocument()
     expect(playerDialog.querySelector('.yuanluobo-picker-check')).not.toBeInTheDocument()
@@ -227,23 +227,16 @@ describe('YuanluoboImportDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /New.*vs.*Opponent/ }))
     await waitFor(() => expect(testAPI.importRecord).toHaveBeenCalledWith('session-new'))
-    expect(screen.getByRole('region', { name: '元萝卜棋局浏览' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '元萝卜棋局内容' })).toBeInTheDocument()
   })
 })
 
-function renderYuanluoboImportDialog({
-  testAPI,
-  onBack = vi.fn(),
-}: {
-  testAPI: YuanluoboImportAPI
-  onBack?: () => void
-}) {
+function renderYuanluoboImportDialog({ testAPI }: { testAPI: YuanluoboImportAPI }) {
   function Harness() {
     const [pickerKind, setPickerKind] = useState<YuanluoboPickerKind>()
     return (
       <YuanluoboImportDialog
         api={testAPI}
-        onBack={onBack}
         pickerKind={pickerKind}
         onOpenPicker={setPickerKind}
         onClosePicker={() => setPickerKind(undefined)}

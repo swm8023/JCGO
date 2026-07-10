@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { LogOut } from 'lucide-react'
 import { RPCClient } from './api/jsonrpc'
 import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload, WorkerConfigureInput, WorkerStatus } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
@@ -6,16 +7,17 @@ import { AnalysisDetailTabs } from './components/AnalysisDetailTabs'
 import { AnalysisPanel } from './components/AnalysisPanel'
 import { Board } from './components/Board'
 import { BoardInfo } from './components/BoardInfo'
+import { GameLibraryPage } from './components/GameLibraryPage'
 import { GameSidebar } from './components/GameSidebar'
-import { ImportDialog, type ImportDialogMode } from './components/ImportDialog'
+import { ImportDialog } from './components/ImportDialog'
 import { NavigationControls } from './components/NavigationControls'
 import { OverlayToggles, type OverlayState } from './components/OverlayToggles'
 import { SettingsPage } from './components/SettingsPage'
 import { TokenGate } from './components/TokenGate'
-import type { YuanluoboImportAPI, YuanluoboPickerKind } from './components/YuanluoboImportDialog'
+import type { YuanluoboImportAPI } from './components/YuanluoboImportDialog'
 import { playCaptureSound, playStoneSound } from './board/stoneSound'
 import { computeSideActionPlacement, sideActionEdgeGap, sideActionGap, type SideActionPlacement } from './layout/sideActionRail'
-import { appHistoryLayers, importModeForLayer, isImportLayer, yuanluoboPickerForLayer, type AppHistoryLayer } from './layout/appLayers'
+import { appHistoryLayers, appLayer, importModeForLayer, isImportLayer, isPageLayer, pageLayerFor, yuanluoboPickerForLayer, type AppHistoryLayer } from './layout/appLayers'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
@@ -62,11 +64,8 @@ export default function App() {
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle')
   const [workspace, setWorkspace] = useState<StatePayload>()
   const [overlays, setOverlays] = useState<OverlayState>(() => readOverlayState())
-  const [showImport, setShowImport] = useState(false)
-  const [importMode, setImportMode] = useState<ImportDialogMode>('choose')
-  const [yuanluoboPickerKind, setYuanluoboPickerKind] = useState<YuanluoboPickerKind>()
-  const [gameListOpen, setGameListOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [currentLayer, setCurrentLayer] = useState<AppHistoryLayer>('home')
+  const [yuanluoboLoggedIn, setYuanluoboLoggedIn] = useState(false)
   const [error, setError] = useState<string>()
   const [connectionAttempt, setConnectionAttempt] = useState(0)
   const wasConnected = useRef(false)
@@ -102,11 +101,8 @@ export default function App() {
 
   const applyAppHistoryLayer = useCallback((layer: AppHistoryLayer) => {
     appHistoryLayerRef.current = layer
-    setGameListOpen(layer === 'game-list')
-    setSettingsOpen(layer === 'settings')
-    setShowImport(isImportLayer(layer))
-    setImportMode(importModeForLayer(layer))
-    setYuanluoboPickerKind(yuanluoboPickerForLayer(layer))
+    setCurrentLayer(layer)
+    if (pageLayerFor(layer) !== 'import-yuanluobo') setYuanluoboLoggedIn(false)
   }, [])
 
   const pushAppHistoryLayer = useCallback((layer: AppHistoryLayer) => {
@@ -361,7 +357,11 @@ export default function App() {
     importRecord: (sessionId) => requireClient().call('yuanluobo.importRecord', { sessionId }),
   }
 
-
+  const logoutYuanluobo = async () => {
+    await yuanluoboApi.logout()
+    setYuanluoboLoggedIn(false)
+    closeCurrentAppHistoryLayer()
+  }
 
   const deleteGame = async (gameId: string) => {
     if (!client) return
@@ -482,13 +482,26 @@ export default function App() {
 
   const layoutStyle = sideActionPlacement.enabled ? sideActionStyle(sideActionPlacement) : undefined
   const selectedGame = games.find((game) => game.gameId === selectedGameId)
+  const pageLayer = pageLayerFor(currentLayer)
+  const currentPage = appLayer(pageLayer)
+  const pageOpen = isPageLayer(pageLayer)
+  const importMode = importModeForLayer(currentLayer)
+  const yuanluoboPickerKind = yuanluoboPickerForLayer(currentLayer)
+  const yuanluoboOpen = pageLayer === 'import-yuanluobo'
+  const appLayoutClass = sideActionPlacement.enabled ? 'app-layout side-action-layout' : 'app-layout'
 
   return (
     <>
-      <main ref={layoutRef} className={sideActionPlacement.enabled ? 'app-layout side-action-layout' : 'app-layout'} style={layoutStyle}>
+      <main ref={layoutRef} className={pageOpen ? `${appLayoutClass} page-open` : appLayoutClass} style={layoutStyle}>
       <GameSidebar
-        games={games}
-        listOpen={gameListOpen}
+        contextualTitle={pageOpen ? currentPage.title : undefined}
+        onContextBack={pageOpen ? closeCurrentAppHistoryLayer : undefined}
+        contextActions={yuanluoboOpen && yuanluoboLoggedIn ? (
+          <button className="icon-button" type="button" onClick={() => void logoutYuanluobo()} aria-label="退出元萝卜">
+            <LogOut size={17} aria-hidden="true" />
+          </button>
+        ) : undefined}
+        onOpenGameList={() => pushAppHistoryLayer('game-list')}
         selectedGameId={selectedGameId}
         selectedAnalysisWorkerName={selectedGame?.analysisWorkerName}
         workerStatus={workspace?.workerStatus}
@@ -497,14 +510,11 @@ export default function App() {
         analysisError={error}
         analysisState={analysisState}
         analysisProgress={analysisProgressForState(workspace)}
-        onToggleList={() => (gameListOpen ? closeCurrentAppHistoryLayer() : pushAppHistoryLayer('game-list'))}
         onImport={() => pushAppHistoryLayer('import-choose')}
         onSettings={() => {
           pushAppHistoryLayer('settings')
           void refreshWorkspaceState()
         }}
-        onSelect={selectGame}
-        onDelete={deleteGame}
         onStartAnalysis={startAnalysis}
         onStopAnalysis={stopAnalysis}
         onRestartAnalysis={restartAnalysis}
@@ -563,22 +573,34 @@ export default function App() {
         />
       </aside>
       </main>
-      {showImport && client && (
-        <ImportDialog
-          mode={importMode}
-          onImport={importGame}
-          onImportUrl={importFromUrl}
-          onBack={closeCurrentAppHistoryLayer}
-          onOpenUrl={() => pushAppHistoryLayer('import-url')}
-          onOpenYuanluobo={() => pushAppHistoryLayer('import-yuanluobo')}
-          yuanluoboApi={yuanluoboApi}
-          yuanluoboPickerKind={yuanluoboPickerKind}
-          onOpenYuanluoboPicker={(kind) => pushAppHistoryLayer(kind === 'player' ? 'yuanluobo-player-picker' : 'yuanluobo-platform-picker')}
-          onCloseYuanluoboPicker={closeCurrentAppHistoryLayer}
-        />
-      )}
-      {settingsOpen && (
-        <SettingsPage workerStatus={workspace?.workerStatus} onBack={closeCurrentAppHistoryLayer} onConfigureWorker={configureWorker} />
+      {pageOpen && (
+        <section className="app-page-workspace" aria-label={`${currentPage.title}页面`}>
+          {pageLayer === 'game-list' && (
+            <GameLibraryPage
+              games={games}
+              selectedGameId={selectedGameId}
+              onSelect={selectGame}
+              onDelete={deleteGame}
+            />
+          )}
+          {pageLayer === 'settings' && (
+            <SettingsPage workerStatus={workspace?.workerStatus} onConfigureWorker={configureWorker} />
+          )}
+          {isImportLayer(currentLayer) && client && (
+            <ImportDialog
+              mode={importMode}
+              onImport={importGame}
+              onImportUrl={importFromUrl}
+              onOpenUrl={() => pushAppHistoryLayer('import-url')}
+              onOpenYuanluobo={() => pushAppHistoryLayer('import-yuanluobo')}
+              yuanluoboApi={yuanluoboApi}
+              yuanluoboPickerKind={yuanluoboPickerKind}
+              onOpenYuanluoboPicker={(kind) => pushAppHistoryLayer(kind === 'player' ? 'yuanluobo-player-picker' : 'yuanluobo-platform-picker')}
+              onCloseYuanluoboPicker={closeCurrentAppHistoryLayer}
+              onLoginStateChange={setYuanluoboLoggedIn}
+            />
+          )}
+        </section>
       )}
     </>
   )

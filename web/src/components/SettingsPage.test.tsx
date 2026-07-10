@@ -9,6 +9,14 @@ describe('SettingsPage', () => {
     cleanup()
   })
 
+  it('renders worker controls as a page body without a private titlebar', () => {
+    render(<SettingsPage workerStatus={{ connected: 0, available: 0, busy: 0, workers: [] }} onConfigureWorker={vi.fn()} />)
+
+    expect(screen.getByRole('region', { name: '设置内容' })).toHaveClass('app-page-body', 'settings-page')
+    expect(screen.queryByRole('dialog', { name: '设置' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '返回' })).not.toBeInTheDocument()
+  })
+
   it('renders worker status with connected worker details', () => {
     render(
       <SettingsPage
@@ -27,7 +35,6 @@ describe('SettingsPage', () => {
             busy: false,
           }],
         }}
-        onBack={vi.fn()}
       />,
     )
 
@@ -48,7 +55,6 @@ describe('SettingsPage', () => {
     const { container } = render(
       <SettingsPage
         workerStatus={{ connected: 3, available: 2, busy: 1, workers: [] }}
-        onBack={vi.fn()}
       />,
     )
 
@@ -79,7 +85,6 @@ describe('SettingsPage', () => {
             busy: false,
           }],
         }}
-        onBack={vi.fn()}
         onConfigureWorker={vi.fn().mockResolvedValue(undefined)}
       />,
     )
@@ -99,7 +104,6 @@ describe('SettingsPage', () => {
     render(
       <SettingsPage
         workerStatus={{ connected: 0, available: 0, busy: 0, workers: [] }}
-        onBack={vi.fn()}
       />,
     )
 
@@ -124,7 +128,6 @@ describe('SettingsPage', () => {
             error: 'worker.model is required',
           }],
         }}
-        onBack={vi.fn()}
       />,
     )
 
@@ -152,7 +155,6 @@ describe('SettingsPage', () => {
             busy: false,
           }],
         }}
-        onBack={vi.fn()}
         onConfigureWorker={onConfigureWorker}
       />,
     )

@@ -298,7 +298,7 @@ describe('App variation navigation', () => {
     expect(screen.getByLabelText('Move 5, white to play')).toBeInTheDocument()
   })
 
-  it('closes the local game list with Escape while keeping the titlebar available', async () => {
+  it('returns from the local game page with Escape', async () => {
     const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => storage.get(key) ?? null,
@@ -308,19 +308,17 @@ describe('App variation navigation', () => {
     })
     rpc.state = gameLibraryState('game-1')
 
-    const { container } = render(<App />)
+    render(<App />)
 
     await screen.findByLabelText('Move 5, white to play')
-    const list = container.querySelector<HTMLElement>('[aria-label="本地棋局列表"]')
-    expect(list).not.toBeNull()
-    expect(list).toHaveAttribute('aria-hidden', 'true')
-
     await userEvent.click(screen.getByLabelText('Show game list'))
-    expect(list).toHaveAttribute('aria-hidden', 'false')
-    expect(screen.getByLabelText('Import SGF')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '本地棋局内容' })).toBeInTheDocument()
+    expect(screen.getByRole('banner', { name: '本地棋局' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Import SGF')).not.toBeInTheDocument()
 
     await userEvent.keyboard('{Escape}')
-    expect(list).toHaveAttribute('aria-hidden', 'true')
+    await waitFor(() => expect(screen.queryByRole('region', { name: '本地棋局内容' })).not.toBeInTheDocument())
+    expect(screen.getByLabelText('Import SGF')).toBeInTheDocument()
   })
 
   it('closes the local game list after selecting a game', async () => {
@@ -333,41 +331,36 @@ describe('App variation navigation', () => {
     })
     rpc.state = gameLibraryState('game-1')
 
-    const { container } = render(<App />)
+    render(<App />)
 
     await screen.findByLabelText('Move 5, white to play')
-    const list = container.querySelector<HTMLElement>('[aria-label="本地棋局列表"]')
-    expect(list).not.toBeNull()
     await userEvent.click(screen.getByLabelText('Show game list'))
-    expect(list).toHaveAttribute('aria-hidden', 'false')
+    const list = screen.getByRole('region', { name: '本地棋局内容' })
 
     rpc.responses = [gameLibraryState('game-2')]
-    await userEvent.click(within(list as HTMLElement).getByRole('button', { name: /^Second study/ }))
+    await userEvent.click(within(list).getByRole('button', { name: /^Second study/ }))
 
     expect(rpc.calls.at(-1)).toEqual({
       method: 'game.select',
       params: { gameId: 'game-2' },
     })
-    expect(list).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByRole('region', { name: '本地棋局内容' })).not.toBeInTheDocument()
   })
 
   it('closes the local game list when the browser history returns to the board', async () => {
     stubAuthenticatedStorage()
     rpc.state = gameLibraryState('game-1')
 
-    const { container } = render(<App />)
+    render(<App />)
 
     await screen.findByLabelText('Move 5, white to play')
     const homeState = window.history.state
-    const list = container.querySelector<HTMLElement>('[aria-label="本地棋局列表"]')
-    expect(list).not.toBeNull()
-
     await userEvent.click(screen.getByLabelText('Show game list'))
-    expect(list).toHaveAttribute('aria-hidden', 'false')
+    expect(screen.getByRole('region', { name: '本地棋局内容' })).toBeInTheDocument()
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
 
-    await waitFor(() => expect(list).toHaveAttribute('aria-hidden', 'true'))
+    await waitFor(() => expect(screen.queryByRole('region', { name: '本地棋局内容' })).not.toBeInTheDocument())
   })
 
   it('walks browser history from nested import screens back to the board', async () => {
@@ -390,24 +383,24 @@ describe('App variation navigation', () => {
 
     await userEvent.click(screen.getByLabelText('Import SGF'))
     const chooseState = window.history.state
-    expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '导入棋局内容' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /复盘链接/ }))
-    expect(screen.getByRole('dialog', { name: '从链接导入' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '从链接导入内容' })).toBeInTheDocument()
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: chooseState }))
-    await waitFor(() => expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument())
-    expect(screen.queryByRole('dialog', { name: '从链接导入' })).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('region', { name: '导入棋局内容' })).toBeInTheDocument())
+    expect(screen.queryByRole('region', { name: '从链接导入内容' })).not.toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
-    expect(await screen.findByRole('region', { name: '元萝卜登录' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '元萝卜登录内容' })).toBeInTheDocument()
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: chooseState }))
-    await waitFor(() => expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument())
-    expect(screen.queryByRole('dialog', { name: '元萝卜导入' })).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('region', { name: '导入棋局内容' })).toBeInTheDocument())
+    expect(screen.queryByRole('region', { name: '元萝卜登录内容' })).not.toBeInTheDocument()
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '导入棋局' })).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('region', { name: '导入棋局内容' })).not.toBeInTheDocument())
   })
 
   it('closes a yuanluobo picker on browser back before leaving the yuanluobo screen', async () => {
@@ -433,17 +426,17 @@ describe('App variation navigation', () => {
     const chooseState = window.history.state
     await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
     const yuanluoboState = window.history.state
-    expect(await screen.findByRole('region', { name: '元萝卜棋局浏览' })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: '元萝卜棋局内容' })).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: /棋手 棋手一/ }))
     expect(await screen.findByRole('dialog', { name: '选择棋手' })).toBeInTheDocument()
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: yuanluoboState }))
     await waitFor(() => expect(screen.queryByRole('dialog', { name: '选择棋手' })).not.toBeInTheDocument())
-    expect(screen.getByRole('region', { name: '元萝卜棋局浏览' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '元萝卜棋局内容' })).toBeInTheDocument()
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: chooseState }))
-    await waitFor(() => expect(screen.getByRole('dialog', { name: '导入棋局' })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('region', { name: '导入棋局内容' })).toBeInTheDocument())
   })
 
   it('opens settings from the titlebar and closes it on browser back', async () => {
@@ -471,12 +464,51 @@ describe('App variation navigation', () => {
 
     await userEvent.click(screen.getByLabelText('Open settings'))
 
-    expect(screen.getByRole('dialog', { name: '设置' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '设置内容' })).toBeInTheDocument()
     expect(screen.getByText('gpu-worker')).toBeInTheDocument()
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
 
-    await waitFor(() => expect(screen.queryByRole('dialog', { name: '设置' })).not.toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('region', { name: '设置内容' })).not.toBeInTheDocument())
+  })
+
+  it('shows a contextual titlebar and hides home actions while a page is open', async () => {
+    stubAuthenticatedStorage()
+    rpc.state = mainlineState(5, 12)
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    await userEvent.click(screen.getByLabelText('Open settings'))
+
+    expect(screen.getByRole('banner', { name: '设置' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: '设置内容' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Show game list')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Import SGF')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Open settings')).not.toBeInTheDocument()
+  })
+
+  it('uses the same one-layer return for titlebar back and Escape', async () => {
+    stubAuthenticatedStorage()
+    rpc.responses = [
+      mainlineState(5, 12),
+      { loggedIn: false },
+      { key: 'key-1', image: 'jpeg-base64', scanUrl: 'https://example.test/qr' },
+      { status: 0, desc: '未扫码' },
+    ]
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    await userEvent.click(screen.getByLabelText('Import SGF'))
+    await userEvent.click(screen.getByRole('button', { name: /复盘链接/ }))
+    expect(screen.getByRole('banner', { name: '从链接导入' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: '返回从链接导入' }))
+    expect(screen.getByRole('banner', { name: '导入棋局' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
+    expect(await screen.findByRole('banner', { name: '元萝卜' })).toBeInTheDocument()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await waitFor(() => expect(screen.getByRole('banner', { name: '导入棋局' })).toBeInTheDocument())
   })
 })
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, ChevronDown, Grid3X3, LogOut, RefreshCw, UserRound } from 'lucide-react'
+import { ChevronDown, Grid3X3, RefreshCw, UserRound } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type {
   ImportResult,
@@ -23,10 +23,10 @@ export interface YuanluoboImportAPI {
 
 interface YuanluoboImportDialogProps {
   api: YuanluoboImportAPI
-  onBack(): void
   pickerKind?: YuanluoboPickerKind
   onOpenPicker(kind: YuanluoboPickerKind): void
   onClosePicker(): void
+  onLoginStateChange?(loggedIn: boolean): void
 }
 
 type LoginState = 'checking' | 'logged-out' | 'polling' | 'logged-in'
@@ -35,7 +35,7 @@ export type YuanluoboPickerKind = 'player' | 'platform'
 const defaultYuanluoboCategory: YuanluoboRecordCategory = { title: '元萝卜AI', gameMode: 1 }
 const defaultYuanluoboGameMode = defaultYuanluoboCategory.gameMode
 
-export function YuanluoboImportDialog({ api, onBack, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
+export function YuanluoboImportDialog({ api, pickerKind, onOpenPicker, onClosePicker, onLoginStateChange }: YuanluoboImportDialogProps) {
   const [loginState, setLoginState] = useState<LoginState>('checking')
   const [qr, setQR] = useState<YuanluoboQRCode>()
   const [pollDesc, setPollDesc] = useState('未扫码')
@@ -93,9 +93,14 @@ export function YuanluoboImportDialog({ api, onBack, pickerKind, onOpenPicker, o
     }
   }, [])
 
+  useEffect(() => {
+    onLoginStateChange?.(loginState === 'logged-in')
+    return () => onLoginStateChange?.(false)
+  }, [loginState, onLoginStateChange])
+
   if (loginState === 'checking') {
     return (
-      <section className="yuanluobo-panel yuanluobo-fullscreen-page yuanluobo-login-layout" role="region" aria-label="元萝卜登录">
+      <section className="app-page-body yuanluobo-login-layout" role="region" aria-label="元萝卜登录内容">
         <p className="yuanluobo-muted">正在检查元萝卜登录...</p>
       </section>
     )
@@ -103,17 +108,9 @@ export function YuanluoboImportDialog({ api, onBack, pickerKind, onOpenPicker, o
 
   if (loginState !== 'logged-in') {
     return (
-      <section className="yuanluobo-panel yuanluobo-fullscreen-page yuanluobo-login-layout" role="region" aria-label="元萝卜登录">
+      <section className="app-page-body yuanluobo-login-layout" role="region" aria-label="元萝卜登录内容">
         <div className="yuanluobo-login-copy">
-          <button className="yuanluobo-back-button" onClick={onBack}>
-            <ArrowLeft size={16} aria-hidden="true" />
-            返回
-          </button>
-          <div>
-            <p className="yuanluobo-eyebrow">Account import</p>
-            <h2>元萝卜账号</h2>
-            <p>扫码后读取账号棋局，选择后导入到本地棋盘。</p>
-          </div>
+          <p>扫码后读取账号棋局，选择后导入到本地棋盘。</p>
           <div className="yuanluobo-scan-status" aria-label="扫码状态">
             <span className="yuanluobo-status-dot" aria-hidden="true" />
             {pollDesc}
@@ -145,7 +142,6 @@ export function YuanluoboImportDialog({ api, onBack, pickerKind, onOpenPicker, o
   return (
     <YuanluoboRecordBrowser
       api={api}
-      onBack={onBack}
       pickerKind={pickerKind}
       onOpenPicker={onOpenPicker}
       onClosePicker={onClosePicker}
@@ -153,7 +149,7 @@ export function YuanluoboImportDialog({ api, onBack, pickerKind, onOpenPicker, o
   )
 }
 
-function YuanluoboRecordBrowser({ api, onBack, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
+function YuanluoboRecordBrowser({ api, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
   const [players, setPlayers] = useState<YuanluoboPlayer[]>([])
   const [playerId, setPlayerId] = useState(() => readStorage('jcgo.yuanluobo.playerId') ?? '')
   const [categories, setCategories] = useState<YuanluoboRecordCategory[]>([defaultYuanluoboCategory])
@@ -234,23 +230,7 @@ function YuanluoboRecordBrowser({ api, onBack, pickerKind, onOpenPicker, onClose
   const selectedCategory = categories.find((category) => category.gameMode === gameMode) ?? defaultYuanluoboCategory
 
   return (
-    <section className="yuanluobo-panel yuanluobo-fullscreen-page yuanluobo-browser" role="region" aria-label="元萝卜棋局浏览">
-      <header className="yuanluobo-header">
-        <button className="yuanluobo-back-button" onClick={onBack}>
-          <ArrowLeft size={16} aria-hidden="true" />
-          返回
-        </button>
-        <div className="yuanluobo-title-block">
-          <p className="yuanluobo-eyebrow">Account games</p>
-          <h2>元萝卜棋局</h2>
-          <span>共 {total} 局</span>
-        </div>
-        <button className="yuanluobo-logout-button" onClick={() => void api.logout().then(onBack)}>
-          <LogOut size={16} aria-hidden="true" />
-          退出
-        </button>
-      </header>
-
+    <section className="app-page-body yuanluobo-browser yuanluobo-panel" role="region" aria-label="元萝卜棋局内容">
       <div className="yuanluobo-filter-bar">
         <button
           className="yuanluobo-filter-trigger"
@@ -285,6 +265,7 @@ function YuanluoboRecordBrowser({ api, onBack, pickerKind, onOpenPicker, onClose
       <div className="yuanluobo-record-toolbar">
         <div>
           <strong>棋局记录</strong>
+          <span>共 {total} 局</span>
         </div>
       </div>
 

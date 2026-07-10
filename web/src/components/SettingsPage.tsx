@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Cpu, Server } from 'lucide-react'
+import { Cpu, Server } from 'lucide-react'
 import type { WorkerConfigureInput, WorkerRuntimeStatus, WorkerStatus } from '../api/types'
 
 interface SettingsPageProps {
   workerStatus?: WorkerStatus
-  onBack(): void
   onConfigureWorker?(input: WorkerConfigureInput): Promise<void>
 }
 
@@ -21,23 +20,11 @@ const emptyWorkerStatus: WorkerStatus = {
   workers: [],
 }
 
-export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack, onConfigureWorker }: SettingsPageProps) {
+export function SettingsPage({ workerStatus = emptyWorkerStatus, onConfigureWorker }: SettingsPageProps) {
   const statusLabel = workerStatusLabel(workerStatus)
   return (
-    <div className="settings-page" role="dialog" aria-label="设置">
-      <section className="settings-panel">
-        <header className="settings-header">
-          <button className="settings-back-button" type="button" onClick={onBack}>
-            <ArrowLeft size={16} aria-hidden="true" />
-            返回
-          </button>
-          <div className="settings-title-block">
-            <p className="settings-eyebrow">Settings</p>
-            <h2>设置</h2>
-          </div>
-        </header>
-
-        <section className="settings-section" role="region" aria-label="Worker 状态">
+    <section className="app-page-body settings-page" role="region" aria-label="设置内容">
+      <section className="settings-section" role="region" aria-label="Worker 状态">
           <div className="worker-status-summary" data-state={workerStatusTone(workerStatus)}>
             <span className="worker-summary-state">
               <span className="worker-status-icon" aria-hidden="true">
@@ -73,9 +60,8 @@ export function SettingsPage({ workerStatus = emptyWorkerStatus, onBack, onConfi
               ))}
             </div>
           )}
-        </section>
       </section>
-    </div>
+    </section>
   )
 }
 

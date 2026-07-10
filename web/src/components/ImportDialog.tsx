@@ -1,18 +1,18 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Cloud, FileUp, Link2, X } from 'lucide-react'
+import { Cloud, FileUp, Link2 } from 'lucide-react'
 import { YuanluoboImportDialog, type YuanluoboImportAPI, type YuanluoboPickerKind } from './YuanluoboImportDialog'
 
 interface ImportDialogProps {
   mode: ImportDialogMode
   onImport(displayName: string, originalFilename: string, sgfText: string): void | Promise<void>
   onImportUrl(url: string): void | Promise<void>
-  onBack(): void
   onOpenUrl(): void
   onOpenYuanluobo(): void
   yuanluoboApi: YuanluoboImportAPI
   yuanluoboPickerKind?: YuanluoboPickerKind
   onOpenYuanluoboPicker(kind: YuanluoboPickerKind): void
   onCloseYuanluoboPicker(): void
+  onLoginStateChange?(loggedIn: boolean): void
 }
 
 type SGFPickerOptions = {
@@ -51,13 +51,13 @@ export function ImportDialog({
   mode,
   onImport,
   onImportUrl,
-  onBack,
   onOpenUrl,
   onOpenYuanluobo,
   yuanluoboApi,
   yuanluoboPickerKind,
   onOpenYuanluoboPicker,
   onCloseYuanluoboPicker,
+  onLoginStateChange,
 }: ImportDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [url, setUrl] = useState('')
@@ -90,12 +90,6 @@ export function ImportDialog({
     }
   }, [mode])
 
-  const back = () => {
-    setUrl('')
-    setError(null)
-    onBack()
-  }
-
   const handleUrlSubmit = async () => {
     if (!url.trim()) return
     setLoading(true)
@@ -110,18 +104,8 @@ export function ImportDialog({
 
   if (mode === 'url') {
     return (
-      <div className="import-dialog" role="dialog" aria-label="从链接导入">
-        <div className="import-dialog-body import-url-panel">
-          <header className="import-panel-header">
-            <button className="import-icon-button" onClick={back} disabled={loading} aria-label="返回导入来源">
-              <ArrowLeft size={17} aria-hidden="true" />
-            </button>
-            <div>
-              <p className="import-panel-eyebrow">URL</p>
-              <h2>从链接导入</h2>
-              <p>粘贴元萝卜复盘链接，系统会读取棋局并生成 SGF。</p>
-            </div>
-          </header>
+      <section className="app-page-body import-page import-url-page" role="region" aria-label="从链接导入内容">
+        <p className="import-page-description">粘贴元萝卜复盘链接，系统会读取棋局并生成 SGF。</p>
           <label className="import-url-field">
             <span>复盘链接</span>
             <input
@@ -135,45 +119,30 @@ export function ImportDialog({
           </label>
           {error && <div className="import-error">{error}</div>}
           <div className="import-dialog-actions">
-            <button className="import-secondary-button" onClick={back} disabled={loading}>返回</button>
             <button className="import-primary-button" onClick={handleUrlSubmit} disabled={loading || !url.trim()}>
               {loading ? '导入中...' : '导入'}
             </button>
           </div>
-        </div>
-      </div>
+      </section>
     )
   }
 
   if (mode === 'yuanluobo') {
     return (
-      <div className="import-dialog yuanluobo-fullscreen-dialog" role="dialog" aria-label="元萝卜导入">
-        <YuanluoboImportDialog
-          api={yuanluoboApi}
-          onBack={onBack}
-          pickerKind={yuanluoboPickerKind}
-          onOpenPicker={onOpenYuanluoboPicker}
-          onClosePicker={onCloseYuanluoboPicker}
-        />
-      </div>
+      <YuanluoboImportDialog
+        api={yuanluoboApi}
+        pickerKind={yuanluoboPickerKind}
+        onOpenPicker={onOpenYuanluoboPicker}
+        onClosePicker={onCloseYuanluoboPicker}
+        onLoginStateChange={onLoginStateChange}
+      />
     )
   }
 
   return (
-    <div className="import-dialog" role="dialog" aria-label="导入棋局">
-      <div className="import-dialog-body import-source-panel">
-        <header className="import-panel-header">
-          <div>
-            <p className="import-panel-eyebrow">Import</p>
-            <h2>导入棋局</h2>
-            <p>选择一个来源，导入后会进入当前棋盘。</p>
-          </div>
-          <button className="import-icon-button" onClick={back} aria-label="关闭导入">
-            <X size={17} aria-hidden="true" />
-          </button>
-        </header>
-
-        <div className="import-source-grid">
+    <section className="app-page-body import-page" role="region" aria-label="导入棋局内容">
+      <p className="import-page-description">选择一个来源，导入后会进入当前棋盘。</p>
+      <div className="import-source-grid">
           <button className="import-source-card" onClick={choose}>
             <span className="import-source-icon"><FileUp size={20} aria-hidden="true" /></span>
             <span className="import-source-copy">
@@ -195,10 +164,9 @@ export function ImportDialog({
               <small>扫码后浏览历史棋局</small>
             </span>
           </button>
-        </div>
-        <input ref={inputRef} type="file" accept=".sgf" hidden onChange={onFile} />
       </div>
-    </div>
+      <input ref={inputRef} type="file" accept=".sgf" hidden onChange={onFile} />
+    </section>
   )
 
   async function chooseWithPicker(picker: NonNullable<FilePickerWindow['showOpenFilePicker']>) {
