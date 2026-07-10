@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { GameSidebar } from './GameSidebar'
 
@@ -92,30 +93,85 @@ describe('GameSidebar', () => {
     expect(within(list as HTMLElement).getByText('共 2 局')).toBeInTheDocument()
   })
 
-  it('places the analysis action in the left sidebar', () => {
+  it('opens an analysis menu with worker selection and actions', async () => {
+    const user = userEvent.setup()
+    const onSetAnalysisWorker = vi.fn().mockResolvedValue(undefined)
     const onStartAnalysis = vi.fn()
+    const onRestartAnalysis = vi.fn()
     const { container } = render(
       <GameSidebar
         games={[]}
         listOpen={false}
         selectedGameId="game-1"
+        selectedAnalysisWorkerName="local-gpu"
+        workerStatus={{
+          connected: 1,
+          available: 1,
+          busy: 0,
+          workers: [{
+            id: 'worker-1',
+            name: 'local-gpu',
+            platform: 'windows/amd64',
+            model: 'kata1-b18c384nbt-s9996604416-d4316597426.bin.gz',
+            maxVisits: 500,
+            available: true,
+            busy: false,
+          }],
+        }}
         analysisAvailable
         analysisState="idle"
+        analysisProgress={{ analyzed: 3, total: 10 }}
         onToggleList={vi.fn()}
         onImport={vi.fn()}
         onSelect={vi.fn()}
         onDelete={vi.fn()}
         onStartAnalysis={onStartAnalysis}
         onStopAnalysis={vi.fn()}
-        onRestartAnalysis={vi.fn()}
+        onRestartAnalysis={onRestartAnalysis}
+        onSetAnalysisWorker={onSetAnalysisWorker}
       />,
     )
 
-    const action = within(container).getByRole('button', { name: 'Start analysis' })
+    const action = within(container).getByRole('button', { name: '打开分析菜单' })
     expect(action).toHaveTextContent('析')
     expect(action).not.toHaveTextContent('Run')
-    action.click()
+    await user.click(action)
+    const menu = screen.getByRole('menu', { name: '分析' })
+    expect(within(menu).getByText('3 / 10')).toBeInTheDocument()
+    expect(within(menu).getByLabelText('分析器')).toHaveValue('local-gpu')
+    await user.click(within(menu).getByRole('menuitem', { name: '继续分析' }))
     expect(onStartAnalysis).toHaveBeenCalledTimes(1)
+    await user.click(within(container).getByRole('button', { name: '打开分析菜单' }))
+    await user.click(within(screen.getByRole('menu', { name: '分析' })).getByRole('menuitem', { name: '重新分析' }))
+    expect(onRestartAnalysis).toHaveBeenCalledTimes(1)
+  })
+
+  it('requires a worker before analysis actions are enabled', async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <GameSidebar
+        games={[]}
+        listOpen={false}
+        selectedGameId="game-1"
+        workerStatus={{ connected: 0, available: 0, busy: 0, workers: [] }}
+        analysisAvailable
+        analysisState="idle"
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+        onSetAnalysisWorker={vi.fn()}
+      />,
+    )
+
+    await user.click(within(container).getByRole('button', { name: '打开分析菜单' }))
+    const menu = screen.getByRole('menu', { name: '分析' })
+    expect(within(menu).getByRole('menuitem', { name: '继续分析' })).toBeDisabled()
+    expect(within(menu).getByRole('menuitem', { name: '重新分析' })).toBeDisabled()
+    expect(within(menu).getAllByText('请选择分析器').length).toBeGreaterThan(0)
   })
 
   it('groups file, overlay, and analysis controls for the compact toolbar', () => {
@@ -145,7 +201,7 @@ describe('GameSidebar', () => {
     expect(fileActions).toContainElement(sidebar.getByLabelText('Import SGF'))
     expect(fileActions).toContainElement(sidebar.getByLabelText('Open settings'))
     expect(toggleActions).toContainElement(sidebar.getByTestId('overlay-slot'))
-    expect(analysisActions).toContainElement(sidebar.getByRole('button', { name: 'Start analysis' }))
+    expect(analysisActions).toContainElement(sidebar.getByRole('button', { name: '打开分析菜单' }))
     expect(Array.from(container.querySelectorAll('.sidebar-file-actions, .sidebar-toggle-actions, .sidebar-analysis'))).toEqual([
       fileActions,
       toggleActions,
@@ -153,13 +209,16 @@ describe('GameSidebar', () => {
     ])
   })
 
-  it('shows running analysis progress as the same compact label in both orientations', () => {
+  it('shows running analysis progress and exposes stop in the menu', async () => {
+    const user = userEvent.setup()
     const onStopAnalysis = vi.fn()
     const { container } = render(
       <GameSidebar
         games={[]}
         listOpen={false}
         selectedGameId="game-1"
+        selectedAnalysisWorkerName="local-gpu"
+        workerStatus={{ connected: 1, available: 1, busy: 1, workers: [{ id: 'worker-1', name: 'local-gpu', platform: 'windows/amd64', available: true, busy: true }] }}
         analysisAvailable
         analysisState="running"
         analysisProgress={{ analyzed: 11, total: 133 }}
@@ -174,22 +233,27 @@ describe('GameSidebar', () => {
     )
 
     const sidebar = within(container)
-    const action = sidebar.getByRole('button', { name: 'Analysis progress 11/133' })
-    expect(action).toBeDisabled()
-    expect(action).toHaveClass('analysis-action-wide')
+    const action = sidebar.getByRole('button', { name: '打开分析菜单' })
+    expect(action).not.toBeDisabled()
     expect(action).not.toHaveTextContent('Stop analysis')
     expect(sidebar.getAllByText('11/133')).toHaveLength(2)
-    action.click()
-    expect(onStopAnalysis).not.toHaveBeenCalled()
+    await user.click(action)
+    const menu = screen.getByRole('menu', { name: '分析' })
+    expect(within(menu).getByLabelText('分析器')).toBeDisabled()
+    await user.click(within(menu).getByRole('menuitem', { name: '停止分析' }))
+    expect(onStopAnalysis).toHaveBeenCalledTimes(1)
   })
 
-  it('disables completed analysis without offering re-analysis', () => {
+  it('offers re-analysis for completed games with a selected worker', async () => {
+    const user = userEvent.setup()
     const onRestartAnalysis = vi.fn()
     const { container } = render(
       <GameSidebar
         games={[]}
         listOpen={false}
         selectedGameId="game-1"
+        selectedAnalysisWorkerName="local-gpu"
+        workerStatus={{ connected: 1, available: 1, busy: 0, workers: [{ id: 'worker-1', name: 'local-gpu', platform: 'windows/amd64', available: true, busy: false }] }}
         analysisAvailable
         analysisState="complete"
         onToggleList={vi.fn()}
@@ -203,13 +267,13 @@ describe('GameSidebar', () => {
     )
 
     const sidebar = within(container)
-    const action = sidebar.getByRole('button', { name: 'Analysis complete' })
-    expect(action).toBeDisabled()
-    expect(action).not.toHaveTextContent('Re-analyze')
+    const action = sidebar.getByRole('button', { name: '打开分析菜单' })
+    expect(action).not.toBeDisabled()
     expect(action).not.toHaveTextContent('Again')
     expect(sidebar.getAllByText('析')).toHaveLength(2)
-    action.click()
-    expect(onRestartAnalysis).not.toHaveBeenCalled()
+    await user.click(action)
+    await user.click(within(screen.getByRole('menu', { name: '分析' })).getByRole('menuitem', { name: '重新分析' }))
+    expect(onRestartAnalysis).toHaveBeenCalledTimes(1)
   })
 
   it('uses compact aligned icon actions in each game row', () => {

@@ -1,12 +1,14 @@
-import type { AnalysisProgress, AnalysisState, GameRecord } from '../api/types'
-import type { ReactNode } from 'react'
-import { Menu, Plus, Settings, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import type { AnalysisProgress, AnalysisState, GameRecord, WorkerStatus } from '../api/types'
+import { ChevronDown, Menu, Plus, Settings, Trash2 } from 'lucide-react'
 import { formatGameResult } from './gameResult'
 
 interface GameSidebarProps {
   games: GameRecord[]
   listOpen: boolean
   selectedGameId?: string
+  selectedAnalysisWorkerName?: string
+  workerStatus?: WorkerStatus
   analysisAvailable: boolean
   analysisError?: string
   analysisState: AnalysisState
@@ -19,6 +21,7 @@ interface GameSidebarProps {
   onStartAnalysis(): void
   onStopAnalysis(): void
   onRestartAnalysis(): void
+  onSetAnalysisWorker?(workerName: string): Promise<void>
   toolbarSlot?: ReactNode
 }
 
@@ -26,6 +29,8 @@ export function GameSidebar({
   games,
   listOpen,
   selectedGameId,
+  selectedAnalysisWorkerName,
+  workerStatus,
   analysisAvailable,
   analysisError,
   analysisState,
@@ -36,12 +41,11 @@ export function GameSidebar({
   onSelect,
   onDelete,
   onStartAnalysis,
+  onStopAnalysis,
+  onRestartAnalysis,
+  onSetAnalysisWorker,
   toolbarSlot,
 }: GameSidebarProps) {
-  const analysisAction = analysisButton(analysisState, analysisProgress, onStartAnalysis)
-  const disabled = !selectedGameId || analysisAction.disabled || (!analysisAvailable && analysisState !== 'running')
-  const analysisClassName = analysisAction.wide ? 'analysis-action-button analysis-action-wide' : 'analysis-action-button'
-
   return (
     <aside className={listOpen ? 'game-sidebar expanded' : 'game-sidebar'}>
       <div className="sidebar-header">
@@ -60,11 +64,19 @@ export function GameSidebar({
         <div className="sidebar-toggle-actions">{toolbarSlot}</div>
       </div>
       <div className="sidebar-analysis">
-        <button className={analysisClassName} aria-label={analysisAction.label} onClick={analysisAction.onClick} disabled={disabled}>
-          <span className="wide-label">{analysisAction.text}</span>
-          <span className="narrow-label">{analysisAction.shortText}</span>
-        </button>
-        {!analysisAvailable && analysisError && <small className="engine-error">{analysisError}</small>}
+        <AnalysisMenu
+          selectedGameId={selectedGameId}
+          selectedWorkerName={selectedAnalysisWorkerName}
+          workerStatus={workerStatus}
+          analysisAvailable={analysisAvailable}
+          analysisError={analysisError}
+          analysisState={analysisState}
+          analysisProgress={analysisProgress}
+          onSetAnalysisWorker={onSetAnalysisWorker}
+          onStartAnalysis={onStartAnalysis}
+          onStopAnalysis={onStopAnalysis}
+          onRestartAnalysis={onRestartAnalysis}
+        />
       </div>
       <section className="game-list" role="region" aria-label="本地棋局列表" aria-hidden={!listOpen}>
         <div className="game-list-shell">
@@ -146,6 +158,133 @@ export function GameSidebar({
   )
 }
 
+function AnalysisMenu({
+  selectedGameId,
+  selectedWorkerName,
+  workerStatus,
+  analysisAvailable,
+  analysisError,
+  analysisState,
+  analysisProgress,
+  onSetAnalysisWorker,
+  onStartAnalysis,
+  onStopAnalysis,
+  onRestartAnalysis,
+}: {
+  selectedGameId?: string
+  selectedWorkerName?: string
+  workerStatus?: WorkerStatus
+  analysisAvailable: boolean
+  analysisError?: string
+  analysisState: AnalysisState
+  analysisProgress?: AnalysisProgress
+  onSetAnalysisWorker?(workerName: string): Promise<void>
+  onStartAnalysis(): void
+  onStopAnalysis(): void
+  onRestartAnalysis(): void
+}) {
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const running = analysisState === 'running'
+  const workers = workerStatus?.workers ?? []
+  const selectedWorker = workers.find((worker) => worker.name === selectedWorkerName)
+  const workerReady = Boolean(selectedWorkerName && selectedWorker?.available && !selectedWorker.error)
+  const baseActionDisabled = !selectedGameId || !workerReady || (!analysisAvailable && !running)
+  const progressCompact = formatAnalysisProgress(analysisProgress)
+  const progressSpaced = formatAnalysisProgressSpaced(analysisProgress)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    window.addEventListener('pointerdown', onPointerDown)
+    return () => window.removeEventListener('pointerdown', onPointerDown)
+  }, [open])
+
+  const setWorker = async (workerName: string) => {
+    if (!workerName || !onSetAnalysisWorker || running || workerName === selectedWorkerName) return
+    await onSetAnalysisWorker(workerName)
+  }
+
+  const triggerText = running ? progressCompact : '析'
+
+  return (
+    <div className="analysis-menu-root" ref={menuRef}>
+      <button
+        className={running ? 'analysis-action-button analysis-action-wide' : 'analysis-action-button'}
+        aria-label="打开分析菜单"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        disabled={!selectedGameId}
+      >
+        <span className="wide-label">{triggerText}</span>
+        <span className="narrow-label">{triggerText}</span>
+        <ChevronDown size={12} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="analysis-menu" role="menu" aria-label="分析">
+          <label className="analysis-worker-select">
+            <span>分析器</span>
+            <select
+              value={selectedWorkerName || ''}
+              disabled={running || !onSetAnalysisWorker}
+              onChange={(event) => void setWorker(event.target.value)}
+            >
+              <option value="">请选择分析器</option>
+              {workers.map((worker) => (
+                <option key={worker.name || worker.id} value={worker.name}>
+                  {worker.name || worker.id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="analysis-menu-status">
+            <strong>{analysisStatusLabel(analysisState)}</strong>
+            <span>{progressSpaced}</span>
+          </div>
+          {!selectedWorkerName && <small className="engine-error">请选择分析器</small>}
+          {selectedWorkerName && !workerReady && <small className="engine-error">{selectedWorker?.error || '分析器不可用'}</small>}
+          {analysisError && <small className="engine-error">{analysisError}</small>}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onStartAnalysis()
+            }}
+            disabled={baseActionDisabled || running || analysisState === 'complete'}
+          >
+            继续分析
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onRestartAnalysis()
+            }}
+            disabled={baseActionDisabled || running}
+          >
+            重新分析
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false)
+              onStopAnalysis()
+            }}
+            disabled={!running}
+          >
+            停止分析
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function localGameResultMarker(winner: LocalGameWinner, player?: 'black' | 'white') {
   if (player && winner !== player) return null
   if (winner !== 'black' && winner !== 'white' && winner !== 'draw') return null
@@ -171,20 +310,14 @@ function localGameTitle(game: GameRecord): LocalGameTitle {
   return { kind: 'plain', displayName: game.displayName }
 }
 
-function analysisButton(analysisState: AnalysisState, progress: AnalysisProgress | undefined, onStart: () => void) {
-  if (analysisState === 'running') {
-    const text = formatAnalysisProgress(progress)
-    return { label: `Analysis progress ${text}`, text, shortText: text, onClick: noop, disabled: true, wide: true }
-  }
-  if (analysisState === 'complete') {
-    return { label: 'Analysis complete', text: '析', shortText: '析', onClick: noop, disabled: true, wide: false }
-  }
-  return { label: 'Start analysis', text: '析', shortText: '析', onClick: onStart, disabled: false, wide: false }
-}
-
 function formatAnalysisProgress(progress?: AnalysisProgress) {
   if (!progress) return '0/0'
   return `${progress.analyzed}/${progress.total}`
+}
+
+function formatAnalysisProgressSpaced(progress?: AnalysisProgress) {
+  if (!progress) return '0 / 0'
+  return `${progress.analyzed} / ${progress.total}`
 }
 
 function noop() {

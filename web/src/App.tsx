@@ -487,7 +487,14 @@ export default function App() {
     await refreshWorkspaceState()
   }
 
+  const setGameAnalysisWorker = async (workerName: string) => {
+    if (!client || !selectedGameId) return
+    const state = await client.call<StatePayload>('game.setAnalysisWorker', { gameId: selectedGameId, workerName })
+    applyWorkspaceState(state)
+  }
+
   const layoutStyle = sideActionPlacement.enabled ? sideActionStyle(sideActionPlacement) : undefined
+  const selectedGame = games.find((game) => game.gameId === selectedGameId)
 
   return (
     <>
@@ -496,6 +503,8 @@ export default function App() {
         games={games}
         listOpen={gameListOpen}
         selectedGameId={selectedGameId}
+        selectedAnalysisWorkerName={selectedGame?.analysisWorkerName}
+        workerStatus={workspace?.workerStatus}
         analysisAvailable={analysisState !== 'unavailable'}
         analysisError={error}
         analysisState={analysisState}
@@ -511,6 +520,7 @@ export default function App() {
         onStartAnalysis={startAnalysis}
         onStopAnalysis={stopAnalysis}
         onRestartAnalysis={restartAnalysis}
+        onSetAnalysisWorker={setGameAnalysisWorker}
         toolbarSlot={<OverlayToggles value={overlays} onChange={updateOverlays} />}
       />
       <section ref={boardStageRef} className="board-stage">
