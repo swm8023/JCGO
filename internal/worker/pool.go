@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -79,6 +80,10 @@ func (p *Pool) Analyze(ctx context.Context, query katago.Query) (katago.Result, 
 	return p.AnalyzeWithProgress(ctx, query, nil)
 }
 
+func (p *Pool) AnalyzeWithWorker(ctx context.Context, workerName string, query katago.Query) (katago.Result, error) {
+	return p.AnalyzeWithWorkerProgress(ctx, workerName, query, nil)
+}
+
 func (p *Pool) AnalyzeWithProgress(ctx context.Context, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
 	worker := p.pickWorker()
 	if worker == nil {
@@ -97,6 +102,27 @@ func (p *Pool) AnalyzeWithProgress(ctx context.Context, query katago.Query, prog
 		return result, nil
 	}
 	p.logger.Printf("worker pool: remote worker %s failed query %s: %v", worker.info.Name, query.ID, err)
+	return katago.Result{}, err
+}
+
+func (p *Pool) AnalyzeWithWorkerProgress(ctx context.Context, workerName string, query katago.Query, progress func(katago.Result)) (katago.Result, error) {
+	worker, err := p.acquireNamedWorker(ctx, workerName)
+	if err != nil {
+		return katago.Result{}, err
+	}
+
+	cfg, err := p.runtimeConfig(ctx, worker.info.Name)
+	if err != nil {
+		p.releaseWorker(worker)
+		return katago.Result{}, err
+	}
+
+	result, err := p.analyzeRemote(ctx, worker, query, cfg, progress)
+	p.releaseWorker(worker)
+	if err == nil {
+		return result, nil
+	}
+	p.logger.Printf("worker pool: named worker %s failed query %s: %v", worker.info.Name, query.ID, err)
 	return katago.Result{}, err
 }
 
@@ -248,6 +274,72 @@ func (p *Pool) pickWorker() *remoteWorker {
 		}
 	}
 	return nil
+}
+
+func (p *Pool) acquireNamedWorker(ctx context.Context, workerName string) (*remoteWorker, error) {
+	name := strings.TrimSpace(workerName)
+	if name == "" {
+		return nil, errors.New("worker name is required")
+	}
+
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		p.mu.Lock()
+		worker, unavailableError, busy := p.namedWorkerLocked(name)
+		if worker != nil {
+			worker.busy = true
+			p.mu.Unlock()
+			return worker, nil
+		}
+		p.mu.Unlock()
+
+		if unavailableError != "" {
+			return nil, fmt.Errorf("worker %s is unavailable: %s", name, unavailableError)
+		}
+		if !busy {
+			return nil, fmt.Errorf("worker %s is not connected", name)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+		}
+	}
+}
+
+func (p *Pool) namedWorkerLocked(name string) (*remoteWorker, string, bool) {
+	found := false
+	busy := false
+	unavailableError := ""
+	for _, worker := range p.ws {
+		if worker.closed || worker.info.Name != name {
+			continue
+		}
+		found = true
+		if !workerAvailable(worker.info) {
+			if unavailableError == "" {
+				unavailableError = worker.info.Error
+				if unavailableError == "" {
+					unavailableError = "worker reported unavailable"
+				}
+			}
+			continue
+		}
+		if worker.busy {
+			busy = true
+			continue
+		}
+		return worker, "", false
+	}
+	if !found {
+		return nil, "", false
+	}
+	if busy {
+		return nil, "", true
+	}
+	return nil, unavailableError, false
 }
 
 func (p *Pool) releaseWorker(worker *remoteWorker) {

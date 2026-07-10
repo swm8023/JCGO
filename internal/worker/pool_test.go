@@ -123,6 +123,120 @@ func TestPoolReturnsWorkerErrorWithoutFallback(t *testing.T) {
 	}
 }
 
+func TestPoolAnalyzeWithWorkerUsesNamedWorkerOnly(t *testing.T) {
+	pool := NewPool(log.New(io.Discard, "", 0))
+	pool.SetConfigProvider(staticConfigProvider{config: RuntimeConfig{Model: "b28.bin.gz", MaxVisits: 900}})
+	serverURL, closeServer := servePool(t, pool)
+	defer closeServer()
+
+	first := make(chan Envelope, 1)
+	second := make(chan Envelope, 1)
+	go runNamedFakeWorker(t, serverURL, "slow-gpu", func(conn *websocket.Conn, msg Envelope) {
+		first <- msg
+	})
+	go runNamedFakeWorker(t, serverURL, "fast-gpu", func(conn *websocket.Conn, msg Envelope) {
+		second <- msg
+		_ = conn.WriteJSON(Envelope{
+			Type:   MessageResult,
+			ID:     msg.ID,
+			Result: &katago.Result{ID: msg.Query.ID, RootInfo: katago.RootInfo{Visits: 321}},
+		})
+	})
+
+	waitForWorkers(t, pool, 2)
+	result, err := pool.AnalyzeWithWorker(context.Background(), "fast-gpu", katago.Query{ID: "main:4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.RootInfo.Visits != 321 {
+		t.Fatalf("result = %#v", result)
+	}
+	select {
+	case msg := <-second:
+		if msg.Query == nil || msg.Query.ID != "main:4" {
+			t.Fatalf("fast worker message = %#v", msg)
+		}
+	default:
+		t.Fatal("expected fast worker message")
+	}
+	select {
+	case msg := <-first:
+		t.Fatalf("unexpected slow worker message = %#v", msg)
+	default:
+	}
+}
+
+func TestPoolAnalyzeWithWorkerWaitsWhenNamedWorkerIsBusy(t *testing.T) {
+	pool := NewPool(log.New(io.Discard, "", 0))
+	serverURL, closeServer := servePool(t, pool)
+	defer closeServer()
+
+	releaseFirst := make(chan struct{})
+	go runNamedFakeWorker(t, serverURL, "local-gpu", func(conn *websocket.Conn, msg Envelope) {
+		<-releaseFirst
+		_ = conn.WriteJSON(Envelope{Type: MessageResult, ID: msg.ID, Result: &katago.Result{ID: msg.Query.ID}})
+		var next Envelope
+		if err := conn.ReadJSON(&next); err != nil {
+			t.Error(err)
+			return
+		}
+		_ = conn.WriteJSON(Envelope{
+			Type:   MessageResult,
+			ID:     next.ID,
+			Result: &katago.Result{ID: next.Query.ID, RootInfo: katago.RootInfo{Visits: 44}},
+		})
+	})
+
+	waitForWorkers(t, pool, 1)
+	firstDone := make(chan struct{})
+	go func() {
+		_, _ = pool.AnalyzeWithWorker(context.Background(), "local-gpu", katago.Query{ID: "main:1"})
+		close(firstDone)
+	}()
+	time.Sleep(30 * time.Millisecond)
+
+	secondDone := make(chan katago.Result, 1)
+	go func() {
+		result, err := pool.AnalyzeWithWorker(context.Background(), "local-gpu", katago.Query{ID: "main:2"})
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		secondDone <- result
+	}()
+
+	select {
+	case result := <-secondDone:
+		t.Fatalf("second finished before busy worker released: %#v", result)
+	case <-time.After(40 * time.Millisecond):
+	}
+	close(releaseFirst)
+	<-firstDone
+	result := <-secondDone
+	if result.RootInfo.Visits != 44 {
+		t.Fatalf("second result = %#v", result)
+	}
+}
+
+func TestPoolAnalyzeWithWorkerRejectsUnavailableWorkerWithoutFallback(t *testing.T) {
+	pool := NewPool(log.New(io.Discard, "", 0))
+	pool.addWorker(&remoteWorker{
+		id:        "worker-1",
+		info:      Info{Name: "bad-gpu", Error: "katago missing"},
+		responses: map[string]chan Envelope{},
+	})
+	pool.addWorker(&remoteWorker{
+		id:        "worker-2",
+		info:      Info{Name: "good-gpu"},
+		responses: map[string]chan Envelope{},
+	})
+
+	_, err := pool.AnalyzeWithWorker(context.Background(), "bad-gpu", katago.Query{ID: "main:0"})
+	if err == nil || !strings.Contains(err.Error(), "bad-gpu is unavailable") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestPoolStatusSnapshotCountsWorkers(t *testing.T) {
 	pool := NewPool(log.New(io.Discard, "", 0))
 	pool.addWorker(&remoteWorker{
@@ -186,6 +300,30 @@ func runFakeWorker(t *testing.T, url string, handle func(*websocket.Conn, Envelo
 			Platform: "windows/amd64",
 			Backend:  "opencl",
 		},
+	}); err != nil {
+		t.Error(err)
+		return
+	}
+	var msg Envelope
+	if err := conn.ReadJSON(&msg); err != nil {
+		t.Error(err)
+		return
+	}
+	handle(conn, msg)
+}
+
+func runNamedFakeWorker(t *testing.T, url string, name string, handle func(*websocket.Conn, Envelope)) {
+	t.Helper()
+	dialer := websocket.Dialer{Subprotocols: []string{Subprotocol}}
+	conn, _, err := dialer.Dial(url, nil)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer conn.Close()
+	if err := conn.WriteJSON(Envelope{
+		Type:   MessageRegister,
+		Worker: &Info{Name: name, Platform: "windows/amd64", Backend: "opencl"},
 	}); err != nil {
 		t.Error(err)
 		return
