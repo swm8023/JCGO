@@ -464,18 +464,6 @@ function Get-InstalledProcessSet {
     }
   }
 
-  $changed = $true
-  while ($changed) {
-    $changed = $false
-    foreach ($process in $all) {
-      $parentID = [int]$process.ParentProcessId
-      $processID = [int]$process.ProcessId
-      if ($selected.ContainsKey($parentID) -and -not $selected.ContainsKey($processID)) {
-        $selected[$processID] = $process
-        $changed = $true
-      }
-    }
-  }
   return @($selected.Values)
 }
 
@@ -543,6 +531,9 @@ func stopExistingRuntime(ctx context.Context, opts Options, runner Runner) error
 			return nil
 		}
 		return fmt.Errorf("stat stop script: %w", err)
+	}
+	if err := WriteScripts(opts); err != nil {
+		return fmt.Errorf("refresh runtime scripts: %w", err)
 	}
 	return runner.Run(ctx, StateDir(opts), stop)
 }

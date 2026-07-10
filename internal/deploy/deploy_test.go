@@ -299,10 +299,50 @@ func TestWriteScriptsUsesInstalledHomeAndDirFlag(t *testing.T) {
 			t.Fatalf("start.bat missing %q:\n%s", want, start)
 		}
 	}
-	for _, want := range []string{"Get-CimInstance Win32_Process", "jcgo.exe", "jcgo-worker.exe", "katago.exe", "ParentProcessId", "stop.bat.log", "Read-Host", "unmanaged process still running"} {
+	for _, want := range []string{"Get-CimInstance Win32_Process", "jcgo.exe", "jcgo-worker.exe", "katago.exe", "stop.bat.log", "Read-Host", "unmanaged process still running"} {
 		if !strings.Contains(string(stop), want) {
 			t.Fatalf("stop.bat missing %q:\n%s", want, stop)
 		}
+	}
+}
+
+func TestStopScriptDoesNotIncludeDescendantsOfManagedProcesses(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	if err := WriteScripts(Options{HomeDir: home}); err != nil {
+		t.Fatal(err)
+	}
+	stop, err := os.ReadFile(filepath.Join(home, ".jcgo", "stop.bat"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(stop), "ParentProcessId") {
+		t.Fatalf("stop.bat must target only managed runtime executables, not their arbitrary descendants:\n%s", stop)
+	}
+}
+
+func TestStopExistingRuntimeRefreshesStopScriptBeforeRunningIt(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	state := filepath.Join(home, ".jcgo")
+	if err := os.MkdirAll(state, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	stopPath := filepath.Join(state, "stop.bat")
+	if err := os.WriteFile(stopPath, []byte("ParentProcessId"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runner := runnerFunc(func(ctx context.Context, dir string, name string, args ...string) error {
+		raw, err := os.ReadFile(name)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(raw), "ParentProcessId") {
+			t.Fatalf("stale stop script was run:\n%s", raw)
+		}
+		return nil
+	})
+
+	if err := stopExistingRuntime(context.Background(), Options{HomeDir: home}, runner); err != nil {
+		t.Fatalf("stopExistingRuntime returned error: %v", err)
 	}
 }
 
@@ -369,6 +409,12 @@ func writeZip(t *testing.T, path string, files map[string]string) {
 type recordingRunner struct {
 	failOn string
 	calls  []string
+}
+
+type runnerFunc func(ctx context.Context, dir string, name string, args ...string) error
+
+func (f runnerFunc) Run(ctx context.Context, dir string, name string, args ...string) error {
+	return f(ctx, dir, name, args...)
 }
 
 func (r *recordingRunner) Run(ctx context.Context, dir string, name string, args ...string) error {

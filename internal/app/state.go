@@ -124,11 +124,12 @@ func (h *Handler) listGames(ctx context.Context, token string) ([]store.GameReco
 	if err != nil {
 		return nil, err
 	}
+	ws := h.workspaces.ForToken(token)
 	for i := range games {
 		if games[i].GameDate == "" || games[i].BlackName == "" || games[i].WhiteName == "" {
 			games[i] = h.backfillGameMetadata(ctx, games[i])
 		}
-		games[i].AnalysisStatus = string(h.gameAnalysisStatus(games[i]))
+		games[i].AnalysisStatus = string(h.gameAnalysisStatus(games[i], ws))
 	}
 	return games, nil
 }
@@ -155,9 +156,18 @@ func (h *Handler) backfillGameMetadata(ctx context.Context, record store.GameRec
 	return record
 }
 
-func (h *Handler) gameAnalysisStatus(record store.GameRecord) AnalysisState {
+func (h *Handler) gameAnalysisStatus(record store.GameRecord, ws *Workspace) AnalysisState {
+	if ws != nil {
+		state := ws.AnalysisState(record.ID)
+		if state == AnalysisRunning || state == AnalysisUnavailable {
+			return state
+		}
+	}
 	if h.files.AnalysisExists(record.SGFFilename) {
 		return AnalysisComplete
+	}
+	if ws != nil && ws.AnalysisState(record.ID) == AnalysisStopped {
+		return AnalysisStopped
 	}
 	return AnalysisIdle
 }
