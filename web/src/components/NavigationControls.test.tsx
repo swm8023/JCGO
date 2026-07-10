@@ -3,23 +3,28 @@ import { render, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { NavigationControls } from './NavigationControls'
 
+const navigationCallbacks = () => ({
+  onFirst: vi.fn(),
+  onPrevious: vi.fn(),
+  onBackFive: vi.fn(),
+  onNext: vi.fn(),
+  onForwardFive: vi.fn(),
+  onLast: vi.fn(),
+})
+
 describe('NavigationControls', () => {
-  it('keeps review controls focused on move navigation and try actions', () => {
-    const onEnterTryMode = vi.fn()
+  it('shows direct try as the green default and switches to preview mode', () => {
+    const onEnablePreviewMode = vi.fn()
     const { container } = render(
       <NavigationControls
         moveNumber={12}
         totalMoves={180}
         toPlay="W"
         canBackToMain={false}
-        tryMode={false}
-        onFirst={vi.fn()}
-        onPrevious={vi.fn()}
-        onBackFive={vi.fn()}
-        onNext={vi.fn()}
-        onForwardFive={vi.fn()}
-        onLast={vi.fn()}
-        onEnterTryMode={onEnterTryMode}
+        interactionMode="try"
+        {...navigationCallbacks()}
+        onEnableTryMode={vi.fn()}
+        onEnablePreviewMode={onEnablePreviewMode}
         onExitTryMode={vi.fn()}
       />,
     )
@@ -33,16 +38,40 @@ describe('NavigationControls', () => {
     expect(controls.getByRole('button', { name: 'Next move' })).toBeInTheDocument()
     expect(controls.getByRole('button', { name: 'Forward 5 moves' })).toHaveTextContent('>>')
     expect(controls.getByRole('button', { name: 'Last move' })).toBeInTheDocument()
-    expect(controls.getByRole('button', { name: 'Try selected recommendation' })).toHaveTextContent('试')
-    expect(controls.getByRole('button', { name: 'Try selected recommendation' })).toHaveClass('try-action-button', 'try-action-enter')
-    controls.getByRole('button', { name: 'Try selected recommendation' }).click()
-    expect(onEnterTryMode).toHaveBeenCalledTimes(1)
-    expect(controls.queryByText('Pass')).not.toBeInTheDocument()
-    expect(controls.queryByText('Delete node')).not.toBeInTheDocument()
-    expect(controls.queryByText('Clear branch')).not.toBeInTheDocument()
+
+    const tryButton = controls.getByRole('button', { name: 'Switch to AI preview mode' })
+    expect(tryButton).toHaveTextContent('试')
+    expect(tryButton).toHaveClass('try-action-button', 'try-action-ready')
+    expect(tryButton).not.toBeDisabled()
+    tryButton.click()
+    expect(onEnablePreviewMode).toHaveBeenCalledTimes(1)
   })
 
-  it('uses exit try to leave a trial branch instead of exposing delete controls', () => {
+  it('shows preview mode as a clickable gray try control', () => {
+    const onEnableTryMode = vi.fn()
+    const { container } = render(
+      <NavigationControls
+        moveNumber={12}
+        totalMoves={180}
+        toPlay="W"
+        canBackToMain={false}
+        interactionMode="preview"
+        {...navigationCallbacks()}
+        onEnableTryMode={onEnableTryMode}
+        onEnablePreviewMode={vi.fn()}
+        onExitTryMode={vi.fn()}
+      />,
+    )
+    const previewButton = within(container).getByRole('button', { name: 'Enable direct try mode' })
+
+    expect(previewButton).toHaveTextContent('试')
+    expect(previewButton).toHaveClass('try-action-button', 'try-action-preview')
+    expect(previewButton).not.toBeDisabled()
+    previewButton.click()
+    expect(onEnableTryMode).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses exit try whenever a trial branch exists', () => {
     const onExitTryMode = vi.fn()
     const { container } = render(
       <NavigationControls
@@ -50,49 +79,21 @@ describe('NavigationControls', () => {
         totalMoves={180}
         toPlay="B"
         canBackToMain
-        tryMode
-        onFirst={vi.fn()}
-        onPrevious={vi.fn()}
-        onBackFive={vi.fn()}
-        onNext={vi.fn()}
-        onForwardFive={vi.fn()}
-        onLast={vi.fn()}
-        onEnterTryMode={vi.fn()}
+        interactionMode="preview"
+        {...navigationCallbacks()}
+        onEnableTryMode={vi.fn()}
+        onEnablePreviewMode={vi.fn()}
         onExitTryMode={onExitTryMode}
       />,
     )
     const controls = within(container)
 
-    expect(controls.getByRole('button', { name: 'Exit try mode' })).toHaveTextContent('退')
-    expect(controls.getByRole('button', { name: 'Exit try mode' })).toHaveClass('try-action-button', 'try-action-exit')
-    controls.getByRole('button', { name: 'Exit try mode' }).click()
+    const exitButton = controls.getByRole('button', { name: 'Exit try mode' })
+    expect(exitButton).toHaveTextContent('退')
+    expect(exitButton).toHaveClass('try-action-button', 'try-action-exit')
+    exitButton.click()
     expect(onExitTryMode).toHaveBeenCalledTimes(1)
     expect(controls.queryByText('Clear branch')).not.toBeInTheDocument()
-  })
-
-  it('allows entering try mode before selecting a candidate preview', () => {
-    const onEnterTryMode = vi.fn()
-    const { container } = render(
-      <NavigationControls
-        moveNumber={0}
-        totalMoves={180}
-        toPlay="B"
-        canBackToMain={false}
-        tryMode={false}
-        onFirst={vi.fn()}
-        onPrevious={vi.fn()}
-        onBackFive={vi.fn()}
-        onNext={vi.fn()}
-        onForwardFive={vi.fn()}
-        onLast={vi.fn()}
-        onEnterTryMode={onEnterTryMode}
-        onExitTryMode={vi.fn()}
-      />,
-    )
-    const controls = within(container)
-
-    controls.getByRole('button', { name: 'Try selected recommendation' }).click()
-    expect(onEnterTryMode).toHaveBeenCalledTimes(1)
   })
 
   it('calls five-move jump callbacks', () => {
@@ -104,14 +105,12 @@ describe('NavigationControls', () => {
         totalMoves={180}
         toPlay="W"
         canBackToMain={false}
-        tryMode={false}
-        onFirst={vi.fn()}
-        onPrevious={vi.fn()}
+        interactionMode="try"
+        {...navigationCallbacks()}
         onBackFive={onBackFive}
-        onNext={vi.fn()}
         onForwardFive={onForwardFive}
-        onLast={vi.fn()}
-        onEnterTryMode={vi.fn()}
+        onEnableTryMode={vi.fn()}
+        onEnablePreviewMode={vi.fn()}
         onExitTryMode={vi.fn()}
       />,
     )
@@ -125,45 +124,22 @@ describe('NavigationControls', () => {
   })
 
   it('renders next-player and unavailable move number stones', () => {
-    const { rerender, container } = render(
-      <NavigationControls
-        moveNumber={24}
-        totalMoves={180}
-        toPlay="B"
-        canBackToMain={false}
-        tryMode={false}
-        onFirst={vi.fn()}
-        onPrevious={vi.fn()}
-        onBackFive={vi.fn()}
-        onNext={vi.fn()}
-        onForwardFive={vi.fn()}
-        onLast={vi.fn()}
-        onEnterTryMode={vi.fn()}
-        onExitTryMode={vi.fn()}
-      />,
-    )
+    const props = {
+      totalMoves: 180,
+      canBackToMain: false,
+      interactionMode: 'try' as const,
+      ...navigationCallbacks(),
+      onEnableTryMode: vi.fn(),
+      onEnablePreviewMode: vi.fn(),
+      onExitTryMode: vi.fn(),
+    }
+    const { rerender, container } = render(<NavigationControls {...props} moveNumber={24} toPlay="B" />)
     const controls = within(container)
 
     expect(controls.getByLabelText('Move 24, black to play')).toHaveTextContent('24')
     expect(controls.getByLabelText('Move 24, black to play')).toHaveClass('move-number-stone-black')
 
-    rerender(
-      <NavigationControls
-        moveNumber={0}
-        totalMoves={180}
-        toPlay={undefined}
-        canBackToMain={false}
-        tryMode={false}
-        onFirst={vi.fn()}
-        onPrevious={vi.fn()}
-        onBackFive={vi.fn()}
-        onNext={vi.fn()}
-        onForwardFive={vi.fn()}
-        onLast={vi.fn()}
-        onEnterTryMode={vi.fn()}
-        onExitTryMode={vi.fn()}
-      />,
-    )
+    rerender(<NavigationControls {...props} moveNumber={0} toPlay={undefined} />)
 
     expect(controls.getByLabelText('Move 0, next player unavailable')).toHaveTextContent('0')
     expect(controls.getByLabelText('Move 0, next player unavailable')).toHaveClass('move-number-stone-empty')

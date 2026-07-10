@@ -50,6 +50,7 @@ const emptySideActionPlacement = computeSideActionPlacement({
 
 type SharedSGFFile = { name: string; text: string }
 type SharedSGFPayload = { files?: Array<{ name?: unknown; text?: unknown }> }
+type BoardInteractionMode = 'try' | 'preview'
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem(accessTokenKey))
@@ -58,7 +59,7 @@ export default function App() {
   const [selectedGameId, setSelectedGameId] = useState<string>()
   const [snapshot, setSnapshot] = useState<Snapshot>()
   const [activePV, setActivePV] = useState<string[]>()
-  const [tryMode, setTryMode] = useState(false)
+  const [interactionMode, setInteractionMode] = useState<BoardInteractionMode>('try')
   const [chartPoints, setChartPoints] = useState<ChartPoint[]>([])
   const [badMoves, setBadMoves] = useState<BadMove[]>([])
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle')
@@ -145,7 +146,7 @@ export default function App() {
     setSelectedGameId(undefined)
     setSnapshot(undefined)
     setActivePV(undefined)
-    setTryMode(false)
+    setInteractionMode('try')
     setChartPoints([])
     setBadMoves([])
     setAnalysisState('idle')
@@ -206,7 +207,7 @@ export default function App() {
     await client.call('game.importSgf', { displayName, originalFilename, sgfText })
     await refreshWorkspaceState()
     setActivePV(undefined)
-    setTryMode(false)
+    setInteractionMode('try')
     resetAppHistoryLayer('game-list')
   }
 
@@ -215,7 +216,7 @@ export default function App() {
     await client.call('game.importSgf', { url })
     await refreshWorkspaceState()
     setActivePV(undefined)
-    setTryMode(false)
+    setInteractionMode('try')
     resetAppHistoryLayer('game-list')
   }
 
@@ -243,7 +244,7 @@ export default function App() {
         if (cancelled) return
         applyWorkspaceState(state)
         setActivePV(undefined)
-        setTryMode(false)
+        setInteractionMode('try')
         resetAppHistoryLayer('game-list')
       } catch (reason) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : 'shared SGF import failed')
@@ -271,7 +272,7 @@ export default function App() {
       if (event.key === 'Escape') {
         if (appHistoryLayerRef.current !== 'home') closeCurrentAppHistoryLayer()
         else if (activePV?.length) setActivePV(undefined)
-        else if (tryMode || snapshot?.canBackToMain) void exitTryMode()
+        else if (snapshot?.canBackToMain) void exitTryMode()
       }
     }
     window.addEventListener('keydown', onKeyDown)
@@ -340,7 +341,7 @@ export default function App() {
     const state = await client.call<StatePayload>('game.select', { gameId })
     applyWorkspaceState(state)
     setActivePV(undefined)
-    setTryMode(false)
+    setInteractionMode('try')
     resetAppHistoryLayer('home')
   }
 
@@ -370,10 +371,10 @@ export default function App() {
     await client.call('game.delete', { gameId })
     await refreshWorkspaceState()
     setActivePV(undefined)
-    setTryMode(false)
+    setInteractionMode('try')
   }
 
-  const runNavigation = async (command: NavigationCommand | undefined, keepTryMode = false) => {
+  const runNavigation = async (command: NavigationCommand | undefined) => {
     if (!client || !selectedGameId || !command) return
     const prevMoveNumber = snapshot?.moveNumber ?? 0
     const params = command.method === 'game.goto'
@@ -382,20 +383,18 @@ export default function App() {
     const state = await client.call<StatePayload>(command.method, params)
     applyWorkspaceState(state)
     setActivePV(undefined)
-    if (!keepTryMode) setTryMode(false)
     const newMoveNumber = state.snapshot?.moveNumber ?? 0
     if (newMoveNumber < prevMoveNumber) playCaptureSound()
     else playStoneSound()
   }
 
   const gotoMove = async (moveNumber: number) => runNavigation({ method: 'game.goto', moveNumber })
-  const keepTrialNavigation = () => tryMode || snapshot?.branchMode === 'variation'
-  const goFirst = () => runNavigation(firstNavigation(snapshot, workspace), keepTrialNavigation())
-  const goPrevious = () => runNavigation(previousNavigation(snapshot, workspace), keepTrialNavigation())
-  const goBackFive = () => runNavigation(jumpNavigation(snapshot, workspace, -jumpStep), keepTrialNavigation())
-  const goNext = () => runNavigation(nextNavigation(snapshot, workspace, tryMode), keepTrialNavigation())
-  const goForwardFive = () => runNavigation(jumpNavigation(snapshot, workspace, jumpStep), keepTrialNavigation())
-  const goLast = () => runNavigation(lastNavigation(snapshot, workspace), keepTrialNavigation())
+  const goFirst = () => runNavigation(firstNavigation(snapshot, workspace))
+  const goPrevious = () => runNavigation(previousNavigation(snapshot, workspace))
+  const goBackFive = () => runNavigation(jumpNavigation(snapshot, workspace, -jumpStep))
+  const goNext = () => runNavigation(nextNavigation(snapshot, workspace, interactionMode === 'try'))
+  const goForwardFive = () => runNavigation(jumpNavigation(snapshot, workspace, jumpStep))
+  const goLast = () => runNavigation(lastNavigation(snapshot, workspace))
 
   const hasCaptures = (before: Snapshot | undefined, after: Snapshot | undefined): boolean => {
     if (!before?.captures || !after?.captures) return false
@@ -413,7 +412,6 @@ export default function App() {
   }
 
   const previewPV = (candidate: CandidateMove) => {
-    setTryMode(false)
     setActivePV(candidate.pv)
   }
 
@@ -423,13 +421,18 @@ export default function App() {
     return result.prompt
   }
 
-  const enterTryMode = () => {
+  const enableTryMode = () => {
     setActivePV(undefined)
-    setTryMode(true)
+    setInteractionMode('try')
+  }
+
+  const enablePreviewMode = () => {
+    setActivePV(undefined)
+    setInteractionMode('preview')
   }
 
   const exitTryMode = async () => {
-    setTryMode(false)
+    setInteractionMode('try')
     setActivePV(undefined)
     if (!client || !selectedGameId || !snapshot?.canBackToMain) return
     const state = await client.call<StatePayload>('game.clearVariation', { gameId: selectedGameId })
@@ -536,7 +539,7 @@ export default function App() {
               overlays={overlays}
               activePV={activePV}
               trialMoves={trialMovesForState(workspace)}
-              tryMode={tryMode}
+              interactionMode={snapshot?.canBackToMain ? 'try' : interactionMode}
               onPlay={playMove}
               onPreviewPV={previewPV}
             />
@@ -550,14 +553,15 @@ export default function App() {
           totalMoves={snapshot?.totalMoves ?? 0}
           toPlay={snapshot?.toPlay}
           canBackToMain={snapshot?.canBackToMain ?? false}
-          tryMode={tryMode}
+          interactionMode={interactionMode}
           onFirst={() => void goFirst()}
           onPrevious={() => void goPrevious()}
           onBackFive={() => void goBackFive()}
           onNext={() => void goNext()}
           onForwardFive={() => void goForwardFive()}
           onLast={() => void goLast()}
-          onEnterTryMode={enterTryMode}
+          onEnableTryMode={enableTryMode}
+          onEnablePreviewMode={enablePreviewMode}
           onExitTryMode={() => void exitTryMode()}
         />
       </nav>
@@ -725,7 +729,7 @@ function jumpNavigation(snapshot: Snapshot | undefined, workspace: StatePayload 
   return { method: 'game.goto', moveNumber: clamp(snapshot.moveNumber + delta, 0, snapshot.totalMoves) }
 }
 
-function nextNavigation(snapshot?: Snapshot, workspace?: StatePayload, tryMode = false): NavigationCommand | undefined {
+function nextNavigation(snapshot?: Snapshot, workspace?: StatePayload, directTryEnabled = false): NavigationCommand | undefined {
   if (!snapshot) return undefined
   if (snapshot.branchMode === 'variation' && workspace?.variation) {
     const nodeIDs = workspace.variation.timeline.nodeIds ?? []
@@ -733,7 +737,7 @@ function nextNavigation(snapshot?: Snapshot, workspace?: StatePayload, tryMode =
     if (index >= 0 && index < nodeIDs.length - 1) return { method: 'game.gotoNode', nodeId: nodeIDs[index + 1] }
     return variationChildNavigation(snapshot)
   }
-  if (tryMode) {
+  if (directTryEnabled) {
     const variationChild = variationChildNavigation(snapshot)
     if (variationChild) return variationChild
   }

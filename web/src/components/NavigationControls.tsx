@@ -5,14 +5,15 @@ interface NavigationControlsProps {
   totalMoves: number
   toPlay?: Color
   canBackToMain: boolean
-  tryMode: boolean
+  interactionMode: 'try' | 'preview'
   onFirst(): void
   onPrevious(): void
   onBackFive(): void
   onNext(): void
   onForwardFive(): void
   onLast(): void
-  onEnterTryMode(): void
+  onEnableTryMode(): void
+  onEnablePreviewMode(): void
   onExitTryMode(): void
 }
 
@@ -40,13 +41,18 @@ export function NavigationControls(props: NavigationControlsProps) {
       <button aria-label="Last move" onClick={props.onLast}>
         &gt;|
       </button>
-      {(props.tryMode || props.canBackToMain) && (
+      {props.canBackToMain && (
         <button className="try-action-button try-action-exit" aria-label="Exit try mode" onClick={props.onExitTryMode}>
           退
         </button>
       )}
-      {!props.tryMode && !props.canBackToMain && (
-        <button className="try-action-button try-action-enter" aria-label="Try selected recommendation" onClick={props.onEnterTryMode}>
+      {!props.canBackToMain && props.interactionMode === 'try' && (
+        <button className="try-action-button try-action-ready" aria-label="Switch to AI preview mode" aria-pressed="false" onClick={props.onEnablePreviewMode}>
+          试
+        </button>
+      )}
+      {!props.canBackToMain && props.interactionMode === 'preview' && (
+        <button className="try-action-button try-action-preview" aria-label="Enable direct try mode" aria-pressed="true" onClick={props.onEnableTryMode}>
           试
         </button>
       )}

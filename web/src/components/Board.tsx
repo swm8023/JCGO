@@ -12,7 +12,7 @@ interface BoardProps {
   overlays?: OverlayState
   activePV?: string[]
   trialMoves?: string[]
-  tryMode: boolean
+  interactionMode: 'try' | 'preview'
   onPlay(gtp: string): void
   onPreviewPV(candidate: CandidateMove): void
 }
@@ -32,7 +32,7 @@ const stoneShadowId = 'stone-shadow'
 const starPoints = [3, 9, 15]
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
 
-export function Board({ snapshot, candidates: candidateProps, ownership, playedPointLoss, overlays = defaultOverlays, activePV, trialMoves, tryMode, onPlay, onPreviewPV }: BoardProps) {
+export function Board({ snapshot, candidates: candidateProps, ownership, playedPointLoss, overlays = defaultOverlays, activePV, trialMoves, interactionMode, onPlay, onPreviewPV }: BoardProps) {
   const stones = snapshot?.stones ?? []
   const candidates = candidateProps ?? snapshot?.analysis?.candidates ?? []
   const children = snapshot?.children ?? []
@@ -128,7 +128,7 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
           />
         )),
       )}
-      {tryMode &&
+      {interactionMode === 'try' &&
         snapshot &&
         boardPoints()
           .filter((point) => !occupied.has(pointKey(point.x, point.y)))
@@ -292,10 +292,10 @@ export function Board({ snapshot, candidates: candidateProps, ownership, playedP
         return (
           <g
             key={candidate.move}
-            aria-label={tryMode ? `Try recommended move ${candidate.move}` : `Recommended next move ${candidate.move}`}
+            aria-label={interactionMode === 'try' ? `Try recommended move ${candidate.move}` : `Recommended next move ${candidate.move}`}
             className={`candidate-hint ${visual.primary ? 'primary' : 'secondary'}${candidate.lowVisits ? ' low-visits' : ''}`}
             onClick={() => {
-              if (tryMode) onPlay(candidate.move)
+              if (interactionMode === 'try') onPlay(candidate.move)
               else onPreviewPV(candidate)
             }}
             opacity={visual.opacity}

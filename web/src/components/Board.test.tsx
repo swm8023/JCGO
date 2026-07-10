@@ -47,7 +47,7 @@ describe('Board', () => {
         ownership={{ encoding: 'q8-base64', data: ownership }}
         playedPointLoss={2}
         overlays={{ candidates: true, ownership: true, deadStones: true }}
-        tryMode={false}
+        interactionMode="preview"
         onPlay={vi.fn()}
         onPreviewPV={vi.fn()}
       />,
@@ -108,7 +108,7 @@ describe('Board', () => {
         }}
         ownership={{ encoding: 'q8-base64', data: ownership }}
         overlays={{ candidates: false, ownership: true, deadStones: true }}
-        tryMode={false}
+        interactionMode="preview"
         onPlay={vi.fn()}
         onPreviewPV={vi.fn()}
       />,
@@ -170,7 +170,7 @@ describe('Board', () => {
             ],
           },
         }}
-        tryMode={false}
+        interactionMode="preview"
         onPlay={vi.fn()}
         onPreviewPV={vi.fn()}
       />,
@@ -234,7 +234,7 @@ describe('Board', () => {
             lowVisits: true,
           },
         ]}
-        tryMode={false}
+        interactionMode="preview"
         onPlay={vi.fn()}
         onPreviewPV={vi.fn()}
       />,
@@ -281,7 +281,7 @@ describe('Board', () => {
             lowVisits: false,
           },
         ]}
-        tryMode={false}
+        interactionMode="preview"
         onPlay={vi.fn()}
         onPreviewPV={vi.fn()}
       />,
@@ -315,7 +315,7 @@ describe('Board', () => {
           canBackToMain: true,
         }}
         trialMoves={['Q4', 'D4']}
-        tryMode={false}
+        interactionMode="preview"
         onPlay={vi.fn()}
         onPreviewPV={vi.fn()}
       />,
@@ -330,7 +330,7 @@ describe('Board', () => {
     expect(screen.getByLabelText('Trial move 2 D4')).toHaveTextContent('2')
   })
 
-  it('uses click to preview candidate PV before try mode can play it', () => {
+  it('previews candidates without exposing ordinary empty points in preview mode', () => {
     const onPlay = vi.fn()
     const onPreviewPV = vi.fn()
     const snapshot = {
@@ -371,15 +371,16 @@ describe('Board', () => {
     }
 
     const { container, rerender } = render(
-      <Board snapshot={snapshot} tryMode={false} onPlay={onPlay} onPreviewPV={onPreviewPV} />,
+      <Board snapshot={snapshot} interactionMode="preview" onPlay={onPlay} onPreviewPV={onPreviewPV} />,
     )
     const board = within(container)
 
     fireEvent.click(board.getByLabelText('Recommended next move D16'))
     expect(onPreviewPV).toHaveBeenCalledWith(snapshot.analysis.candidates[0])
     expect(onPlay).not.toHaveBeenCalled()
+    expect(board.queryByLabelText('Try move D4')).not.toBeInTheDocument()
 
-    rerender(<Board snapshot={snapshot} tryMode onPlay={onPlay} onPreviewPV={onPreviewPV} />)
+    rerender(<Board snapshot={snapshot} interactionMode="try" onPlay={onPlay} onPreviewPV={onPreviewPV} />)
     fireEvent.click(board.getByLabelText('Try recommended move D16'))
     expect(onPlay).toHaveBeenCalledWith('D16')
   })
@@ -405,7 +406,7 @@ describe('Board', () => {
           canBackToMain: false,
         }}
         activePV={['D16', 'Q4']}
-        tryMode={false}
+        interactionMode="preview"
         onPlay={vi.fn()}
         onPreviewPV={vi.fn()}
       />,
@@ -419,7 +420,7 @@ describe('Board', () => {
     expect(previewLabels[1]).toHaveAttribute('fill', '#fff')
   })
 
-  it('allows trying any empty board point in try mode', () => {
+  it('allows trying candidates and any other empty point in direct try mode', () => {
     const onPlay = vi.fn()
     const { container } = render(
       <Board
@@ -440,7 +441,7 @@ describe('Board', () => {
           canNext: false,
           canBackToMain: false,
         }}
-        tryMode
+        interactionMode="try"
         onPlay={onPlay}
         onPreviewPV={vi.fn()}
       />,

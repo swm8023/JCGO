@@ -1700,10 +1700,16 @@ textarea:focus-visible {
   box-shadow: 0 2px 8px rgb(42 30 14 / 0.05);
 }
 
-.navigation-controls .try-action-enter {
+.navigation-controls .try-action-ready {
   border-color: #047857;
   background: #059669;
   color: var(--surface);
+}
+
+.navigation-controls .try-action-preview {
+  border-color: #9ca3af;
+  background: #d1d5db;
+  color: #4b5563;
 }
 
 .navigation-controls .try-action-exit {
@@ -1712,9 +1718,15 @@ textarea:focus-visible {
   color: var(--surface);
 }
 
-.navigation-controls .try-action-enter:hover {
+.navigation-controls .try-action-ready:hover {
   border-color: #065f46;
   background: #047857;
+}
+
+.navigation-controls .try-action-preview:hover {
+  border-color: #6b7280;
+  background: #9ca3af;
+  color: #374151;
 }
 
 .navigation-controls .try-action-exit:hover {
@@ -1737,10 +1749,16 @@ textarea:focus-visible {
     transform: translateY(1px) scale(0.98);
   }
 
-  .navigation-controls .try-action-enter:hover {
+  .navigation-controls .try-action-ready:hover {
     border-color: #047857;
     background: #059669;
     color: var(--surface);
+  }
+
+  .navigation-controls .try-action-preview:hover {
+    border-color: #9ca3af;
+    background: #d1d5db;
+    color: #4b5563;
   }
 
   .navigation-controls .try-action-exit:hover {

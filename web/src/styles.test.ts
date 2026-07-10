@@ -100,7 +100,8 @@ describe('responsive layout CSS', () => {
     expect(styles).not.toContain('.navigation-controls button:hover,\n.analysis-tab:hover')
     expect(styles).toContain('.move-number-stone {')
     expect(styles).toContain('.try-action-button {\n  border-radius: 50%;')
-    expect(styles).toContain('.navigation-controls .try-action-enter {\n  border-color: #047857;\n  background: #059669;')
+    expect(styles).toContain('.navigation-controls .try-action-ready {\n  border-color: #047857;\n  background: #059669;')
+    expect(styles).toContain('.navigation-controls .try-action-preview {\n  border-color: #9ca3af;\n  background: #d1d5db;\n  color: #4b5563;')
     expect(styles).toContain('.navigation-controls .try-action-exit {\n  border-color: #b91c1c;\n  background: #dc2626;')
   })
 

@@ -118,6 +118,73 @@ describe('App variation navigation', () => {
     })
   })
 
+  it('starts in direct try mode and changes to exit after playing a recommendation', async () => {
+    stubAuthenticatedStorage()
+    rpc.responses = [mainlineStateWithCandidate(5, 12), variationState()]
+
+    render(<App />)
+
+    await screen.findByRole('button', { name: 'Switch to AI preview mode' })
+    await userEvent.click(screen.getByLabelText('Try recommended move D16'))
+
+    expect(rpc.calls.at(-1)).toEqual({
+      method: 'game.play',
+      params: { gameId: 'game-1', move: 'D16' },
+    })
+    expect(await screen.findByRole('button', { name: 'Exit try mode' })).toHaveTextContent('退')
+  })
+
+  it('keeps preview mode across navigation and clears only the current preview', async () => {
+    stubAuthenticatedStorage()
+    rpc.responses = [mainlineStateWithCandidate(5, 12), mainlineStateWithCandidate(6, 12)]
+
+    const { container } = render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Switch to AI preview mode' }))
+    expect(screen.getByRole('button', { name: 'Enable direct try mode' })).toHaveClass('try-action-preview')
+    expect(screen.queryByLabelText('Try move D4')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByLabelText('Recommended next move D16'))
+    expect(container.querySelectorAll('.pv-stone')).toHaveLength(2)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next move' }))
+    await screen.findByLabelText('Move 6, black to play')
+
+    expect(screen.getByRole('button', { name: 'Enable direct try mode' })).toHaveClass('try-action-preview')
+    expect(container.querySelectorAll('.pv-stone')).toHaveLength(0)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Enable direct try mode' }))
+    expect(screen.getByRole('button', { name: 'Switch to AI preview mode' })).toHaveClass('try-action-ready')
+  })
+
+  it('lets a server trial branch override the local preview-only mode', async () => {
+    stubAuthenticatedStorage()
+    rpc.responses = [mainlineStateWithCandidate(5, 12), variationState()]
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Switch to AI preview mode' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Next move' }))
+
+    expect(await screen.findByRole('button', { name: 'Exit try mode' })).toHaveTextContent('退')
+    expect(screen.getByLabelText('Try move D4')).toBeInTheDocument()
+  })
+
+  it('returns to the green direct try default after exiting a trial branch', async () => {
+    stubAuthenticatedStorage()
+    rpc.responses = [variationState(), mainlineStateWithCandidate(1, 12)]
+
+    render(<App />)
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Exit try mode' }))
+
+    expect(rpc.calls.at(-1)).toEqual({
+      method: 'game.clearVariation',
+      params: { gameId: 'game-1' },
+    })
+    expect(await screen.findByRole('button', { name: 'Switch to AI preview mode' })).toHaveClass('try-action-ready')
+  })
+
   it('clamps backward five-move navigation to the first mainline move', async () => {
     const storage = new Map<string, string>([['jcgo.accessToken', 'secret']])
     vi.stubGlobal('localStorage', {
@@ -572,6 +639,37 @@ function mainlineState(moveNumber: number, totalMoves: number): StatePayload {
     current: {
       nodeId: `main:${moveNumber}`,
       candidates: { moves: [], orders: [], visits: [], winrates: [], scoreLeads: [], pvs: [] },
+    },
+  }
+}
+
+function mainlineStateWithCandidate(moveNumber: number, totalMoves: number): StatePayload {
+  const state = mainlineState(moveNumber, totalMoves)
+  const rootWinrates = [...state.timeline!.rootWinrates]
+  const rootScoreLeads = [...state.timeline!.rootScoreLeads]
+  const rootVisits = [...state.timeline!.rootVisits]
+  rootWinrates[moveNumber] = 0.5
+  rootScoreLeads[moveNumber] = 0
+  rootVisits[moveNumber] = 500
+
+  return {
+    ...state,
+    timeline: {
+      ...state.timeline!,
+      rootWinrates,
+      rootScoreLeads,
+      rootVisits,
+    },
+    current: {
+      nodeId: `main:${moveNumber}`,
+      candidates: {
+        moves: ['D16'],
+        orders: [0],
+        visits: [500],
+        winrates: [0.5],
+        scoreLeads: [0],
+        pvs: [['D16', 'Q4']],
+      },
     },
   }
 }
