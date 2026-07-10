@@ -452,6 +452,40 @@ textarea:focus-visible {
   font-weight: 850;
 }
 
+.analysis-menu-params {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.analysis-menu-params div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.analysis-menu-params dt,
+.analysis-menu-params dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.analysis-menu-params dt {
+  font-weight: 750;
+}
+
+.analysis-menu-params dd {
+  overflow: hidden;
+  color: var(--ink);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .analysis-menu button[role='menuitem'] {
   height: 30px;
   border: 1px solid var(--line);

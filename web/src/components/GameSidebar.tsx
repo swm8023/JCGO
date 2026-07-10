@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AnalysisProgress, AnalysisState, GameRecord, WorkerStatus } from '../api/types'
-import { ChevronDown, Menu, Plus, Settings, Trash2 } from 'lucide-react'
+import { Menu, Plus, Settings, Trash2 } from 'lucide-react'
 import { formatGameResult } from './gameResult'
 
 interface GameSidebarProps {
@@ -192,6 +192,8 @@ function AnalysisMenu({
   const baseActionDisabled = !selectedGameId || !workerReady || (!analysisAvailable && !running)
   const progressCompact = formatAnalysisProgress(analysisProgress)
   const progressSpaced = formatAnalysisProgressSpaced(analysisProgress)
+  const modelLabel = selectedWorker?.model || '-'
+  const visitsLabel = selectedWorker?.maxVisits ? String(selectedWorker.maxVisits) : '-'
 
   useEffect(() => {
     if (!open) return
@@ -220,7 +222,6 @@ function AnalysisMenu({
       >
         <span className="wide-label">{triggerText}</span>
         <span className="narrow-label">{triggerText}</span>
-        <ChevronDown size={12} aria-hidden="true" />
       </button>
       {open && (
         <div className="analysis-menu" role="menu" aria-label="分析">
@@ -243,6 +244,18 @@ function AnalysisMenu({
             <strong>{analysisStatusLabel(analysisState)}</strong>
             <span>{progressSpaced}</span>
           </div>
+          {selectedWorkerName && (
+            <dl className="analysis-menu-params" aria-label="分析参数">
+              <div>
+                <dt>模型</dt>
+                <dd title={modelLabel}>{modelLabel}</dd>
+              </div>
+              <div>
+                <dt>Visits</dt>
+                <dd>{visitsLabel}</dd>
+              </div>
+            </dl>
+          )}
           {!selectedWorkerName && <small className="engine-error">请选择分析器</small>}
           {selectedWorkerName && !workerReady && <small className="engine-error">{selectedWorker?.error || '分析器不可用'}</small>}
           {analysisError && <small className="engine-error">{analysisError}</small>}
