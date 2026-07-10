@@ -5,6 +5,39 @@ import { describe, expect, it, vi } from 'vitest'
 import { GameSidebar } from './GameSidebar'
 
 describe('GameSidebar', () => {
+  it('replaces home controls with one contextual page title and back action', () => {
+    const onBack = vi.fn()
+    render(
+      <GameSidebar
+        games={[]}
+        selectedGameId="game-1"
+        contextualTitle="设置"
+        onContextBack={onBack}
+        analysisAvailable
+        analysisState="idle"
+        onOpenGameList={vi.fn()}
+        onToggleList={vi.fn()}
+        onImport={vi.fn()}
+        onSettings={vi.fn()}
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={vi.fn()}
+        onStopAnalysis={vi.fn()}
+        onRestartAnalysis={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('banner', { name: '设置' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '返回设置' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Show game list')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Import SGF')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Open settings')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('打开分析菜单')).not.toBeInTheDocument()
+
+    screen.getByRole('button', { name: '返回设置' }).click()
+    expect(onBack).toHaveBeenCalledOnce()
+  })
+
   it('renders imported games newest first', () => {
     render(
       <GameSidebar

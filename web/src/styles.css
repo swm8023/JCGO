@@ -262,6 +262,45 @@ textarea:focus-visible {
   gap: 8px;
 }
 
+.game-sidebar.contextual {
+  z-index: 80;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.contextual-titlebar {
+  min-width: 0;
+  min-height: var(--topbar-height);
+  display: grid;
+  grid-template-columns: var(--ui-btn-size) minmax(0, 1fr) var(--ui-btn-size);
+  align-items: center;
+  gap: 8px;
+}
+
+.contextual-titlebar h1 {
+  display: block;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-context-actions {
+  width: var(--ui-btn-size);
+  height: var(--ui-btn-size);
+  display: grid;
+  place-items: center;
+}
+
+.contextual-back-button {
+  justify-self: start;
+}
+
 .sidebar-actions {
   display: flex;
   flex-direction: column;

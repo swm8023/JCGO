@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AnalysisProgress, AnalysisSchedule, AnalysisScheduleTask, AnalysisState, AnalysisWorkerLane, GameRecord, WorkerStatus } from '../api/types'
-import { Menu, Plus, Settings, Trash2 } from 'lucide-react'
+import { ArrowLeft, Menu, Plus, Settings, Trash2 } from 'lucide-react'
 import { formatGameResult } from './gameResult'
 
 interface GameSidebarProps {
   games: GameRecord[]
   listOpen: boolean
+  contextualTitle?: string
+  onContextBack?(): void
+  contextActions?: ReactNode
+  onOpenGameList?(): void
   selectedGameId?: string
   selectedAnalysisWorkerName?: string
   workerStatus?: WorkerStatus
@@ -30,6 +34,10 @@ interface GameSidebarProps {
 export function GameSidebar({
   games,
   listOpen,
+  contextualTitle,
+  onContextBack = noop,
+  contextActions,
+  onOpenGameList,
   selectedGameId,
   selectedAnalysisWorkerName,
   workerStatus,
@@ -51,11 +59,21 @@ export function GameSidebar({
   toolbarSlot,
 }: GameSidebarProps) {
   return (
-    <aside className={listOpen ? 'game-sidebar expanded' : 'game-sidebar'}>
-      <div className="sidebar-header">
+    <aside className={contextualTitle ? 'game-sidebar contextual' : listOpen ? 'game-sidebar expanded' : 'game-sidebar'}>
+      {contextualTitle ? (
+        <header className="sidebar-header contextual-titlebar" role="banner" aria-label={contextualTitle}>
+          <button className="icon-button contextual-back-button" type="button" onClick={onContextBack} aria-label={`返回${contextualTitle}`}>
+            <ArrowLeft size={18} aria-hidden="true" />
+          </button>
+          <h1>{contextualTitle}</h1>
+          <div className="sidebar-context-actions">{contextActions}</div>
+        </header>
+      ) : (
+        <>
+          <div className="sidebar-header">
         <h1>JCGO</h1>
         <div className="sidebar-actions sidebar-file-actions">
-          <button className="icon-button" onClick={onToggleList} aria-label="Show game list" aria-pressed={listOpen}>
+          <button className="icon-button" onClick={() => onOpenGameList?.() ?? onToggleList()} aria-label="Show game list" aria-pressed={listOpen}>
             <Menu size={17} aria-hidden="true" />
           </button>
           <button className="icon-button" onClick={onImport} aria-label="Import SGF">
@@ -159,7 +177,9 @@ export function GameSidebar({
             })}
           </div>
         </div>
-      </section>
+          </section>
+        </>
+      )}
     </aside>
   )
 }

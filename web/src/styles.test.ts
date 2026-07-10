@@ -5,6 +5,11 @@ import { describe, expect, it } from 'vitest'
 const styles = readFileSync(join(process.cwd(), 'src', 'styles.css'), 'utf8').replaceAll('\r\n', '\n')
 
 describe('responsive layout CSS', () => {
+  it('defines a contextual titlebar for app pages', () => {
+    expect(styles).toContain('.contextual-titlebar {\n  min-width: 0;\n  min-height: var(--topbar-height);\n  display: grid;')
+    expect(styles).toContain('grid-template-columns: var(--ui-btn-size) minmax(0, 1fr) var(--ui-btn-size);')
+  })
+
   it('defines a focused Go studio design system', () => {
     expect(styles).toContain('--ink: #1a1a2e;')
     expect(styles).toContain('--paper: #f8f5ec;')
