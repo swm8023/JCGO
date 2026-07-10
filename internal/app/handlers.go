@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -113,6 +114,8 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.delete(ctx, token, params)
 	case "game.select":
 		return h.selectGame(ctx, token, params)
+	case "game.setAnalysisWorker":
+		return h.setGameAnalysisWorker(ctx, token, params)
 	case "game.goto":
 		return h.gotoMain(ctx, token, params)
 	case "game.gotoNode":
@@ -301,6 +304,28 @@ func (h *Handler) selectGame(ctx context.Context, token string, params json.RawM
 	return h.workspaceState(ctx, token)
 }
 
+func (h *Handler) setGameAnalysisWorker(ctx context.Context, token string, params json.RawMessage) (any, error) {
+	var in gameAnalysisWorkerParams
+	if err := decodeParams(params, &in); err != nil {
+		return nil, err
+	}
+	workerName := strings.TrimSpace(in.WorkerName)
+	if workerName == "" {
+		return nil, errors.New("workerName is required")
+	}
+	ws, err := h.ensureWorkspaceGame(ctx, token, in.GameID)
+	if err != nil {
+		return nil, err
+	}
+	if err := h.repo.UpdateGameAnalysisWorker(ctx, in.GameID, workerName); err != nil {
+		return nil, err
+	}
+	if _, err := ws.SelectGame(in.GameID); err != nil {
+		return nil, err
+	}
+	return h.workspaceState(ctx, token)
+}
+
 func (h *Handler) gotoMain(ctx context.Context, token string, params json.RawMessage) (any, error) {
 	var in gotoParams
 	if err := decodeParams(params, &in); err != nil {
@@ -464,9 +489,17 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 	if err != nil {
 		return nil, err
 	}
+	workerName := ""
+	if action == "start" || action == "restart" {
+		workerName, err = h.requireGameAnalysisWorker(ctx, in.GameID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	input := StartInput{
 		Token:       token,
 		GameID:      in.GameID,
+		WorkerName:  workerName,
 		FocusNodeID: snapshot.NodeID,
 		Nodes:       ws.MissingMainlineAnalysisInputs(in.GameID),
 	}
@@ -495,6 +528,41 @@ func (h *Handler) analysisCall(ctx context.Context, token string, params json.Ra
 		h.analysis.RestartGame(input)
 	}
 	return h.workspaceState(ctx, token)
+}
+
+func (h *Handler) requireGameAnalysisWorker(ctx context.Context, gameID string) (string, error) {
+	record, err := h.repo.GetGame(ctx, gameID)
+	if err != nil {
+		return "", err
+	}
+	workerName := strings.TrimSpace(record.AnalysisWorkerName)
+	if workerName == "" {
+		return "", errors.New("analysis worker is required")
+	}
+	if err := h.requireWorkerReady(ctx, workerName); err != nil {
+		return "", err
+	}
+	return workerName, nil
+}
+
+func (h *Handler) requireWorkerReady(ctx context.Context, workerName string) error {
+	status, err := h.currentWorkerStatus(ctx)
+	if err != nil {
+		return err
+	}
+	for _, runtime := range status.Workers {
+		if runtime.Name != workerName {
+			continue
+		}
+		if runtime.Available && runtime.Error == "" {
+			return nil
+		}
+		if runtime.Error != "" {
+			return fmt.Errorf("analysis worker %s is unavailable: %s", workerName, runtime.Error)
+		}
+		return fmt.Errorf("analysis worker %s is unavailable", workerName)
+	}
+	return fmt.Errorf("analysis worker %s is not connected", workerName)
 }
 
 func (h *Handler) badMovePrompt(ctx context.Context, token string, params json.RawMessage) (BadMovePromptResult, error) {
@@ -574,6 +642,11 @@ type importParams struct {
 
 type gameIDParams struct {
 	GameID string `json:"gameId"`
+}
+
+type gameAnalysisWorkerParams struct {
+	GameID     string `json:"gameId"`
+	WorkerName string `json:"workerName"`
 }
 
 type gotoParams struct {

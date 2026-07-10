@@ -713,6 +713,91 @@ func TestWorkerConfigureStoresServerConfigAndReturnsMergedStatus(t *testing.T) {
 	}
 }
 
+func TestGameSetAnalysisWorkerPersistsSelection(t *testing.T) {
+	h, token := newTestHandler(t)
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd])",
+	})
+
+	state := callResult[StatePayload](t, h, token, "game.setAnalysisWorker", map[string]any{
+		"gameId":     imported.Game.ID,
+		"workerName": "local-gpu",
+	})
+
+	stored, err := h.repo.GetGame(context.Background(), imported.Game.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.AnalysisWorkerName != "local-gpu" {
+		t.Fatalf("stored worker = %q", stored.AnalysisWorkerName)
+	}
+	if len(state.Games) != 1 || state.Games[0].AnalysisWorkerName != "local-gpu" {
+		t.Fatalf("state games = %#v", state.Games)
+	}
+}
+
+func TestAnalysisStartRequiresSelectedWorker(t *testing.T) {
+	h, token := newTestHandler(t)
+	recorder := &recordingAnalysisController{}
+	h.analysis = recorder
+	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd])",
+	})
+
+	_, err := h.Call(context.Background(), token, "analysis.start", mustJSON(t, map[string]any{"gameId": imported.Game.ID}))
+	if err == nil || !strings.Contains(err.Error(), "analysis worker is required") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(recorder.started) != 0 {
+		t.Fatalf("starts = %#v", recorder.started)
+	}
+	if state := h.workspaces.ForToken(token).AnalysisState(imported.Game.ID); state == AnalysisRunning {
+		t.Fatalf("analysis state = %q", state)
+	}
+}
+
+func TestAnalysisStartRejectsUnavailableSelectedWorker(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	recorder := &recordingAnalysisController{}
+	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), recorder, HandlerOptions{
+		WorkerStatusProvider: fakeWorkerStatusProvider{status: worker.StatusSnapshot{
+			Connected: 1,
+			Workers: []worker.RuntimeStatus{{
+				ID:        "worker-1",
+				Name:      "local-gpu",
+				Available: false,
+				Error:     "katago missing",
+			}},
+		}},
+	})
+	imported := callResult[ImportResult](t, handler, "secret", "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd])",
+	})
+	if err := repo.UpdateGameAnalysisWorker(ctx, imported.Game.ID, "local-gpu"); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = handler.Call(ctx, "secret", "analysis.start", mustJSON(t, map[string]any{"gameId": imported.Game.ID}))
+	if err == nil || !strings.Contains(err.Error(), "local-gpu is unavailable") {
+		t.Fatalf("err = %v", err)
+	}
+	if len(recorder.started) != 0 {
+		t.Fatalf("starts = %#v", recorder.started)
+	}
+	if state := handler.workspaces.ForToken("secret").AnalysisState(imported.Game.ID); state == AnalysisRunning {
+		t.Fatalf("analysis state = %q", state)
+	}
+}
+
 func TestAnalysisUpdateNotificationContainsFullState(t *testing.T) {
 	h, token := newTestHandler(t)
 	imported := callResult[ImportResult](t, h, token, "game.importSgf", map[string]any{
@@ -826,6 +911,15 @@ func callResult[T any](t *testing.T, handler *Handler, token string, method stri
 		t.Fatal(err)
 	}
 	return out
+}
+
+func mustJSON(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }
 
 func waitForAnalysisFile(t *testing.T, files store.FileStore, sgfFilename string, wantNodes int) {
