@@ -1,5 +1,6 @@
 import { type ChangeEvent, useEffect, useRef, useState } from 'react'
 import { Cloud, FileUp, Link2 } from 'lucide-react'
+import { AppSheet } from './AppSheet'
 import { YuanluoboImportDialog, type YuanluoboImportAPI, type YuanluoboPickerKind } from './YuanluoboImportDialog'
 
 interface ImportDialogProps {
@@ -63,6 +64,10 @@ export function ImportDialog({
   const [url, setUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingFile, setPendingFile] = useState<File>()
+  const [displayName, setDisplayName] = useState('')
+  const [fileImporting, setFileImporting] = useState(false)
+  const [fileImportError, setFileImportError] = useState<string>()
 
   const choose = () => {
     const picker = (window as FilePickerWindow).showOpenFilePicker
@@ -73,13 +78,16 @@ export function ImportDialog({
     inputRef.current?.click()
   }
 
-  const onFile = async (event: ChangeEvent<HTMLInputElement>) => {
+  const prepareFileImport = (file: File) => {
+    setPendingFile(file)
+    setDisplayName(file.name.replace(/\.sgf$/i, ''))
+    setFileImportError(undefined)
+  }
+
+  const onFile = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    try {
-      if (file) await importFile(file, onImport)
-    } finally {
-      event.target.value = ''
-    }
+    if (file) prepareFileImport(file)
+    event.target.value = ''
   }
 
   useEffect(() => {
@@ -88,7 +96,30 @@ export function ImportDialog({
       setError(null)
       setLoading(false)
     }
+    setPendingFile(undefined)
+    setFileImportError(undefined)
   }, [mode])
+
+  const dismissFileImport = () => {
+    if (fileImporting) return
+    setPendingFile(undefined)
+    setFileImportError(undefined)
+  }
+
+  const confirmFileImport = async () => {
+    const name = displayName.trim()
+    if (!pendingFile || !name || fileImporting) return
+    setFileImporting(true)
+    setFileImportError(undefined)
+    try {
+      await onImport(name, pendingFile.name, await pendingFile.text())
+      setPendingFile(undefined)
+    } catch (reason) {
+      setFileImportError(reason instanceof Error ? reason.message : '导入失败')
+    } finally {
+      setFileImporting(false)
+    }
+  }
 
   const handleUrlSubmit = async () => {
     if (!url.trim()) return
@@ -140,9 +171,10 @@ export function ImportDialog({
   }
 
   return (
-    <section className="app-page-body import-page" role="region" aria-label="导入棋局内容">
-      <p className="import-page-description">选择一个来源，导入后会进入当前棋盘。</p>
-      <div className="import-source-grid">
+    <>
+      <section className="app-page-body import-page" role="region" aria-label="导入棋局内容">
+        <p className="import-page-description">选择一个来源，导入后会进入当前棋盘。</p>
+        <div className="import-source-grid">
           <button className="import-source-card" onClick={choose}>
             <span className="import-source-icon"><FileUp size={20} aria-hidden="true" /></span>
             <span className="import-source-copy">
@@ -164,26 +196,45 @@ export function ImportDialog({
               <small>扫码后浏览历史棋局</small>
             </span>
           </button>
-      </div>
-      <input ref={inputRef} type="file" accept=".sgf" hidden onChange={onFile} />
-    </section>
+        </div>
+        <input ref={inputRef} type="file" accept=".sgf" hidden onChange={onFile} />
+      </section>
+      {pendingFile && (
+        <AppSheet
+          title="命名棋局"
+          onDismiss={dismissFileImport}
+          actions={(
+            <>
+              <button className="app-sheet-button" type="button" onClick={dismissFileImport} disabled={fileImporting}>取消</button>
+              <button
+                className="app-sheet-button primary"
+                type="button"
+                onClick={() => void confirmFileImport()}
+                disabled={fileImporting || !displayName.trim()}
+              >
+                {fileImporting ? '导入中...' : '导入'}
+              </button>
+            </>
+          )}
+        >
+          <label className="app-sheet-field">
+            <span>棋局名称</span>
+            <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} autoFocus disabled={fileImporting} />
+          </label>
+          <p className="app-sheet-file">{pendingFile.name}</p>
+          {fileImportError && <p className="import-error">{fileImportError}</p>}
+        </AppSheet>
+      )}
+    </>
   )
 
   async function chooseWithPicker(picker: NonNullable<FilePickerWindow['showOpenFilePicker']>) {
     try {
       const [handle] = await picker(sgfPickerOptions)
       if (!handle) return
-      await importFile(await handle.getFile(), onImport)
+      prepareFileImport(await handle.getFile())
     } catch {
       // Users can cancel the native picker.
     }
   }
-}
-
-async function importFile(file: File, onImport: ImportDialogProps['onImport']) {
-  const defaultName = file.name.replace(/\.sgf$/i, '')
-  const displayName = window.prompt('Game name', defaultName)?.trim()
-  if (!displayName) return
-  const sgfText = await file.text()
-  onImport(displayName, file.name, sgfText)
 }

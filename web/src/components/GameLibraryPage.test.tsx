@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { GameLibraryPage } from './GameLibraryPage'
@@ -29,6 +29,8 @@ describe('GameLibraryPage', () => {
 
     const page = screen.getByRole('region', { name: '本地棋局内容' })
     expect(page).toHaveClass('app-page-body')
+    expect(screen.getByText('本地棋谱')).toBeInTheDocument()
+    expect(screen.queryByText('Local games')).not.toBeInTheDocument()
     expect(screen.getByText('共 1 局')).toBeInTheDocument()
     expect(screen.getByText('分析中')).toBeInTheDocument()
     const openGame = page.querySelector<HTMLButtonElement>('.game-row-open')
@@ -40,7 +42,7 @@ describe('GameLibraryPage', () => {
   it('keeps local-game outcome, metadata, and deletion controls in the page list', async () => {
     const user = userEvent.setup()
     const onDelete = vi.fn()
-    vi.stubGlobal('confirm', vi.fn(() => true))
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     const { container } = render(
       <GameLibraryPage
         games={[{
@@ -68,9 +70,14 @@ describe('GameLibraryPage', () => {
     expect(row).toHaveTextContent('黑中盘胜')
     expect(row).toHaveTextContent('已分析')
 
-    const remove = screen.getByLabelText('Delete Lee VS Cho')
+    const remove = screen.getByLabelText('删除 Lee VS Cho')
     expect(remove.querySelector('svg')).toBeInTheDocument()
     await user.click(remove)
+    const sheet = screen.getByRole('dialog', { name: '删除棋局' })
+    expect(sheet).toHaveTextContent('Lee VS Cho')
+    expect(onDelete).not.toHaveBeenCalled()
+    await user.click(within(sheet).getByRole('button', { name: '删除' }))
     expect(onDelete).toHaveBeenCalledWith('game-1')
+    expect(confirm).not.toHaveBeenCalled()
   })
 })

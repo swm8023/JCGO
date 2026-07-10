@@ -294,4 +294,17 @@ describe('responsive layout CSS', () => {
     expect(styles.slice(frameOverride, frameOverride + 220)).toContain('height: 100cqw;')
     expect(styles.slice(frameOverride, frameOverride + 220)).toContain('aspect-ratio: 1;')
   })
+
+  it('uses the Yuanluobo record language for touch-first authenticated surfaces', () => {
+    expect(styles).toContain('--paper-grid-line: rgb(26 71 42 / 0.04);')
+    expect(styles).toContain('--surface-glaze: linear-gradient(180deg, rgb(255 255 255 / 0.97), rgb(252 250 246 / 0.92));')
+    expect(styles).toContain('.app-page-workspace::before {')
+    expect(styles).toContain('.candidate-row::before,\n.bad-move::before {')
+    expect(styles).toContain('.import-url-field {\n  width: min(560px, 100%);')
+    expect(styles).toContain('.app-sheet-backdrop {')
+    expect(styles).toContain('.app-sheet {')
+    expect(styles).toContain('@media (hover: none), (pointer: coarse) {\n  button:not(:disabled):active,')
+    expect(styles).toContain('.overlay-toggles .toggle {\n    width: 36px;\n    height: 36px;')
+    expect(styles).toContain('.navigation-controls button {\n    width: 36px;\n    min-width: 36px;\n    max-width: 36px;\n    height: 34px;')
+  })
 })

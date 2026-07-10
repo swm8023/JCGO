@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ImportDialog } from './ImportDialog'
@@ -50,15 +50,16 @@ describe('ImportDialog', () => {
   })
 
   it('uses the File System Access picker with a stable SGF directory id when available', async () => {
+    const user = userEvent.setup()
     const file = new File(['(;GM[1]FF[4]SZ[19])'], 'demo.sgf', { type: 'application/x-go-sgf' })
     const showOpenFilePicker = vi.fn(() => Promise.resolve([{ getFile: () => Promise.resolve(file) }]))
     Object.defineProperty(window, 'showOpenFilePicker', { value: showOpenFilePicker, configurable: true })
-    vi.spyOn(window, 'prompt').mockReturnValue('Demo')
+    const prompt = vi.spyOn(window, 'prompt')
     const onImport = vi.fn()
 
     renderImportDialog({ onImport })
 
-    await userEvent.click(screen.getByRole('button', { name: /SGF 文件/ }))
+    await user.click(screen.getByRole('button', { name: /SGF 文件/ }))
 
     expect(showOpenFilePicker).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -67,7 +68,14 @@ describe('ImportDialog', () => {
         multiple: false,
       }),
     )
-    await waitFor(() => expect(onImport).toHaveBeenCalledWith('Demo', 'demo.sgf', '(;GM[1]FF[4]SZ[19])'))
+    const sheet = await screen.findByRole('dialog', { name: '命名棋局' })
+    const name = within(sheet).getByLabelText('棋局名称')
+    expect(name).toHaveValue('demo')
+    await user.clear(name)
+    await user.type(name, '练习棋局')
+    await user.click(within(sheet).getByRole('button', { name: '导入' }))
+    await waitFor(() => expect(onImport).toHaveBeenCalledWith('练习棋局', 'demo.sgf', '(;GM[1]FF[4]SZ[19])'))
+    expect(prompt).not.toHaveBeenCalled()
   })
 
   it('requests the yuanluobo import entry from the choose screen', async () => {
