@@ -430,6 +430,62 @@ describe('App variation navigation', () => {
     await waitFor(() => expect(screen.queryByRole('region', { name: '本地棋局内容' })).not.toBeInTheDocument())
   })
 
+  it('shows a yuanluobo import in the local game list without reconnecting', async () => {
+    stubAuthenticatedStorage()
+    const importedState = yuanluoboImportedGameState()
+    const records = {
+      total: 1,
+      page: 1,
+      size: 10,
+      pageTotal: 1,
+      categories: [{ title: '元萝卜AI', gameMode: 1 }],
+      records: [{
+        sessionId: 'session-new',
+        gameMode: 1,
+        category: '元萝卜AI',
+        startDate: '2026-07-08',
+        startTime: 1783500000,
+        blackPlayerName: 'New player',
+        whitePlayerName: 'Opponent',
+        title: '元萝卜AI',
+        result: 'B+R',
+        resultLabel: '黑中盘胜',
+        resultWinner: 'B' as const,
+        totalRound: 90,
+        imported: false,
+      }],
+    }
+    rpc.responses = [
+      mainlineState(5, 12),
+      { loggedIn: true },
+      [{ playerId: 'player-1', name: '棋手一' }],
+      records,
+      {
+        game: importedState.games[1],
+        snapshot: importedState.snapshot,
+      },
+      importedState,
+      records,
+    ]
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    const homeState = window.history.state
+    await userEvent.click(screen.getByLabelText('Import SGF'))
+    await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /New player.*vs.*Opponent/ }))
+
+    await waitFor(() => {
+      expect(rpc.calls.filter(({ method }) => method === 'workspace.state')).toHaveLength(2)
+    })
+
+    window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: '元萝卜棋局内容' })).not.toBeInTheDocument())
+    await userEvent.click(screen.getByLabelText('Show game list'))
+    expect(screen.getByRole('button', { name: /^Imported immediately/ })).toBeInTheDocument()
+  })
+
   it('walks browser history from nested import screens back to the board', async () => {
     stubAuthenticatedStorage()
     rpc.responses = [
@@ -696,6 +752,28 @@ function gameLibraryState(gameId: string): StatePayload {
         sgfFilename: 'second.sgf',
         createdAt: '2026-06-27T00:00:00Z',
         gameDate: '2026-06-26',
+        analysisStatus: 'idle',
+      },
+    ],
+    snapshot: state.snapshot ? { ...state.snapshot, gameId } : undefined,
+  }
+}
+
+function yuanluoboImportedGameState(): StatePayload {
+  const state = mainlineState(5, 12)
+  const gameId = 'game-new'
+  return {
+    ...state,
+    gameId,
+    games: [
+      ...state.games,
+      {
+        gameId,
+        displayName: 'Imported immediately',
+        result: 'B+R',
+        sgfFilename: 'game-new.sgf',
+        createdAt: '2026-07-08T00:00:00Z',
+        gameDate: '2026-07-08',
         analysisStatus: 'idle',
       },
     ],

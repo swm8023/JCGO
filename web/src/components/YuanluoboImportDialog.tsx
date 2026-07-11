@@ -23,6 +23,7 @@ export interface YuanluoboImportAPI {
 
 interface YuanluoboImportDialogProps {
   api: YuanluoboImportAPI
+  onImportComplete?(): void | Promise<void>
   pickerKind?: YuanluoboPickerKind
   onOpenPicker(kind: YuanluoboPickerKind): void
   onClosePicker(): void
@@ -35,7 +36,7 @@ export type YuanluoboPickerKind = 'player' | 'platform'
 const defaultYuanluoboCategory: YuanluoboRecordCategory = { title: '元萝卜AI', gameMode: 1 }
 const defaultYuanluoboGameMode = defaultYuanluoboCategory.gameMode
 
-export function YuanluoboImportDialog({ api, pickerKind, onOpenPicker, onClosePicker, onLoginStateChange }: YuanluoboImportDialogProps) {
+export function YuanluoboImportDialog({ api, onImportComplete, pickerKind, onOpenPicker, onClosePicker, onLoginStateChange }: YuanluoboImportDialogProps) {
   const [loginState, setLoginState] = useState<LoginState>('checking')
   const [qr, setQR] = useState<YuanluoboQRCode>()
   const [pollDesc, setPollDesc] = useState('未扫码')
@@ -142,6 +143,7 @@ export function YuanluoboImportDialog({ api, pickerKind, onOpenPicker, onClosePi
   return (
     <YuanluoboRecordBrowser
       api={api}
+      onImportComplete={onImportComplete}
       pickerKind={pickerKind}
       onOpenPicker={onOpenPicker}
       onClosePicker={onClosePicker}
@@ -149,7 +151,7 @@ export function YuanluoboImportDialog({ api, pickerKind, onOpenPicker, onClosePi
   )
 }
 
-function YuanluoboRecordBrowser({ api, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
+function YuanluoboRecordBrowser({ api, onImportComplete, pickerKind, onOpenPicker, onClosePicker }: YuanluoboImportDialogProps) {
   const [players, setPlayers] = useState<YuanluoboPlayer[]>([])
   const [playerId, setPlayerId] = useState(() => readStorage('jcgo.yuanluobo.playerId') ?? '')
   const [categories, setCategories] = useState<YuanluoboRecordCategory[]>([defaultYuanluoboCategory])
@@ -223,6 +225,7 @@ function YuanluoboRecordBrowser({ api, pickerKind, onOpenPicker, onClosePicker }
 
   const chooseRecord = async (record: YuanluoboRecord) => {
     await api.importRecord(record.sessionId)
+    await onImportComplete?.()
     await loadRecords(playerId, gameMode, page)
   }
 

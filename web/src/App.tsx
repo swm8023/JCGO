@@ -597,6 +597,7 @@ export default function App() {
               mode={importMode}
               onImport={importGame}
               onImportUrl={importFromUrl}
+              onYuanluoboImportComplete={refreshWorkspaceState}
               onOpenUrl={() => pushAppHistoryLayer('import-url')}
               onOpenYuanluobo={() => pushAppHistoryLayer('import-yuanluobo')}
               yuanluoboApi={yuanluoboApi}

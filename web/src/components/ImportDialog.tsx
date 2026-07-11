@@ -7,6 +7,7 @@ interface ImportDialogProps {
   mode: ImportDialogMode
   onImport(displayName: string, originalFilename: string, sgfText: string): void | Promise<void>
   onImportUrl(url: string): void | Promise<void>
+  onYuanluoboImportComplete(): void | Promise<void>
   onOpenUrl(): void
   onOpenYuanluobo(): void
   yuanluoboApi: YuanluoboImportAPI
@@ -52,6 +53,7 @@ export function ImportDialog({
   mode,
   onImport,
   onImportUrl,
+  onYuanluoboImportComplete,
   onOpenUrl,
   onOpenYuanluobo,
   yuanluoboApi,
@@ -162,6 +164,7 @@ export function ImportDialog({
     return (
       <YuanluoboImportDialog
         api={yuanluoboApi}
+        onImportComplete={onYuanluoboImportComplete}
         pickerKind={yuanluoboPickerKind}
         onOpenPicker={onOpenYuanluoboPicker}
         onClosePicker={onCloseYuanluoboPicker}
