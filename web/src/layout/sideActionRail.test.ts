@@ -22,6 +22,27 @@ describe('side action rail placement', () => {
     expect(placement.enabled).toBe(false)
   })
 
+  it('uses scaled side controls for a portrait iPad even when horizontal controls fit below the board', () => {
+    const placement = computeSideActionPlacement({
+      layoutWidth: 810,
+      layoutHeight: 1080,
+      boardStageLeft: 0,
+      boardStageTop: 42,
+      boardStageWidth: 810,
+      boardStageHeight: 888,
+      boardStageRight: 810,
+      boardRight: 806,
+      boardTop: 45,
+      boardHeight: 806,
+    }, false)
+
+    expect(placement.enabled).toBe(true)
+    expect(placement.width).toBe(44)
+    expect(placement.rowHeight).toBe(44)
+    expect(placement.left).toBe(810 - sideActionEdgeGap - placement.width)
+    expect(placement.top).toBe(45 + 806 / 2)
+  })
+
   it('uses a right-side action rail when full-width board plus horizontal controls do not fit', () => {
     const placement = computeSideActionPlacement({
       layoutWidth: 390,

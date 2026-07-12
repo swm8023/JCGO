@@ -4,6 +4,7 @@ export const sideActionGap = 18
 const viewportEdgeGap = 4
 const fullWidthEnterTolerance = 2
 const fullWidthExitTolerance = 2
+const widePortraitSideActionMinWidth = 700
 const sideActionControlMin = 36
 const sideActionControlMax = 44
 const sideActionBoardRatio = 0.09
@@ -39,7 +40,9 @@ export function computeSideActionPlacement(measurement: SideActionMeasurement, c
   if (measurement.boardHeight <= 0 || measurement.boardRight <= 0) return disabled
 
   const requiredFullWidthHeight = measurement.boardStageWidth + (currentlyEnabled ? fullWidthExitTolerance : -fullWidthEnterTolerance)
-  if (measurement.boardStageHeight >= requiredFullWidthHeight) return disabled
+  const fullWidthBoardFits = measurement.boardStageHeight >= requiredFullWidthHeight
+  const widePortraitBoard = measurement.boardStageWidth >= widePortraitSideActionMinWidth
+  if (fullWidthBoardFits && !widePortraitBoard) return disabled
 
   const controlSize = sideActionControlSize(measurement)
   const railWidth = controlSize
