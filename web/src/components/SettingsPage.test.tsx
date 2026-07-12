@@ -162,6 +162,9 @@ describe('SettingsPage', () => {
     await userEvent.selectOptions(screen.getByLabelText('模型'), 'kata1-b28c512nbt-s13255194368-d5935380940.bin.gz')
     await userEvent.clear(screen.getByLabelText('Visits'))
     await userEvent.type(screen.getByLabelText('Visits'), '900')
+    expect(screen.getByLabelText('优先级')).toHaveValue(100)
+    await userEvent.clear(screen.getByLabelText('优先级'))
+    await userEvent.type(screen.getByLabelText('优先级'), '1')
     await userEvent.click(screen.getByRole('button', { name: '保存' }))
 
     await waitFor(() => {
@@ -169,6 +172,7 @@ describe('SettingsPage', () => {
         workerName: 'gpu-worker',
         model: 'kata1-b28c512nbt-s13255194368-d5935380940.bin.gz',
         maxVisits: 900,
+        priority: 1,
       })
     })
   })

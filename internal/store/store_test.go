@@ -196,6 +196,49 @@ func TestRepositoryStoresWorkerConfigsWithDefaults(t *testing.T) {
 	}
 }
 
+func TestRepositoryMigratesWorkerConfigsWithPriority(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "jcgo.sqlite")
+	db, err := sql.Open("sqlite", filepath.ToSlash(dbPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		CREATE TABLE worker_configs (
+			name TEXT PRIMARY KEY,
+			model TEXT NOT NULL,
+			max_visits INTEGER NOT NULL,
+			updated_at TEXT NOT NULL
+		)
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		INSERT INTO worker_configs (name, model, max_visits, updated_at)
+		VALUES ('legacy-gpu', 'kata1.bin.gz', 500, '2026-07-12T00:00:00Z')
+	`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	repo, err := Open(ctx, dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+
+	var priority int
+	if err := repo.db.QueryRowContext(ctx, `SELECT priority FROM worker_configs WHERE name = 'legacy-gpu'`).Scan(&priority); err != nil {
+		t.Fatal(err)
+	}
+	if priority != 100 {
+		t.Fatalf("priority = %d, want 100", priority)
+	}
+}
+
 func TestRepositoryStoresGameAnalysisWorkerName(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()

@@ -486,6 +486,30 @@ describe('App variation navigation', () => {
     expect(screen.getByRole('button', { name: /^Imported immediately/ })).toBeInTheDocument()
   })
 
+  it('asks the server for a worker recommendation when opening analysis', async () => {
+    stubAuthenticatedStorage()
+    rpc.responses = [
+      {
+        ...mainlineState(5, 12),
+        workerStatus: {
+          connected: 1,
+          available: 1,
+          busy: 0,
+          workers: [{ id: 'worker-1', name: 'gpu-worker', platform: 'windows/amd64', available: true, busy: false }],
+        },
+      },
+      { workerName: 'gpu-worker' },
+    ]
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    await userEvent.click(screen.getByRole('button', { name: '打开分析菜单' }))
+    await waitFor(() => {
+      expect(rpc.calls).toContainEqual({ method: 'analysis.recommendWorker', params: undefined })
+    })
+  })
+
   it('walks browser history from nested import screens back to the board', async () => {
     stubAuthenticatedStorage()
     rpc.responses = [

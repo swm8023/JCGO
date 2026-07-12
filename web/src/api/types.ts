@@ -225,6 +225,7 @@ export interface WorkerRuntimeStatus {
   gpus?: string[]
   model?: string
   maxVisits?: number
+  priority?: number
   available: boolean
   busy: boolean
   error?: string
@@ -241,6 +242,11 @@ export interface WorkerConfigureInput {
   workerName: string
   model: string
   maxVisits: number
+  priority: number
+}
+
+export interface WorkerRecommendation {
+  workerName: string
 }
 
 export interface YuanluoboQRCode {

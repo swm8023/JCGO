@@ -17,11 +17,12 @@ interface GameSidebarProps {
   analysisProgress?: AnalysisProgress
   onImport(): void
   onSettings?(): void
-  onStartAnalysis(): void
+  onStartAnalysis(): void | Promise<void>
   onStopAnalysis(): void
-  onRestartAnalysis(): void
+  onRestartAnalysis(): void | Promise<void>
   onBoostAnalysis?(gameId: string): Promise<void>
   onSetAnalysisWorker?(workerName: string): Promise<void>
+  onRecommendAnalysisWorker?(): Promise<string | undefined>
   toolbarSlot?: ReactNode
 }
 
@@ -45,6 +46,7 @@ export function GameSidebar({
   onRestartAnalysis,
   onBoostAnalysis,
   onSetAnalysisWorker,
+  onRecommendAnalysisWorker,
   toolbarSlot,
 }: GameSidebarProps) {
   return (
@@ -85,6 +87,7 @@ export function GameSidebar({
           analysisState={analysisState}
           analysisProgress={analysisProgress}
           onSetAnalysisWorker={onSetAnalysisWorker}
+          onRecommendAnalysisWorker={onRecommendAnalysisWorker}
           onStartAnalysis={onStartAnalysis}
           onStopAnalysis={onStopAnalysis}
           onRestartAnalysis={onRestartAnalysis}
@@ -110,6 +113,7 @@ function AnalysisMenu({
   onStopAnalysis,
   onRestartAnalysis,
   onBoostAnalysis,
+  onRecommendAnalysisWorker,
 }: {
   selectedGameId?: string
   selectedWorkerName?: string
@@ -120,18 +124,22 @@ function AnalysisMenu({
   analysisState: AnalysisState
   analysisProgress?: AnalysisProgress
   onSetAnalysisWorker?(workerName: string): Promise<void>
-  onStartAnalysis(): void
+  onStartAnalysis(): void | Promise<void>
   onStopAnalysis(): void
-  onRestartAnalysis(): void
+  onRestartAnalysis(): void | Promise<void>
   onBoostAnalysis?(gameId: string): Promise<void>
+  onRecommendAnalysisWorker?(): Promise<string | undefined>
 }) {
   const [open, setOpen] = useState(false)
+  const [recommendedWorkerName, setRecommendedWorkerName] = useState<string>()
+  const [recommending, setRecommending] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const running = analysisState === 'running'
   const workers = workerStatus?.workers ?? []
-  const selectedWorker = workers.find((worker) => worker.name === selectedWorkerName)
-  const workerReady = Boolean(selectedWorkerName && selectedWorker?.available && !selectedWorker.error)
-  const baseActionDisabled = !selectedGameId || !workerReady || (!analysisAvailable && !running)
+  const activeWorkerName = selectedWorkerName || recommendedWorkerName
+  const selectedWorker = workers.find((worker) => worker.name === activeWorkerName)
+  const workerReady = Boolean(activeWorkerName && selectedWorker?.available && !selectedWorker.error)
+  const baseActionDisabled = !selectedGameId || !workerReady || recommending || (!selectedWorkerName && !onSetAnalysisWorker) || (!analysisAvailable && !running)
   const progressCompact = formatAnalysisProgress(analysisProgress)
   const progressSpaced = formatAnalysisProgressSpaced(analysisProgress)
   const progressTitle = progressSpaced === '0 / 0' ? '当前棋局未分析' : `当前棋局 ${progressSpaced}`
@@ -147,9 +155,36 @@ function AnalysisMenu({
     return () => window.removeEventListener('pointerdown', onPointerDown)
   }, [open])
 
+  useEffect(() => {
+    setRecommendedWorkerName(undefined)
+  }, [selectedGameId, selectedWorkerName])
+
   const setWorker = async (workerName: string) => {
     if (!workerName || !onSetAnalysisWorker || running || workerName === selectedWorkerName) return
     await onSetAnalysisWorker(workerName)
+  }
+
+  const openMenu = () => {
+    if (open) {
+      setOpen(false)
+      return
+    }
+    setOpen(true)
+    if (running || selectedWorkerName || !onRecommendAnalysisWorker) return
+    setRecommending(true)
+    void onRecommendAnalysisWorker()
+      .then((workerName) => setRecommendedWorkerName(workerName))
+      .finally(() => setRecommending(false))
+  }
+
+  const startWithActiveWorker = async (action: () => void | Promise<void>) => {
+    if (!activeWorkerName) return
+    if (!selectedWorkerName) {
+      if (!onSetAnalysisWorker) return
+      await onSetAnalysisWorker(activeWorkerName)
+    }
+    setOpen(false)
+    await action()
   }
 
   const triggerText = running ? progressCompact : '析'
@@ -161,7 +196,7 @@ function AnalysisMenu({
         aria-label="打开分析菜单"
         aria-expanded={open}
         title={progressTitle}
-        onClick={() => setOpen((value) => !value)}
+        onClick={openMenu}
         disabled={!selectedGameId}
       >
         <span className="wide-label">{triggerText}</span>
@@ -172,7 +207,7 @@ function AnalysisMenu({
           <label className="analysis-worker-select">
             <span>分析器</span>
             <select
-              value={selectedWorkerName || ''}
+              value={activeWorkerName || ''}
               disabled={running || !onSetAnalysisWorker}
               onChange={(event) => void setWorker(event.target.value)}
             >
@@ -188,7 +223,7 @@ function AnalysisMenu({
             <strong>{analysisStatusLabel(analysisState)}</strong>
             <span>{progressSpaced}</span>
           </div>
-          {selectedWorkerName && (
+          {activeWorkerName && (
             <dl className="analysis-menu-params" aria-label="分析参数">
               <div>
                 <dt>模型</dt>
@@ -200,8 +235,8 @@ function AnalysisMenu({
               </div>
             </dl>
           )}
-          {!selectedWorkerName && <small className="engine-error">请选择分析器</small>}
-          {selectedWorkerName && !workerReady && <small className="engine-error">{selectedWorker?.error || '分析器不可用'}</small>}
+          {!activeWorkerName && <small className="engine-error">请选择分析器</small>}
+          {activeWorkerName && !workerReady && <small className="engine-error">{selectedWorker?.error || '分析器不可用'}</small>}
           {analysisError && <small className="engine-error">{analysisError}</small>}
           <AnalysisLaneList
             schedule={analysisSchedule}
@@ -211,10 +246,7 @@ function AnalysisMenu({
           <button
             type="button"
             role="menuitem"
-            onClick={() => {
-              setOpen(false)
-              onStartAnalysis()
-            }}
+            onClick={() => void startWithActiveWorker(onStartAnalysis)}
             disabled={baseActionDisabled || running || analysisState === 'complete'}
           >
             继续分析
@@ -222,10 +254,7 @@ function AnalysisMenu({
           <button
             type="button"
             role="menuitem"
-            onClick={() => {
-              setOpen(false)
-              onRestartAnalysis()
-            }}
+            onClick={() => void startWithActiveWorker(onRestartAnalysis)}
             disabled={baseActionDisabled || running}
           >
             重新分析

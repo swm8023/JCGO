@@ -48,6 +48,7 @@ type RuntimeStatus struct {
 	GPUs      []string `json:"gpus,omitempty"`
 	Model     string   `json:"model,omitempty"`
 	MaxVisits int      `json:"maxVisits,omitempty"`
+	Priority  int      `json:"priority,omitempty"`
 	Available bool     `json:"available"`
 	Busy      bool     `json:"busy"`
 	Error     string   `json:"error,omitempty"`

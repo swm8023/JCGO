@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { LogOut } from 'lucide-react'
 import { RPCClient } from './api/jsonrpc'
-import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload, WorkerConfigureInput, WorkerStatus } from './api/types'
+import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload, WorkerConfigureInput, WorkerRecommendation, WorkerStatus } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
 import { AnalysisDetailTabs } from './components/AnalysisDetailTabs'
 import { AnalysisPanel } from './components/AnalysisPanel'
@@ -485,6 +485,12 @@ export default function App() {
     applyWorkspaceState(state)
   }
 
+  const recommendAnalysisWorker = async () => {
+    if (!client) return undefined
+    const recommendation = await client.call<WorkerRecommendation>('analysis.recommendWorker')
+    return recommendation.workerName || undefined
+  }
+
   const layoutStyle = sideActionPlacement.enabled ? sideActionStyle(sideActionPlacement) : undefined
   const selectedGame = games.find((game) => game.gameId === selectedGameId)
   const pageLayer = pageLayerFor(currentLayer)
@@ -525,6 +531,7 @@ export default function App() {
         onRestartAnalysis={restartAnalysis}
         onBoostAnalysis={boostAnalysis}
         onSetAnalysisWorker={setGameAnalysisWorker}
+        onRecommendAnalysisWorker={recommendAnalysisWorker}
         toolbarSlot={<OverlayToggles value={overlays} onChange={updateOverlays} />}
       />
       <section ref={boardStageRef} className="board-stage">

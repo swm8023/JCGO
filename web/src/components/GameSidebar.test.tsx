@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { GameSidebar } from './GameSidebar'
@@ -113,6 +113,49 @@ describe('GameSidebar', () => {
     await user.click(within(container).getByRole('button', { name: '打开分析菜单' }))
     await user.click(within(screen.getByRole('menu', { name: '分析' })).getByRole('menuitem', { name: '重新分析' }))
     expect(onRestartAnalysis).toHaveBeenCalledTimes(1)
+  })
+
+  it('recommends a worker on open and binds it only when analysis starts', async () => {
+    const user = userEvent.setup()
+    const calls: string[] = []
+    const onRecommendAnalysisWorker = vi.fn().mockResolvedValue('preferred-gpu')
+    const onSetAnalysisWorker = vi.fn(async (workerName: string) => {
+      calls.push(`bind:${workerName}`)
+    })
+    const onStartAnalysis = vi.fn(async () => {
+      calls.push('start')
+    })
+    const props = {
+      onOpenGameList: vi.fn(),
+      selectedGameId: 'game-1',
+      workerStatus: {
+        connected: 2,
+        available: 2,
+        busy: 0,
+        workers: [
+          { id: 'worker-1', name: 'preferred-gpu', platform: 'windows/amd64', available: true, busy: false },
+          { id: 'worker-2', name: 'fallback-gpu', platform: 'windows/amd64', available: true, busy: false },
+        ],
+      },
+      analysisAvailable: true,
+      analysisState: 'idle' as const,
+      onImport: vi.fn(),
+      onStartAnalysis,
+      onStopAnalysis: vi.fn(),
+      onRestartAnalysis: vi.fn(),
+      onSetAnalysisWorker,
+      onRecommendAnalysisWorker,
+    }
+    const { container } = render(<GameSidebar {...props} />)
+
+    await user.click(within(container).getByRole('button', { name: '打开分析菜单' }))
+    await waitFor(() => expect(onRecommendAnalysisWorker).toHaveBeenCalledTimes(1))
+    const menu = screen.getByRole('menu', { name: '分析' })
+    expect(within(menu).getByLabelText('分析器')).toHaveValue('preferred-gpu')
+    expect(onSetAnalysisWorker).not.toHaveBeenCalled()
+
+    await user.click(within(menu).getByRole('menuitem', { name: '继续分析' }))
+    await waitFor(() => expect(calls).toEqual(['bind:preferred-gpu', 'start']))
   })
 
   it('shows all worker lanes in the analysis menu and boosts queued games', async () => {

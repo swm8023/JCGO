@@ -774,7 +774,7 @@ func TestWorkerConfigureStoresServerConfigAndReturnsMergedStatus(t *testing.T) {
 		WorkerStatusProvider: statusProvider,
 	})
 
-	result, err := handler.Call(ctx, "secret", "worker.configure", json.RawMessage(`{"workerName":"gpu","model":"new.bin.gz","maxVisits":900}`))
+	result, err := handler.Call(ctx, "secret", "worker.configure", json.RawMessage(`{"workerName":"gpu","model":"new.bin.gz","maxVisits":900,"priority":1}`))
 	if err != nil {
 		t.Fatalf("worker.configure returned error: %v", err)
 	}
@@ -788,6 +788,104 @@ func TestWorkerConfigureStoresServerConfigAndReturnsMergedStatus(t *testing.T) {
 	}
 	if status.Workers[0].Model != "new.bin.gz" || status.Workers[0].MaxVisits != 900 {
 		t.Fatalf("status = %#v", status)
+	}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored struct {
+		Priority int `json:"priority"`
+	}
+	if err := json.Unmarshal(raw, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.Priority != 1 {
+		t.Fatalf("stored priority = %d, want 1", stored.Priority)
+	}
+}
+
+func TestAnalysisRecommendWorkerPrefersIdleThenPriorityWithoutPersistingGame(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil, HandlerOptions{
+		WorkerStatusProvider: fakeWorkerStatusProvider{status: worker.StatusSnapshot{
+			Connected: 3,
+			Available: 3,
+			Busy:      1,
+			Workers: []worker.RuntimeStatus{
+				{ID: "worker-busy", Name: "busy-first", Available: true, Busy: true},
+				{ID: "worker-idle", Name: "idle-second", Available: true},
+				{ID: "worker-idle-tie", Name: "idle-third", Available: true},
+			},
+		}},
+	})
+	for _, input := range []string{
+		`{"workerName":"busy-first","model":"b18.bin.gz","maxVisits":500,"priority":1}`,
+		`{"workerName":"idle-second","model":"b18.bin.gz","maxVisits":500,"priority":2}`,
+		`{"workerName":"idle-third","model":"b18.bin.gz","maxVisits":500,"priority":2}`,
+	} {
+		if _, err := handler.Call(ctx, "secret", "worker.configure", json.RawMessage(input)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	imported := callResult[ImportResult](t, handler, "secret", "game.importSgf", map[string]any{
+		"displayName": "Demo",
+		"sgfText":     "(;GM[1]FF[4]SZ[19];B[pd])",
+	})
+
+	recommendation := callResult[struct {
+		WorkerName string `json:"workerName"`
+	}](t, handler, "secret", "analysis.recommendWorker", map[string]any{})
+	if recommendation.WorkerName != "idle-second" {
+		t.Fatalf("recommended worker = %q, want idle-second", recommendation.WorkerName)
+	}
+	stored, err := repo.GetGame(ctx, imported.Game.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.AnalysisWorkerName != "" {
+		t.Fatalf("recommendation persisted worker = %q", stored.AnalysisWorkerName)
+	}
+}
+
+func TestAnalysisRecommendWorkerUsesPriorityWhenAllWorkersAreBusy(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	repo, err := store.Open(ctx, filepath.Join(dir, "jcgo.sqlite"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repo.Close()
+	handler := NewHandlerWithOptions(repo, store.NewFileStore(filepath.Join(dir, "games")), NewWorkspaceStore(), nil, HandlerOptions{
+		WorkerStatusProvider: fakeWorkerStatusProvider{status: worker.StatusSnapshot{
+			Connected: 2,
+			Available: 2,
+			Busy:      2,
+			Workers: []worker.RuntimeStatus{
+				{ID: "worker-beta", Name: "beta", Available: true, Busy: true},
+				{ID: "worker-alpha", Name: "alpha", Available: true, Busy: true},
+			},
+		}},
+	})
+	for _, input := range []string{
+		`{"workerName":"beta","model":"b18.bin.gz","maxVisits":500,"priority":1}`,
+		`{"workerName":"alpha","model":"b18.bin.gz","maxVisits":500,"priority":1}`,
+	} {
+		if _, err := handler.Call(ctx, "secret", "worker.configure", json.RawMessage(input)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	recommendation := callResult[struct {
+		WorkerName string `json:"workerName"`
+	}](t, handler, "secret", "analysis.recommendWorker", map[string]any{})
+	if recommendation.WorkerName != "alpha" {
+		t.Fatalf("recommended worker = %q, want alpha", recommendation.WorkerName)
 	}
 }
 

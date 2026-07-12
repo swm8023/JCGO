@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 
@@ -146,6 +147,8 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.analysisCall(ctx, token, params, "restart")
 	case "analysis.boost":
 		return h.boostAnalysis(ctx, token, params)
+	case "analysis.recommendWorker":
+		return h.recommendAnalysisWorker(ctx)
 	case "analysis.badMovePrompt":
 		return h.badMovePrompt(ctx, token, params)
 	case "yuanluobo.loginStart":
@@ -471,10 +474,49 @@ func (h *Handler) configureWorker(ctx context.Context, params json.RawMessage) (
 	if in.MaxVisits <= 0 {
 		return worker.StatusSnapshot{}, errors.New("maxVisits must be positive")
 	}
-	if _, err := h.repo.UpsertWorkerConfig(ctx, store.WorkerConfigInput{Name: workerName, Model: in.Model, MaxVisits: in.MaxVisits}); err != nil {
+	if in.Priority < 0 {
+		return worker.StatusSnapshot{}, errors.New("priority must be positive")
+	}
+	if _, err := h.repo.UpsertWorkerConfig(ctx, store.WorkerConfigInput{Name: workerName, Model: in.Model, MaxVisits: in.MaxVisits, Priority: in.Priority}); err != nil {
 		return worker.StatusSnapshot{}, err
 	}
 	return h.currentWorkerStatus(ctx)
+}
+
+type WorkerRecommendation struct {
+	WorkerName string `json:"workerName"`
+}
+
+func (h *Handler) recommendAnalysisWorker(ctx context.Context) (WorkerRecommendation, error) {
+	status, err := h.currentWorkerStatus(ctx)
+	if err != nil {
+		return WorkerRecommendation{}, err
+	}
+	candidates := make([]worker.RuntimeStatus, 0, len(status.Workers))
+	for _, item := range status.Workers {
+		if item.Name != "" && item.Available && item.Error == "" {
+			candidates = append(candidates, item)
+		}
+	}
+	if len(candidates) == 0 {
+		return WorkerRecommendation{}, nil
+	}
+	idle := candidates[:0]
+	for _, item := range candidates {
+		if !item.Busy {
+			idle = append(idle, item)
+		}
+	}
+	if len(idle) > 0 {
+		candidates = idle
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].Priority != candidates[j].Priority {
+			return candidates[i].Priority < candidates[j].Priority
+		}
+		return candidates[i].Name < candidates[j].Name
+	})
+	return WorkerRecommendation{WorkerName: candidates[0].Name}, nil
 }
 
 func (h *Handler) analysisCall(ctx context.Context, token string, params json.RawMessage, action string) (any, error) {
@@ -705,4 +747,5 @@ type workerConfigureParams struct {
 	WorkerName string `json:"workerName"`
 	Model      string `json:"model"`
 	MaxVisits  int    `json:"maxVisits"`
+	Priority   int    `json:"priority"`
 }

@@ -68,23 +68,26 @@ export function SettingsPage({ workerStatus = emptyWorkerStatus, onConfigureWork
 function WorkerRow({ worker, onConfigureWorker }: { worker: WorkerRuntimeStatus; onConfigureWorker?: (input: WorkerConfigureInput) => Promise<void> }) {
   const [model, setModel] = useState(worker.model || workerModels[0].filename)
   const [maxVisits, setMaxVisits] = useState(String(worker.maxVisits || 500))
+  const [priority, setPriority] = useState(String(worker.priority || 100))
   const [saving, setSaving] = useState(false)
   const visitsValue = Number(maxVisits)
+  const priorityValue = Number(priority)
   const state = worker.available ? worker.busy ? 'busy' : 'available' : 'unavailable'
   const controlsDisabled = Boolean(!onConfigureWorker || saving)
   const workerName = worker.name || worker.id
-  const canSave = !controlsDisabled && workerName.trim().length > 0 && model.trim().length > 0 && Number.isFinite(visitsValue) && visitsValue > 0
+  const canSave = !controlsDisabled && workerName.trim().length > 0 && model.trim().length > 0 && Number.isFinite(visitsValue) && visitsValue > 0 && Number.isInteger(priorityValue) && priorityValue > 0
 
   useEffect(() => {
     setModel(worker.model || workerModels[0].filename)
     setMaxVisits(String(worker.maxVisits || 500))
-  }, [worker.model, worker.maxVisits])
+    setPriority(String(worker.priority || 100))
+  }, [worker.model, worker.maxVisits, worker.priority])
 
   const save = async () => {
     if (!onConfigureWorker || !canSave) return
     setSaving(true)
     try {
-      await onConfigureWorker({ workerName, model, maxVisits: visitsValue })
+      await onConfigureWorker({ workerName, model, maxVisits: visitsValue, priority: priorityValue })
     } finally {
       setSaving(false)
     }
@@ -118,6 +121,10 @@ function WorkerRow({ worker, onConfigureWorker }: { worker: WorkerRuntimeStatus;
         <label>
           Visits
           <input value={maxVisits} inputMode="numeric" onChange={(event) => setMaxVisits(event.target.value)} disabled={controlsDisabled} />
+        </label>
+        <label>
+          优先级
+          <input type="number" value={priority} inputMode="numeric" min="1" onChange={(event) => setPriority(event.target.value)} disabled={controlsDisabled} />
         </label>
         <button type="button" onClick={() => void save()} disabled={!canSave}>保存</button>
       </span>

@@ -42,12 +42,14 @@ type CreateGameInput struct {
 const (
 	DefaultWorkerModel     = "kata1-b18c384nbt-s9996604416-d4316597426.bin.gz"
 	DefaultWorkerMaxVisits = 500
+	DefaultWorkerPriority  = 100
 )
 
 type WorkerConfig struct {
 	Name      string    `json:"name"`
 	Model     string    `json:"model"`
 	MaxVisits int       `json:"maxVisits"`
+	Priority  int       `json:"priority"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
@@ -55,6 +57,7 @@ type WorkerConfigInput struct {
 	Name      string
 	Model     string
 	MaxVisits int
+	Priority  int
 }
 
 type Repository struct {
@@ -219,7 +222,7 @@ func (r *Repository) GetOrCreateWorkerConfig(ctx context.Context, name string) (
 		return WorkerConfig{}, errors.New("worker name is required")
 	}
 	row := r.db.QueryRowContext(ctx, `
-		SELECT name, model, max_visits, updated_at
+		SELECT name, model, max_visits, priority, updated_at
 		FROM worker_configs
 		WHERE name = ?
 	`, name)
@@ -229,6 +232,7 @@ func (r *Repository) GetOrCreateWorkerConfig(ctx context.Context, name string) (
 			Name:      name,
 			Model:     DefaultWorkerModel,
 			MaxVisits: DefaultWorkerMaxVisits,
+			Priority:  DefaultWorkerPriority,
 		})
 	}
 	if err != nil {
@@ -249,24 +253,32 @@ func (r *Repository) UpsertWorkerConfig(ctx context.Context, input WorkerConfigI
 	if input.MaxVisits <= 0 {
 		return WorkerConfig{}, errors.New("worker maxVisits must be positive")
 	}
+	priority := input.Priority
+	if priority == 0 {
+		priority = DefaultWorkerPriority
+	}
+	if priority < 0 {
+		return WorkerConfig{}, errors.New("worker priority must be positive")
+	}
 	updatedAt := time.Now().UTC()
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO worker_configs (name, model, max_visits, updated_at)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO worker_configs (name, model, max_visits, priority, updated_at)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(name) DO UPDATE SET
 			model = excluded.model,
 			max_visits = excluded.max_visits,
+			priority = excluded.priority,
 			updated_at = excluded.updated_at
-	`, name, model, input.MaxVisits, formatTime(updatedAt))
+	`, name, model, input.MaxVisits, priority, formatTime(updatedAt))
 	if err != nil {
 		return WorkerConfig{}, err
 	}
-	return WorkerConfig{Name: name, Model: model, MaxVisits: input.MaxVisits, UpdatedAt: updatedAt}, nil
+	return WorkerConfig{Name: name, Model: model, MaxVisits: input.MaxVisits, Priority: priority, UpdatedAt: updatedAt}, nil
 }
 
 func (r *Repository) ListWorkerConfigs(ctx context.Context) ([]WorkerConfig, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT name, model, max_visits, updated_at
+		SELECT name, model, max_visits, priority, updated_at
 		FROM worker_configs
 		ORDER BY name ASC
 	`)
@@ -305,22 +317,22 @@ func (r *Repository) migrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := r.ensureColumn(ctx, "game_date", "TEXT NOT NULL DEFAULT ''"); err != nil {
+	if err := r.ensureTableColumn(ctx, "games", "game_date", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
-	if err := r.ensureColumn(ctx, "black_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
+	if err := r.ensureTableColumn(ctx, "games", "black_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
-	if err := r.ensureColumn(ctx, "white_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
+	if err := r.ensureTableColumn(ctx, "games", "white_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
-	if err := r.ensureColumn(ctx, "analysis_worker_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
+	if err := r.ensureTableColumn(ctx, "games", "analysis_worker_name", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
-	if err := r.ensureColumn(ctx, "source_platform", "TEXT NOT NULL DEFAULT ''"); err != nil {
+	if err := r.ensureTableColumn(ctx, "games", "source_platform", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
-	if err := r.ensureColumn(ctx, "source_id", "TEXT NOT NULL DEFAULT ''"); err != nil {
+	if err := r.ensureTableColumn(ctx, "games", "source_id", "TEXT NOT NULL DEFAULT ''"); err != nil {
 		return err
 	}
 	_, err = r.db.ExecContext(ctx, `
@@ -336,10 +348,14 @@ func (r *Repository) migrate(ctx context.Context) error {
 			name TEXT PRIMARY KEY,
 			model TEXT NOT NULL,
 			max_visits INTEGER NOT NULL,
+			priority INTEGER NOT NULL DEFAULT 100,
 			updated_at TEXT NOT NULL
 		)
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+	return r.ensureTableColumn(ctx, "worker_configs", "priority", "INTEGER NOT NULL DEFAULT 100")
 }
 
 type gameScanner interface {
@@ -375,7 +391,7 @@ func scanGame(scanner gameScanner) (GameRecord, error) {
 func scanWorkerConfig(scanner gameScanner) (WorkerConfig, error) {
 	var cfg WorkerConfig
 	var updatedAt string
-	if err := scanner.Scan(&cfg.Name, &cfg.Model, &cfg.MaxVisits, &updatedAt); err != nil {
+	if err := scanner.Scan(&cfg.Name, &cfg.Model, &cfg.MaxVisits, &cfg.Priority, &updatedAt); err != nil {
 		return WorkerConfig{}, err
 	}
 	parsed, err := time.Parse(time.RFC3339Nano, updatedAt)
@@ -386,8 +402,8 @@ func scanWorkerConfig(scanner gameScanner) (WorkerConfig, error) {
 	return cfg, nil
 }
 
-func (r *Repository) ensureColumn(ctx context.Context, columnName string, columnDDL string) error {
-	rows, err := r.db.QueryContext(ctx, `PRAGMA table_info(games)`)
+func (r *Repository) ensureTableColumn(ctx context.Context, tableName, columnName string, columnDDL string) error {
+	rows, err := r.db.QueryContext(ctx, `PRAGMA table_info(`+tableName+`)`)
 	if err != nil {
 		return err
 	}
@@ -409,7 +425,7 @@ func (r *Repository) ensureColumn(ctx context.Context, columnName string, column
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	_, err = r.db.ExecContext(ctx, `ALTER TABLE games ADD COLUMN `+columnName+` `+columnDDL)
+	_, err = r.db.ExecContext(ctx, `ALTER TABLE `+tableName+` ADD COLUMN `+columnName+` `+columnDDL)
 	return err
 }
 

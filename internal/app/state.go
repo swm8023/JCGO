@@ -102,6 +102,7 @@ func (h *Handler) currentWorkerStatus(ctx context.Context) (worker.StatusSnapsho
 		}
 		status.Workers[i].Model = cfg.Model
 		status.Workers[i].MaxVisits = cfg.MaxVisits
+		status.Workers[i].Priority = cfg.Priority
 		seen[name] = true
 	}
 	for _, cfg := range configs {
@@ -113,6 +114,7 @@ func (h *Handler) currentWorkerStatus(ctx context.Context) (worker.StatusSnapsho
 			Name:      cfg.Name,
 			Model:     cfg.Model,
 			MaxVisits: cfg.MaxVisits,
+			Priority:  cfg.Priority,
 			Available: false,
 		})
 	}
