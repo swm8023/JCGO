@@ -20,14 +20,14 @@ describe('AnalysisPanel', () => {
     expect(screen.queryByText('当前局面')).not.toBeInTheDocument()
     const summary = screen.getByLabelText('当前局面')
     expect(summary).toHaveTextContent('黑胜率 62.5%')
-    expect(summary).toHaveTextContent('目差 B +4.2')
+    expect(summary).toHaveTextContent('目差 黑 +4.2')
     expect(summary).toHaveTextContent('访问 500v')
     expect(summary.querySelector('small')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /analysis/i })).not.toBeInTheDocument()
     expect(screen.queryByText('Q16')).not.toBeInTheDocument()
   })
 
-  it('shows W + for negative scoreLead', () => {
+  it('shows white for negative scoreLead', () => {
     render(
       <AnalysisPanel
         analysis={{
@@ -41,7 +41,7 @@ describe('AnalysisPanel', () => {
     const summaries = screen.getAllByLabelText('当前局面')
     const summary = summaries[summaries.length - 1]
     expect(summary).toHaveTextContent('黑胜率 37.5%')
-    expect(summary).toHaveTextContent('目差 W +5.8')
+    expect(summary).toHaveTextContent('目差 白 +5.8')
     expect(summary).toHaveTextContent('访问 300v')
   })
 })
