@@ -378,14 +378,14 @@ describe('App variation navigation', () => {
     render(<App />)
 
     await screen.findByLabelText('Move 5, white to play')
-    await userEvent.click(screen.getByLabelText('Show game list'))
+    await openAppMenu()
     expect(screen.getByRole('region', { name: '本地棋局内容' })).toBeInTheDocument()
     expect(screen.getByRole('banner', { name: '本地棋局' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Import SGF')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('打开功能菜单')).not.toBeInTheDocument()
 
     await userEvent.keyboard('{Escape}')
     await waitFor(() => expect(screen.queryByRole('region', { name: '本地棋局内容' })).not.toBeInTheDocument())
-    expect(screen.getByLabelText('Import SGF')).toBeInTheDocument()
+    expect(screen.getByLabelText('打开功能菜单')).toBeInTheDocument()
   })
 
   it('closes the local game list after selecting a game', async () => {
@@ -401,7 +401,7 @@ describe('App variation navigation', () => {
     render(<App />)
 
     await screen.findByLabelText('Move 5, white to play')
-    await userEvent.click(screen.getByLabelText('Show game list'))
+    await openAppMenu()
     const list = screen.getByRole('region', { name: '本地棋局内容' })
 
     rpc.responses = [gameLibraryState('game-2')]
@@ -422,7 +422,7 @@ describe('App variation navigation', () => {
 
     await screen.findByLabelText('Move 5, white to play')
     const homeState = window.history.state
-    await userEvent.click(screen.getByLabelText('Show game list'))
+    await openAppMenu()
     expect(screen.getByRole('region', { name: '本地棋局内容' })).toBeInTheDocument()
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
@@ -472,7 +472,7 @@ describe('App variation navigation', () => {
 
     await screen.findByLabelText('Move 5, white to play')
     const homeState = window.history.state
-    await userEvent.click(screen.getByLabelText('Import SGF'))
+    await selectAppTab('添加')
     await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
     await userEvent.click(await screen.findByRole('button', { name: /New player.*vs.*Opponent/ }))
 
@@ -482,7 +482,7 @@ describe('App variation navigation', () => {
 
     window.dispatchEvent(new PopStateEvent('popstate', { state: homeState }))
     await waitFor(() => expect(screen.queryByRole('region', { name: '元萝卜棋局内容' })).not.toBeInTheDocument())
-    await userEvent.click(screen.getByLabelText('Show game list'))
+    await openAppMenu()
     expect(screen.getByRole('button', { name: /^Imported immediately/ })).toBeInTheDocument()
   })
 
@@ -528,7 +528,7 @@ describe('App variation navigation', () => {
     await screen.findByLabelText('Move 5, white to play')
     const homeState = window.history.state
 
-    await userEvent.click(screen.getByLabelText('Import SGF'))
+    await selectAppTab('添加')
     const chooseState = window.history.state
     expect(screen.getByRole('region', { name: '导入棋局内容' })).toBeInTheDocument()
 
@@ -569,7 +569,7 @@ describe('App variation navigation', () => {
     render(<App />)
 
     await screen.findByLabelText('Move 5, white to play')
-    await userEvent.click(screen.getByLabelText('Import SGF'))
+    await selectAppTab('添加')
     const chooseState = window.history.state
     await userEvent.click(screen.getByRole('button', { name: /元萝卜账号/ }))
     const yuanluoboState = window.history.state
@@ -609,7 +609,7 @@ describe('App variation navigation', () => {
     await screen.findByLabelText('Move 5, white to play')
     const homeState = window.history.state
 
-    await userEvent.click(screen.getByLabelText('Open settings'))
+    await selectAppTab('设置')
 
     expect(screen.getByRole('region', { name: '设置内容' })).toBeInTheDocument()
     expect(screen.getByText('gpu-worker')).toBeInTheDocument()
@@ -625,13 +625,13 @@ describe('App variation navigation', () => {
     render(<App />)
 
     await screen.findByLabelText('Move 5, white to play')
-    await userEvent.click(screen.getByLabelText('Open settings'))
+    await selectAppTab('设置')
 
     expect(screen.getByRole('banner', { name: '设置' })).toBeInTheDocument()
     expect(screen.getByRole('region', { name: '设置内容' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Show game list')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Import SGF')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Open settings')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('打开功能菜单')).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: '应用功能' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '设置' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('uses the same one-layer return for titlebar back and Escape', async () => {
@@ -645,7 +645,7 @@ describe('App variation navigation', () => {
     render(<App />)
 
     await screen.findByLabelText('Move 5, white to play')
-    await userEvent.click(screen.getByLabelText('Import SGF'))
+    await selectAppTab('添加')
     await userEvent.click(screen.getByRole('button', { name: /复盘链接/ }))
     expect(screen.getByRole('banner', { name: '从链接导入' })).toBeInTheDocument()
 
@@ -667,6 +667,16 @@ function stubAuthenticatedStorage(entries: [string, string][] = []) {
     removeItem: (key: string) => storage.delete(key),
     clear: () => storage.clear(),
   })
+}
+
+async function openAppMenu() {
+  await userEvent.click(screen.getByLabelText('打开功能菜单'))
+}
+
+async function selectAppTab(name: string) {
+  await openAppMenu()
+  const navigation = screen.getByRole('navigation', { name: '应用功能' })
+  await userEvent.click(within(navigation).getByRole('button', { name }))
 }
 
 function emptyWorkspaceState(): StatePayload {
