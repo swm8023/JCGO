@@ -331,4 +331,16 @@ describe('responsive layout CSS', () => {
     expect(ruleStart).toBeGreaterThan(0)
     expect(sideActionRule).toContain('z-index: 3;')
   })
+
+  it('allocates a stable bottom tab row and scrollable cloud event list', () => {
+    expect(styles).toContain('grid-template-rows: minmax(0, 1fr) auto;')
+    expect(styles).toContain('.app-tab-bar {')
+    expect(styles).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));')
+    expect(styles).toContain('calc((100% - 720px) / 2)')
+    expect(styles).toContain('.app-tab-button[aria-current="page"]')
+    expect(styles).toContain('.cloud-events-page {')
+    expect(styles).toContain('.cloud-event-list {')
+    expect(styles).toContain('overflow: auto;')
+    expect(styles).toContain('.cloud-event-card:focus-visible')
+  })
 })
