@@ -5,8 +5,10 @@ import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartP
 import { AnalysisCharts } from './components/AnalysisCharts'
 import { AnalysisDetailTabs } from './components/AnalysisDetailTabs'
 import { AnalysisPanel } from './components/AnalysisPanel'
+import { AppTabBar } from './components/AppTabBar'
 import { Board } from './components/Board'
 import { BoardInfo } from './components/BoardInfo'
+import { CloudEventsPage } from './components/CloudEventsPage'
 import { GameLibraryPage } from './components/GameLibraryPage'
 import { GameSidebar } from './components/GameSidebar'
 import { ImportDialog } from './components/ImportDialog'
@@ -17,7 +19,7 @@ import { TokenGate } from './components/TokenGate'
 import type { YuanluoboImportAPI } from './components/YuanluoboImportDialog'
 import { playCaptureSound, playStoneSound } from './board/stoneSound'
 import { computeSideActionPlacement, sideActionEdgeGap, sideActionGap, type SideActionPlacement } from './layout/sideActionRail'
-import { appHistoryLayers, appLayer, importModeForLayer, isImportLayer, isPageLayer, pageLayerFor, yuanluoboPickerForLayer, type AppHistoryLayer } from './layout/appLayers'
+import { appHistoryLayers, appLayer, importModeForLayer, isImportLayer, isPageLayer, isRootPageLayer, pageLayerFor, yuanluoboPickerForLayer, type AppHistoryLayer, type AppRootLayer } from './layout/appLayers'
 import { analysisForCurrent, analysisProgressForState, badMovesForState, chartPointsForState, playedPointLossForCurrent, trialMovesForState } from './state/selectors'
 
 const defaultOverlays: OverlayState = { candidates: true, ownership: true, deadStones: true }
@@ -110,6 +112,12 @@ export default function App() {
     if (layer === appHistoryLayerRef.current) return
     applyAppHistoryLayer(layer)
     window.history.pushState(appHistoryState(layer, appHistorySessionRef.current), '', currentHistoryURL())
+  }, [applyAppHistoryLayer])
+
+  const replaceAppHistoryLayer = useCallback((layer: AppHistoryLayer) => {
+    if (layer === appHistoryLayerRef.current) return
+    applyAppHistoryLayer(layer)
+    window.history.replaceState(appHistoryState(layer, appHistorySessionRef.current), '', currentHistoryURL())
   }, [applyAppHistoryLayer])
 
   const resetAppHistoryLayer = useCallback((layer: AppHistoryLayer) => {
@@ -209,6 +217,11 @@ export default function App() {
     setActivePV(undefined)
     setInteractionMode('try')
     resetAppHistoryLayer('game-list')
+  }
+
+  const selectRootLayer = (layer: AppRootLayer) => {
+    replaceAppHistoryLayer(layer)
+    if (layer === 'settings') void refreshWorkspaceState()
   }
 
   const importFromUrl = async (url: string) => {
@@ -512,7 +525,7 @@ export default function App() {
             <LogOut size={17} aria-hidden="true" />
           </button>
         ) : undefined}
-        onOpenGameList={() => pushAppHistoryLayer('game-list')}
+        onOpenAppMenu={() => pushAppHistoryLayer('game-list')}
         selectedGameId={selectedGameId}
         selectedAnalysisWorkerName={selectedGame?.analysisWorkerName}
         workerStatus={workspace?.workerStatus}
@@ -521,11 +534,6 @@ export default function App() {
         analysisError={error}
         analysisState={analysisState}
         analysisProgress={analysisProgressForState(workspace)}
-        onImport={() => pushAppHistoryLayer('import-choose')}
-        onSettings={() => {
-          pushAppHistoryLayer('settings')
-          void refreshWorkspaceState()
-        }}
         onStartAnalysis={startAnalysis}
         onStopAnalysis={stopAnalysis}
         onRestartAnalysis={restartAnalysis}
@@ -599,6 +607,7 @@ export default function App() {
           {pageLayer === 'settings' && (
             <SettingsPage workerStatus={workspace?.workerStatus} onConfigureWorker={configureWorker} />
           )}
+          {pageLayer === 'cloud-events' && <CloudEventsPage />}
           {isImportLayer(currentLayer) && client && (
             <ImportDialog
               mode={importMode}
@@ -613,6 +622,9 @@ export default function App() {
               onCloseYuanluoboPicker={closeCurrentAppHistoryLayer}
               onLoginStateChange={setYuanluoboLoggedIn}
             />
+          )}
+          {isRootPageLayer(currentLayer) && (
+            <AppTabBar active={currentLayer} onSelect={selectRootLayer} />
           )}
         </section>
       )}

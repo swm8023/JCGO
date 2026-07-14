@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { AnalysisProgress, AnalysisSchedule, AnalysisScheduleTask, AnalysisState, AnalysisWorkerLane, WorkerStatus } from '../api/types'
-import { ArrowLeft, Menu, Plus, Settings } from 'lucide-react'
+import { ArrowLeft, Menu } from 'lucide-react'
 
 interface GameSidebarProps {
   contextualTitle?: string
   onContextBack?(): void
   contextActions?: ReactNode
-  onOpenGameList(): void
+  onOpenAppMenu(): void
   selectedGameId?: string
   selectedAnalysisWorkerName?: string
   workerStatus?: WorkerStatus
@@ -15,8 +15,6 @@ interface GameSidebarProps {
   analysisError?: string
   analysisState: AnalysisState
   analysisProgress?: AnalysisProgress
-  onImport(): void
-  onSettings?(): void
   onStartAnalysis(): void | Promise<void>
   onStopAnalysis(): void
   onRestartAnalysis(): void | Promise<void>
@@ -30,7 +28,7 @@ export function GameSidebar({
   contextualTitle,
   onContextBack = noop,
   contextActions,
-  onOpenGameList,
+  onOpenAppMenu,
   selectedGameId,
   selectedAnalysisWorkerName,
   workerStatus,
@@ -39,8 +37,6 @@ export function GameSidebar({
   analysisError,
   analysisState,
   analysisProgress,
-  onImport,
-  onSettings = noop,
   onStartAnalysis,
   onStopAnalysis,
   onRestartAnalysis,
@@ -64,14 +60,8 @@ export function GameSidebar({
           <div className="sidebar-header">
         <h1>JCGO</h1>
         <div className="sidebar-actions sidebar-file-actions">
-          <button className="icon-button" onClick={onOpenGameList} aria-label="Show game list">
+          <button className="icon-button" onClick={onOpenAppMenu} aria-label="打开功能菜单">
             <Menu size={17} aria-hidden="true" />
-          </button>
-          <button className="icon-button" onClick={onImport} aria-label="Import SGF">
-            <Plus size={18} aria-hidden="true" />
-          </button>
-          <button className="icon-button" onClick={onSettings} aria-label="Open settings">
-            <Settings size={17} aria-hidden="true" />
           </button>
         </div>
         <div className="sidebar-toggle-actions">{toolbarSlot}</div>

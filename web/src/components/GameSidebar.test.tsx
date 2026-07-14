@@ -14,9 +14,7 @@ describe('GameSidebar', () => {
         onContextBack={onBack}
         analysisAvailable
         analysisState="idle"
-        onOpenGameList={vi.fn()}
-        onImport={vi.fn()}
-        onSettings={vi.fn()}
+        onOpenAppMenu={vi.fn()}
         onStartAnalysis={vi.fn()}
         onStopAnalysis={vi.fn()}
         onRestartAnalysis={vi.fn()}
@@ -34,17 +32,13 @@ describe('GameSidebar', () => {
     expect(onBack).toHaveBeenCalledOnce()
   })
 
-  it('exposes separate list, import, and settings actions for the mobile rail', () => {
-    const onOpenGameList = vi.fn()
-    const onImport = vi.fn()
-    const onSettings = vi.fn()
+  it('exposes one master app entry instead of separate destination buttons', () => {
+    const onOpenAppMenu = vi.fn()
     const { container } = render(
       <GameSidebar
-        onOpenGameList={onOpenGameList}
+        onOpenAppMenu={onOpenAppMenu}
         analysisAvailable
         analysisState="idle"
-        onImport={onImport}
-        onSettings={onSettings}
         onStartAnalysis={vi.fn()}
         onStopAnalysis={vi.fn()}
         onRestartAnalysis={vi.fn()}
@@ -53,12 +47,10 @@ describe('GameSidebar', () => {
 
     expect(container.querySelector('.game-sidebar')).not.toHaveClass('expanded')
     const sidebar = within(container)
-    sidebar.getByLabelText('Show game list').click()
-    sidebar.getByLabelText('Import SGF').click()
-    sidebar.getByLabelText('Open settings').click()
-    expect(onOpenGameList).toHaveBeenCalledTimes(1)
-    expect(onImport).toHaveBeenCalledTimes(1)
-    expect(onSettings).toHaveBeenCalledTimes(1)
+    sidebar.getByRole('button', { name: '打开功能菜单' }).click()
+    expect(onOpenAppMenu).toHaveBeenCalledOnce()
+    expect(sidebar.queryByLabelText('Import SGF')).not.toBeInTheDocument()
+    expect(sidebar.queryByLabelText('Open settings')).not.toBeInTheDocument()
   })
 
   it('opens an analysis menu with worker selection and actions', async () => {
@@ -68,7 +60,7 @@ describe('GameSidebar', () => {
     const onRestartAnalysis = vi.fn()
     const { container } = render(
       <GameSidebar
-        onOpenGameList={vi.fn()}
+        onOpenAppMenu={vi.fn()}
         selectedGameId="game-1"
         selectedAnalysisWorkerName="local-gpu"
         workerStatus={{
@@ -88,7 +80,6 @@ describe('GameSidebar', () => {
         analysisAvailable
         analysisState="idle"
         analysisProgress={{ analyzed: 3, total: 10 }}
-        onImport={vi.fn()}
         onStartAnalysis={onStartAnalysis}
         onStopAnalysis={vi.fn()}
         onRestartAnalysis={onRestartAnalysis}
@@ -126,7 +117,7 @@ describe('GameSidebar', () => {
       calls.push('start')
     })
     const props = {
-      onOpenGameList: vi.fn(),
+      onOpenAppMenu: vi.fn(),
       selectedGameId: 'game-1',
       workerStatus: {
         connected: 2,
@@ -139,7 +130,6 @@ describe('GameSidebar', () => {
       },
       analysisAvailable: true,
       analysisState: 'idle' as const,
-      onImport: vi.fn(),
       onStartAnalysis,
       onStopAnalysis: vi.fn(),
       onRestartAnalysis: vi.fn(),
@@ -163,7 +153,7 @@ describe('GameSidebar', () => {
     const onBoostAnalysis = vi.fn().mockResolvedValue(undefined)
     const { container } = render(
       <GameSidebar
-        onOpenGameList={vi.fn()}
+        onOpenAppMenu={vi.fn()}
         selectedGameId="game-1"
         selectedAnalysisWorkerName="local-gpu"
         workerStatus={{
@@ -187,7 +177,6 @@ describe('GameSidebar', () => {
         analysisAvailable
         analysisState="running"
         analysisProgress={{ analyzed: 3, total: 180 }}
-        onImport={vi.fn()}
         onStartAnalysis={vi.fn()}
         onStopAnalysis={vi.fn()}
         onRestartAnalysis={vi.fn()}
@@ -213,12 +202,11 @@ describe('GameSidebar', () => {
     const user = userEvent.setup()
     const { container } = render(
       <GameSidebar
-        onOpenGameList={vi.fn()}
+        onOpenAppMenu={vi.fn()}
         selectedGameId="game-1"
         workerStatus={{ connected: 0, available: 0, busy: 0, workers: [] }}
         analysisAvailable
         analysisState="idle"
-        onImport={vi.fn()}
         onStartAnalysis={vi.fn()}
         onStopAnalysis={vi.fn()}
         onRestartAnalysis={vi.fn()}
@@ -236,12 +224,11 @@ describe('GameSidebar', () => {
   it('groups file, overlay, and analysis controls for the compact toolbar', () => {
     const { container } = render(
       <GameSidebar
-        onOpenGameList={vi.fn()}
+        onOpenAppMenu={vi.fn()}
         selectedGameId="game-1"
         analysisAvailable
         analysisState="idle"
         toolbarSlot={<div data-testid="overlay-slot">荐势弱</div>}
-        onImport={vi.fn()}
         onStartAnalysis={vi.fn()}
         onStopAnalysis={vi.fn()}
         onRestartAnalysis={vi.fn()}
@@ -252,9 +239,8 @@ describe('GameSidebar', () => {
     const toggleActions = container.querySelector('.sidebar-toggle-actions')
     const analysisActions = container.querySelector('.sidebar-analysis')
     const sidebar = within(container)
-    expect(fileActions).toContainElement(sidebar.getByLabelText('Show game list'))
-    expect(fileActions).toContainElement(sidebar.getByLabelText('Import SGF'))
-    expect(fileActions).toContainElement(sidebar.getByLabelText('Open settings'))
+    expect(fileActions).toContainElement(sidebar.getByRole('button', { name: '打开功能菜单' }))
+    expect(within(fileActions as HTMLElement).getAllByRole('button')).toHaveLength(1)
     expect(toggleActions).toContainElement(sidebar.getByTestId('overlay-slot'))
     expect(analysisActions).toContainElement(sidebar.getByRole('button', { name: '打开分析菜单' }))
     expect(Array.from(container.querySelectorAll('.sidebar-file-actions, .sidebar-toggle-actions, .sidebar-analysis'))).toEqual([
@@ -269,14 +255,13 @@ describe('GameSidebar', () => {
     const onStopAnalysis = vi.fn()
     const { container } = render(
       <GameSidebar
-        onOpenGameList={vi.fn()}
+        onOpenAppMenu={vi.fn()}
         selectedGameId="game-1"
         selectedAnalysisWorkerName="local-gpu"
         workerStatus={{ connected: 1, available: 1, busy: 1, workers: [{ id: 'worker-1', name: 'local-gpu', platform: 'windows/amd64', available: true, busy: true }] }}
         analysisAvailable
         analysisState="running"
         analysisProgress={{ analyzed: 11, total: 133 }}
-        onImport={vi.fn()}
         onStartAnalysis={vi.fn()}
         onStopAnalysis={onStopAnalysis}
         onRestartAnalysis={vi.fn()}
@@ -300,13 +285,12 @@ describe('GameSidebar', () => {
     const onRestartAnalysis = vi.fn()
     const { container } = render(
       <GameSidebar
-        onOpenGameList={vi.fn()}
+        onOpenAppMenu={vi.fn()}
         selectedGameId="game-1"
         selectedAnalysisWorkerName="local-gpu"
         workerStatus={{ connected: 1, available: 1, busy: 0, workers: [{ id: 'worker-1', name: 'local-gpu', platform: 'windows/amd64', available: true, busy: false }] }}
         analysisAvailable
         analysisState="complete"
-        onImport={vi.fn()}
         onStartAnalysis={vi.fn()}
         onStopAnalysis={vi.fn()}
         onRestartAnalysis={onRestartAnalysis}

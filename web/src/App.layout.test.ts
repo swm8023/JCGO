@@ -43,6 +43,14 @@ describe('right rail layout', () => {
     expect(app).toContain('className="app-page-workspace"')
   })
 
+  it('renders the four-tab app shell and Hangzhou events page', () => {
+    expect(app).toContain("onOpenAppMenu={() => pushAppHistoryLayer('game-list')}")
+    expect(app).toContain("pageLayer === 'cloud-events'")
+    expect(app).toContain('<CloudEventsPage />')
+    expect(app).toContain('<AppTabBar')
+    expect(app).toContain('replaceAppHistoryLayer(layer)')
+  })
+
   it('wraps the board in a measured frame after the game metadata', () => {
     const boardInfo = app.indexOf('<BoardInfo')
     const boardFrame = app.indexOf('<div ref={boardFrameRef} className="board-frame">')
