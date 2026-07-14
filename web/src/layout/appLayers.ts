@@ -1,11 +1,11 @@
 import type { ImportDialogMode } from '../components/ImportDialog'
 import type { YuanluoboPickerKind } from '../components/YuanluoboImportDialog'
 
+export type AppRootLayer = 'game-list' | 'import-choose' | 'cloud-events' | 'settings'
+
 export type AppHistoryLayer =
   | 'home'
-  | 'game-list'
-  | 'settings'
-  | 'import-choose'
+  | AppRootLayer
   | 'import-url'
   | 'import-yuanluobo'
   | 'yuanluobo-player-picker'
@@ -24,11 +24,14 @@ const layers: Record<AppHistoryLayer, AppLayer> = {
   'game-list': { kind: 'page', title: '本地棋局' },
   settings: { kind: 'page', title: '设置' },
   'import-choose': { kind: 'page', title: '导入棋局' },
+  'cloud-events': { kind: 'page', title: '云比赛' },
   'import-url': { kind: 'page', title: '从链接导入' },
   'import-yuanluobo': { kind: 'page', title: '元萝卜' },
   'yuanluobo-player-picker': { kind: 'overlay', title: '选择棋手', parent: 'import-yuanluobo' },
   'yuanluobo-platform-picker': { kind: 'overlay', title: '选择平台', parent: 'import-yuanluobo' },
 }
+
+const rootPageLayers = new Set<AppHistoryLayer>(['game-list', 'import-choose', 'cloud-events', 'settings'])
 
 export function appLayer(layer: AppHistoryLayer): AppLayer {
   return layers[layer]
@@ -36,6 +39,10 @@ export function appLayer(layer: AppHistoryLayer): AppLayer {
 
 export function isPageLayer(layer: AppHistoryLayer): boolean {
   return appLayer(layer).kind === 'page'
+}
+
+export function isRootPageLayer(layer: AppHistoryLayer): layer is AppRootLayer {
+  return rootPageLayers.has(layer)
 }
 
 export function pageLayerFor(layer: AppHistoryLayer): AppHistoryLayer {
