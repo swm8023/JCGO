@@ -414,6 +414,43 @@ describe('App variation navigation', () => {
     expect(screen.queryByRole('region', { name: '本地棋局内容' })).not.toBeInTheDocument()
   })
 
+  it('starts analysis for a local game selected from its quick-analysis sheet', async () => {
+    stubAuthenticatedStorage()
+    const state = {
+      ...gameLibraryState('game-1'),
+      workerStatus: readyWorkerStatus(),
+    }
+    rpc.state = state
+    rpc.responses = [
+      {
+        ...gameLibraryState('game-2'),
+        workerStatus: readyWorkerStatus(),
+        games: state.games.map((game) => game.gameId === 'game-2' ? { ...game, analysisWorkerName: 'gpu-worker' } : game),
+      },
+      {
+        ...gameLibraryState('game-2'),
+        analysisState: 'running' as const,
+        workerStatus: readyWorkerStatus(),
+        games: state.games.map((game) => game.gameId === 'game-2' ? { ...game, analysisWorkerName: 'gpu-worker', analysisStatus: 'running' as const } : game),
+      },
+    ]
+
+    render(<App />)
+
+    await screen.findByLabelText('Move 5, white to play')
+    await openAppMenu()
+    const list = screen.getByRole('region', { name: '本地棋局内容' })
+    await userEvent.click(within(list).getByRole('button', { name: '快速分析 Second study' }))
+    const sheet = screen.getByRole('dialog', { name: '快速分析' })
+    await userEvent.selectOptions(within(sheet).getByLabelText('分析器'), 'gpu-worker')
+    await userEvent.click(within(sheet).getByRole('button', { name: '开始分析' }))
+
+    await waitFor(() => expect(rpc.calls.slice(-2)).toEqual([
+      { method: 'game.setAnalysisWorker', params: { gameId: 'game-2', workerName: 'gpu-worker' } },
+      { method: 'analysis.start', params: { gameId: 'game-2' } },
+    ]))
+  })
+
   it('closes the local game list when the browser history returns to the board', async () => {
     stubAuthenticatedStorage()
     rpc.state = gameLibraryState('game-1')
@@ -790,6 +827,21 @@ function gameLibraryState(gameId: string): StatePayload {
       },
     ],
     snapshot: state.snapshot ? { ...state.snapshot, gameId } : undefined,
+  }
+}
+
+function readyWorkerStatus() {
+  return {
+    connected: 1,
+    available: 1,
+    busy: 0,
+    workers: [{
+      id: 'worker-1',
+      name: 'gpu-worker',
+      platform: 'windows/amd64',
+      available: true,
+      busy: false,
+    }],
   }
 }
 

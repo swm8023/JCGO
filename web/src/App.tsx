@@ -465,6 +465,23 @@ export default function App() {
     }
   }
 
+  const startGameAnalysis = async ({ gameId, workerName }: { gameId: string; workerName: string }) => {
+    if (!client) throw new Error('未连接')
+    setError(undefined)
+    try {
+      const workerState = await client.call<StatePayload>('game.setAnalysisWorker', { gameId, workerName })
+      applyWorkspaceState(workerState)
+      setActivePV(undefined)
+      setAnalysisState('running')
+      const state = await client.call<StatePayload>('analysis.start', { gameId })
+      applyWorkspaceState(state)
+    } catch (reason) {
+      setAnalysisState('unavailable')
+      setError(reason instanceof Error ? reason.message : 'analysis unavailable')
+      throw reason
+    }
+  }
+
   const stopAnalysis = async () => {
     if (!client || !selectedGameId) return
     const state = await client.call<StatePayload>('analysis.stop', { gameId: selectedGameId })
@@ -600,8 +617,10 @@ export default function App() {
             <GameLibraryPage
               games={games}
               selectedGameId={selectedGameId}
+              workerStatus={workspace?.workerStatus}
               onSelect={selectGame}
               onDelete={deleteGame}
+              onStartAnalysis={startGameAnalysis}
             />
           )}
           {pageLayer === 'settings' && (

@@ -1,18 +1,53 @@
 import { useState } from 'react'
-import type { AnalysisState, GameRecord } from '../api/types'
-import { Trash2 } from 'lucide-react'
+import type { AnalysisState, GameRecord, WorkerStatus } from '../api/types'
+import { ChartNoAxesCombined, Trash2 } from 'lucide-react'
 import { AppSheet } from './AppSheet'
 import { formatGameResult } from './gameResult'
+
+type StartGameAnalysisInput = {
+  gameId: string
+  workerName: string
+}
 
 interface GameLibraryPageProps {
   games: GameRecord[]
   selectedGameId?: string
+  workerStatus?: WorkerStatus
   onSelect(gameId: string): void
   onDelete(gameId: string): void
+  onStartAnalysis?(input: StartGameAnalysisInput): Promise<void>
 }
 
-export function GameLibraryPage({ games, selectedGameId, onSelect, onDelete }: GameLibraryPageProps) {
+export function GameLibraryPage({ games, selectedGameId, workerStatus, onSelect, onDelete, onStartAnalysis }: GameLibraryPageProps) {
   const [pendingDelete, setPendingDelete] = useState<GameRecord>()
+  const [pendingAnalysis, setPendingAnalysis] = useState<GameRecord>()
+  const [analysisWorkerName, setAnalysisWorkerName] = useState('')
+  const [startingAnalysis, setStartingAnalysis] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string>()
+  const workers = workerStatus?.workers ?? []
+  const selectedWorker = workers.find((worker) => worker.name === analysisWorkerName)
+  const workerReady = Boolean(selectedWorker?.available && !selectedWorker.error)
+
+  const openQuickAnalysis = (game: GameRecord) => {
+    setPendingAnalysis(game)
+    setAnalysisWorkerName('')
+    setAnalysisError(undefined)
+  }
+
+  const startQuickAnalysis = async () => {
+    if (!pendingAnalysis || !workerReady || !onStartAnalysis) return
+    setStartingAnalysis(true)
+    setAnalysisError(undefined)
+    try {
+      await onStartAnalysis({ gameId: pendingAnalysis.gameId, workerName: analysisWorkerName })
+      setPendingAnalysis(undefined)
+      setAnalysisWorkerName('')
+    } catch (reason) {
+      setAnalysisError(reason instanceof Error ? reason.message : '启动分析失败')
+    } finally {
+      setStartingAnalysis(false)
+    }
+  }
 
   return (
     <>
@@ -75,6 +110,14 @@ export function GameLibraryPage({ games, selectedGameId, onSelect, onDelete }: G
                 </button>
                 <span className="game-row-actions">
                   <button
+                    className="game-row-action"
+                    aria-label={`快速分析 ${game.displayName}`}
+                    onClick={() => openQuickAnalysis(game)}
+                    disabled={!onStartAnalysis}
+                  >
+                    <ChartNoAxesCombined size={15} aria-hidden="true" />
+                  </button>
+                  <button
                     className="game-row-action danger"
                     aria-label={`删除 ${game.displayName}`}
                     onClick={() => setPendingDelete(game)}
@@ -109,6 +152,39 @@ export function GameLibraryPage({ games, selectedGameId, onSelect, onDelete }: G
           )}
         >
           <p className="app-sheet-message">删除“{pendingDelete.displayName}”？此操作无法撤销。</p>
+        </AppSheet>
+      )}
+      {pendingAnalysis && (
+        <AppSheet
+          title="快速分析"
+          onDismiss={() => {
+            if (startingAnalysis) return
+            setPendingAnalysis(undefined)
+            setAnalysisWorkerName('')
+            setAnalysisError(undefined)
+          }}
+          actions={(
+            <>
+              <button className="app-sheet-button" type="button" onClick={() => setPendingAnalysis(undefined)} disabled={startingAnalysis}>取消</button>
+              <button className="app-sheet-button primary" type="button" onClick={() => void startQuickAnalysis()} disabled={startingAnalysis || !workerReady}>
+                {startingAnalysis ? '启动中...' : '开始分析'}
+              </button>
+            </>
+          )}
+        >
+          <p className="app-sheet-message">为“{pendingAnalysis.displayName}”选择分析 Worker。</p>
+          <label className="app-sheet-field">
+            <span>分析器</span>
+            <select value={analysisWorkerName} onChange={(event) => setAnalysisWorkerName(event.target.value)} disabled={startingAnalysis}>
+              <option value="">请选择分析器</option>
+              {workers.map((worker) => {
+                const available = worker.available && !worker.error
+                const workerName = worker.name || worker.id
+                return <option key={worker.id} value={worker.name} disabled={!available}>{workerName}{available ? '' : '（不可用）'}</option>
+              })}
+            </select>
+          </label>
+          {analysisError && <p className="import-error">{analysisError}</p>}
         </AppSheet>
       )}
     </>

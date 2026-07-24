@@ -3259,7 +3259,8 @@ textarea:focus-visible {
   font-weight: 750;
 }
 
-.app-sheet-field input {
+.app-sheet-field input,
+.app-sheet-field select {
   min-width: 0;
   height: 44px;
   padding: 0 12px;

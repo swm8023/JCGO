@@ -80,4 +80,46 @@ describe('GameLibraryPage', () => {
     expect(onDelete).toHaveBeenCalledWith('game-1')
     expect(confirm).not.toHaveBeenCalled()
   })
+
+  it('starts a chosen ready worker from a game-row quick-analysis sheet', async () => {
+    const user = userEvent.setup()
+    const onStartAnalysis = vi.fn().mockResolvedValue(undefined)
+    const { container } = render(
+      <GameLibraryPage
+        games={[{
+          gameId: 'game-1',
+          displayName: 'Lee VS Cho',
+          sgfFilename: 'game-1.sgf',
+          result: 'B+R',
+          gameDate: '2026-07-10',
+          blackName: 'Lee',
+          whiteName: 'Cho',
+          analysisStatus: 'idle',
+          createdAt: '2026-07-10T10:00:00Z',
+        }]}
+        selectedGameId="game-1"
+        onSelect={vi.fn()}
+        onDelete={vi.fn()}
+        onStartAnalysis={onStartAnalysis}
+        workerStatus={{
+          connected: 2,
+          available: 1,
+          busy: 0,
+          workers: [
+            { id: 'gpu-1', name: 'gpu-worker', platform: 'windows/amd64', available: true, busy: false },
+            { id: 'cpu-1', name: 'cpu-worker', platform: 'windows/amd64', available: false, busy: false },
+          ],
+        }}
+      />,
+    )
+
+    await user.click(within(container).getByRole('button', { name: '快速分析 Lee VS Cho' }))
+
+    const sheet = within(container).getByRole('dialog', { name: '快速分析' })
+    expect(within(sheet).getByRole('option', { name: 'cpu-worker（不可用）' })).toBeDisabled()
+    await user.selectOptions(within(sheet).getByLabelText('分析器'), 'gpu-worker')
+    await user.click(within(sheet).getByRole('button', { name: '开始分析' }))
+
+    expect(onStartAnalysis).toHaveBeenCalledWith({ gameId: 'game-1', workerName: 'gpu-worker' })
+  })
 })
