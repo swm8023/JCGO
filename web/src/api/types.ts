@@ -313,3 +313,74 @@ export interface YuanluoboRecordsResult {
   categories: YuanluoboCategory[]
   records: YuanluoboRecord[]
 }
+
+export interface YunbisaiAccount {
+  loginId: string
+  name: string
+  account: string
+  imageUrl?: string
+}
+
+export interface YunbisaiStatusResult {
+  loggedIn: boolean
+  account?: YunbisaiAccount
+}
+
+export interface YunbisaiLoginStartResult {
+  flowId: string
+  imageUrl: string
+}
+
+export interface YunbisaiLoginPollResult {
+  status: 'waiting' | 'accounts' | 'authorized' | 'expired'
+  accounts?: YunbisaiAccount[]
+}
+
+export interface YunbisaiMyEvent {
+  orderId: string
+  eventId?: string
+  title: string
+  status: 'pending' | 'paid'
+  createdAt: string
+  amount: string
+  officialUrl: string
+}
+
+export interface YunbisaiMyEventsResult {
+  loggedIn: boolean
+  total: number
+  page: number
+  events: YunbisaiMyEvent[]
+}
+
+export interface YunbisaiPlayer {
+  name: string
+  groupName?: string
+  teamName?: string
+}
+
+export interface YunbisaiMyEventDetail {
+  loggedIn: boolean
+  orderId?: string
+  eventId?: string
+  title?: string
+  status?: 'pending' | 'paid'
+  startTime?: string
+  endTime?: string
+  address?: string
+  organizer?: string
+  amount?: string
+  createdAt?: string
+  officialUrl?: string
+  players?: YunbisaiPlayer[]
+}
+
+export interface YunbisaiMyEventsAPI {
+  status(): Promise<YunbisaiStatusResult>
+  loginStart(): Promise<YunbisaiLoginStartResult>
+  loginPoll(flowId: string): Promise<YunbisaiLoginPollResult>
+  loginSelect(flowId: string, loginId: string): Promise<YunbisaiStatusResult>
+  logout(): Promise<void>
+  myEvents(page: number): Promise<YunbisaiMyEventsResult>
+  myEventDetail(orderId: string): Promise<YunbisaiMyEventDetail>
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CalendarDays, LogIn, MapPin, Trophy, Users } from 'lucide-react'
+import type { YunbisaiMyEventsAPI } from '../api/types'
 import {
   cloudAccountLoginURL,
   cloudEventDetailURL,
@@ -9,6 +10,7 @@ import {
 } from '../api/cloudEvents'
 
 type CloudEventsPageProps = {
+  myEventsApi: YunbisaiMyEventsAPI
   today?: Date
   loadEvents?: (month: string, signal?: AbortSignal) => Promise<CloudEvent[]>
 }

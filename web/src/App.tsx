@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { LogOut } from 'lucide-react'
 import { RPCClient } from './api/jsonrpc'
-import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload, WorkerConfigureInput, WorkerRecommendation, WorkerStatus } from './api/types'
+import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload, WorkerConfigureInput, WorkerRecommendation, WorkerStatus, YunbisaiMyEventsAPI } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
 import { AnalysisDetailTabs } from './components/AnalysisDetailTabs'
 import { AnalysisPanel } from './components/AnalysisPanel'
@@ -373,6 +373,16 @@ export default function App() {
     importRecord: (sessionId) => requireClient().call('yuanluobo.importRecord', { sessionId }),
   }
 
+  const yunbisaiApi: YunbisaiMyEventsAPI = {
+    status: () => requireClient().call('yunbisai.status'),
+    loginStart: () => requireClient().call('yunbisai.loginStart'),
+    loginPoll: (flowId) => requireClient().call('yunbisai.loginPoll', { flowId }),
+    loginSelect: (flowId, loginId) => requireClient().call('yunbisai.loginSelect', { flowId, loginId }),
+    logout: () => requireClient().call('yunbisai.logout'),
+    myEvents: (page) => requireClient().call('yunbisai.myEvents', { page }),
+    myEventDetail: (orderId) => requireClient().call('yunbisai.myEventDetail', { orderId }),
+  }
+
   const logoutYuanluobo = async () => {
     await yuanluoboApi.logout()
     setYuanluoboLoggedIn(false)
@@ -626,7 +636,7 @@ export default function App() {
           {pageLayer === 'settings' && (
             <SettingsPage workerStatus={workspace?.workerStatus} onConfigureWorker={configureWorker} />
           )}
-          {pageLayer === 'cloud-events' && <CloudEventsPage />}
+          {pageLayer === 'cloud-events' && <CloudEventsPage myEventsApi={yunbisaiApi} />}
           {isImportLayer(currentLayer) && client && (
             <ImportDialog
               mode={importMode}
