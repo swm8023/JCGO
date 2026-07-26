@@ -41,13 +41,17 @@ type Handler struct {
 	analysis     AnalysisController
 	workerStatus WorkerStatusProvider
 	yuanluobo    YuanluoboBackend
+	yunbisai     YunbisaiServiceBackend
 }
 
 type HandlerOptions struct {
-	YuanluoboAuthStore   YuanluoboAuthStore
-	YuanluoboHTTPClient  *http.Client
-	YuanluoboBaseURL     string
-	WorkerStatusProvider WorkerStatusProvider
+	YuanluoboAuthStore    YuanluoboAuthStore
+	YuanluoboHTTPClient   *http.Client
+	YuanluoboBaseURL      string
+	YunbisaiAuthStore     YunbisaiAuthStore
+	YunbisaiHTTPClient    *http.Client
+	YunbisaiClientOptions YunbisaiClientOptions
+	WorkerStatusProvider  WorkerStatusProvider
 }
 
 type ImportResult struct {
@@ -89,7 +93,19 @@ func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, worksp
 		HTTPClient: opts.YuanluoboHTTPClient,
 		BaseURL:    opts.YuanluoboBaseURL,
 	})
-	h := &Handler{repo: repo, files: files, workspaces: workspaces, analysis: analysis, workerStatus: opts.WorkerStatusProvider, yuanluobo: ylb}
+	yunbisaiAuthStore := opts.YunbisaiAuthStore
+	if yunbisaiAuthStore == nil {
+		yunbisaiAuthStore = NewYunbisaiMemoryAuthStore()
+	}
+	yunbisai := NewYunbisaiService(YunbisaiServiceOptions{
+		AuthStore:    yunbisaiAuthStore,
+		HTTPClient:   opts.YunbisaiHTTPClient,
+		ClientConfig: opts.YunbisaiClientOptions,
+	})
+	h := &Handler{
+		repo: repo, files: files, workspaces: workspaces, analysis: analysis,
+		workerStatus: opts.WorkerStatusProvider, yuanluobo: ylb, yunbisai: yunbisai,
+	}
 	if analysis != nil {
 		analysis.Subscribe(func(event Event) {
 			ws := h.workspaces.ForToken(event.Token)
@@ -165,6 +181,20 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.yuanluoboRecords(ctx, params)
 	case "yuanluobo.importRecord":
 		return h.yuanluoboImportRecord(ctx, token, params)
+	case "yunbisai.status":
+		return h.yunbisai.Status(ctx)
+	case "yunbisai.loginStart":
+		return h.yunbisai.LoginStart(ctx)
+	case "yunbisai.loginPoll":
+		return h.yunbisaiLoginPoll(ctx, params)
+	case "yunbisai.loginSelect":
+		return h.yunbisaiLoginSelect(ctx, params)
+	case "yunbisai.logout":
+		return nil, h.yunbisai.Logout(ctx)
+	case "yunbisai.myEvents":
+		return h.yunbisaiMyEvents(ctx, params)
+	case "yunbisai.myEventDetail":
+		return h.yunbisaiMyEventDetail(ctx, params)
 	default:
 		return nil, errors.New("method not found")
 	}
