@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { cloudEventDetailURL, fetchHangzhouEvents } from './cloudEvents'
+import {
+  cloudAccountLoginURL,
+  cloudEventDetailURL,
+  cloudMyEventsURL,
+  fetchHangzhouEvents,
+} from './cloudEvents'
 
 describe('cloudEvents API', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -54,7 +59,27 @@ describe('cloudEvents API', () => {
     await expect(fetchHangzhouEvents('2026-07')).rejects.toThrow('云比赛数据格式无效')
   })
 
+  it('treats null rows with a zero total as an empty month', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      error: 0,
+      datArr: {
+        rows: null,
+        total: 0,
+      },
+    }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(fetchHangzhouEvents('2026-07')).resolves.toEqual([])
+  })
+
   it('builds the original Yunbisai detail URL', () => {
     expect(cloudEventDetailURL('67043')).toBe('https://m.yunbisai.com/signUp?eventid=67043')
+  })
+
+  it('builds official account and personal event URLs', () => {
+    expect(cloudMyEventsURL()).toBe('https://m.yunbisai.com/console/myplay')
+    expect(cloudAccountLoginURL()).toBe(
+      'https://m.yunbisai.com/console/changeAccount?referer=https%3A%2F%2Fm.yunbisai.com%2Fconsole%2Fmyplay',
+    )
   })
 })

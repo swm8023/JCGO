@@ -36,6 +36,24 @@ describe('CloudEventsPage', () => {
     expect(screen.getByRole('link', { name: new RegExp(event.title) })).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
+  it('opens official account actions in new tabs', async () => {
+    render(<CloudEventsPage today={new Date(2026, 6, 14)} loadEvents={vi.fn(async () => [])} />)
+
+    await screen.findByText('2026 年 7 月暂无杭州比赛')
+    const login = screen.getByRole('link', { name: '登录/切换账号' })
+    expect(login).toHaveAttribute(
+      'href',
+      'https://m.yunbisai.com/console/changeAccount?referer=https%3A%2F%2Fm.yunbisai.com%2Fconsole%2Fmyplay',
+    )
+    expect(login).toHaveAttribute('target', '_blank')
+    expect(login).toHaveAttribute('rel', 'noopener noreferrer')
+
+    const myEvents = screen.getByRole('link', { name: '我的比赛' })
+    expect(myEvents).toHaveAttribute('href', 'https://m.yunbisai.com/console/myplay')
+    expect(myEvents).toHaveAttribute('target', '_blank')
+    expect(myEvents).toHaveAttribute('rel', 'noopener noreferrer')
+  })
+
   it('keeps a stale month response from replacing the selected month', async () => {
     const resolvers = new Map<string, (events: CloudEvent[]) => void>()
     const loadEvents = vi.fn((month: string) => new Promise<CloudEvent[]>((resolve) => resolvers.set(month, resolve)))

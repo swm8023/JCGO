@@ -2201,7 +2201,7 @@ textarea:focus-visible {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -2247,6 +2247,50 @@ textarea:focus-visible {
   background: transparent;
   color: var(--ink);
   font: inherit;
+}
+
+.cloud-events-account-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 160px));
+  justify-content: end;
+  gap: 7px;
+  padding: 0 2px;
+}
+
+.cloud-events-account-actions a {
+  min-width: 0;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 11px;
+  box-sizing: border-box;
+  border: 1px solid rgb(184 168 152 / 0.58);
+  border-radius: 9px;
+  background: rgb(255 255 255 / 0.64);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 750;
+  text-decoration: none;
+  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+}
+
+.cloud-events-account-actions a:hover {
+  border-color: rgb(26 71 42 / 0.34);
+  background: rgb(26 71 42 / 0.06);
+  color: var(--table);
+}
+
+.cloud-events-account-actions a.primary {
+  border-color: rgb(26 71 42 / 0.36);
+  background: rgb(26 71 42 / 0.1);
+  color: var(--table);
+}
+
+.cloud-events-account-actions a:focus-visible {
+  outline: 2px solid var(--table);
+  outline-offset: 2px;
 }
 
 .cloud-event-list {
@@ -4607,6 +4651,11 @@ textarea:focus-visible {
   .cloud-events-month {
     min-height: 32px;
     padding: 0 7px;
+  }
+
+  .cloud-events-account-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 0;
   }
 
   .cloud-event-card {

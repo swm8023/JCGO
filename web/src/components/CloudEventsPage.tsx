@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, MapPin, Users } from 'lucide-react'
-import { cloudEventDetailURL, fetchHangzhouEvents, type CloudEvent } from '../api/cloudEvents'
+import { CalendarDays, LogIn, MapPin, Trophy, Users } from 'lucide-react'
+import {
+  cloudAccountLoginURL,
+  cloudEventDetailURL,
+  cloudMyEventsURL,
+  fetchHangzhouEvents,
+  type CloudEvent,
+} from '../api/cloudEvents'
 
 type CloudEventsPageProps = {
   today?: Date
@@ -51,6 +57,17 @@ export function CloudEventsPage({ today = new Date(), loadEvents = fetchHangzhou
             <input aria-label="比赛月份" type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
           </label>
         </header>
+
+        <nav className="cloud-events-account-actions" aria-label="云比赛账号">
+          <a href={cloudAccountLoginURL()} target="_blank" rel="noopener noreferrer">
+            <LogIn size={15} aria-hidden />
+            登录/切换账号
+          </a>
+          <a className="primary" href={cloudMyEventsURL()} target="_blank" rel="noopener noreferrer">
+            <Trophy size={15} aria-hidden />
+            我的比赛
+          </a>
+        </nav>
 
         <div className="cloud-event-list" aria-live="polite">
           {loading && <p className="cloud-event-state">正在加载杭州比赛…</p>}

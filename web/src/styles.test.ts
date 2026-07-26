@@ -343,4 +343,12 @@ describe('responsive layout CSS', () => {
     expect(styles).toContain('overflow: auto;')
     expect(styles).toContain('.cloud-event-card:focus-visible')
   })
+
+  it('keeps cloud account actions above the scrollable event list', () => {
+    expect(styles).toContain('grid-template-rows: auto auto minmax(0, 1fr);')
+    expect(styles).toContain('.cloud-events-account-actions {')
+    expect(styles).toContain('.cloud-events-account-actions a {')
+    expect(styles).toContain('.cloud-events-account-actions a.primary')
+    expect(styles).toContain('.cloud-events-account-actions a:focus-visible')
+  })
 })

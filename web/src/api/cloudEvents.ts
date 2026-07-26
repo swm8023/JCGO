@@ -10,6 +10,7 @@ export type CloudEvent = {
 }
 
 const endpoint = 'https://open.yunbisai.com/api/Join/event'
+const myEventsEndpoint = 'https://m.yunbisai.com/console/myplay'
 const monthPattern = /^\d{4}-(0[1-9]|1[0-2])$/
 const sportLabels: Record<string, string> = {
   '1': '象棋',
@@ -47,13 +48,25 @@ export async function fetchHangzhouEvents(month: string, signal?: AbortSignal): 
   const payload: unknown = await response.json()
   const root = asRecord(payload)
   const data = asRecord(root?.datArr)
-  if (root?.error !== 0 || !Array.isArray(data?.rows)) throw new Error('云比赛数据格式无效')
+  if (root?.error !== 0 || !data) throw new Error('云比赛数据格式无效')
+  if (data.rows === null && data.total === 0) return []
+  if (!Array.isArray(data.rows)) throw new Error('云比赛数据格式无效')
   return data.rows.map(mapRow)
 }
 
 export function cloudEventDetailURL(eventId: string) {
   const url = new URL('https://m.yunbisai.com/signUp')
   url.searchParams.set('eventid', eventId)
+  return url.toString()
+}
+
+export function cloudMyEventsURL() {
+  return myEventsEndpoint
+}
+
+export function cloudAccountLoginURL() {
+  const url = new URL('https://m.yunbisai.com/console/changeAccount')
+  url.searchParams.set('referer', myEventsEndpoint)
   return url.toString()
 }
 
