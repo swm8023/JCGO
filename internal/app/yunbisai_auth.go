@@ -19,10 +19,11 @@ type YunbisaiCookie struct {
 }
 
 type YunbisaiAccount struct {
-	LoginID  string `json:"loginId"`
-	Name     string `json:"name"`
-	Account  string `json:"account"`
-	ImageURL string `json:"imageUrl,omitempty"`
+	LoginID   string `json:"loginId"`
+	Name      string `json:"name"`
+	Account   string `json:"account"`
+	ImageURL  string `json:"imageUrl,omitempty"`
+	LoginType string `json:"-"`
 }
 
 type YunbisaiAuth struct {
