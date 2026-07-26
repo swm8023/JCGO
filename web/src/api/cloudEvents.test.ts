@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
-  cloudAccountLoginURL,
   cloudEventDetailURL,
-  cloudMyEventsURL,
   fetchHangzhouEvents,
 } from './cloudEvents'
 
@@ -74,10 +72,5 @@ describe('cloudEvents API', () => {
 
   it('builds the original Yunbisai detail URL', () => {
     expect(cloudEventDetailURL('67043')).toBe('https://m.yunbisai.com/signUp?eventid=67043')
-  })
-
-  it('builds official account and personal event URLs', () => {
-    expect(cloudMyEventsURL()).toBe('https://m.yunbisai.com/console/myplay')
-    expect(cloudAccountLoginURL()).toBe('https://www.yunbisai.com/login')
   })
 })

@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, LogIn, MapPin, Trophy, Users } from 'lucide-react'
+import { CalendarDays, MapPin, Users } from 'lucide-react'
 import type { YunbisaiMyEventsAPI } from '../api/types'
 import {
-  cloudAccountLoginURL,
   cloudEventDetailURL,
-  cloudMyEventsURL,
   fetchHangzhouEvents,
   type CloudEvent,
 } from '../api/cloudEvents'
+import { YunbisaiMyEventsPanel } from './YunbisaiMyEventsPanel'
 
 type CloudEventsPageProps = {
   myEventsApi: YunbisaiMyEventsAPI
@@ -15,7 +14,8 @@ type CloudEventsPageProps = {
   loadEvents?: (month: string, signal?: AbortSignal) => Promise<CloudEvent[]>
 }
 
-export function CloudEventsPage({ today = new Date(), loadEvents = fetchHangzhouEvents }: CloudEventsPageProps) {
+export function CloudEventsPage({ myEventsApi, today = new Date(), loadEvents = fetchHangzhouEvents }: CloudEventsPageProps) {
+  const [activeTab, setActiveTab] = useState<'public' | 'mine'>('public')
   const [month, setMonth] = useState(() => monthValue(today))
   const [events, setEvents] = useState<CloudEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,60 +47,95 @@ export function CloudEventsPage({ today = new Date(), loadEvents = fetchHangzhou
   }, [loadEvents, month, retry])
 
   return (
-    <section className="app-page-body cloud-events-page" role="region" aria-label="杭州云比赛内容">
+    <section className="app-page-body cloud-events-page" role="region" aria-label="云比赛内容">
       <div className="cloud-events-shell">
         <header className="cloud-events-header">
           <div>
             <p className="game-list-eyebrow"><MapPin size={12} aria-hidden /> 杭州市</p>
             <h2>云比赛</h2>
           </div>
-          <label className="cloud-events-month">
-            <CalendarDays size={16} aria-hidden />
-            <input aria-label="比赛月份" type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
-          </label>
+          {activeTab === 'public' && (
+            <label className="cloud-events-month">
+              <CalendarDays size={16} aria-hidden />
+              <input aria-label="比赛月份" type="month" value={month} onChange={(event) => setMonth(event.target.value)} />
+            </label>
+          )}
         </header>
 
-        <nav className="cloud-events-account-actions" aria-label="云比赛账号">
-          <a href={cloudAccountLoginURL()} target="_blank" rel="noopener noreferrer">
-            <LogIn size={15} aria-hidden />
-            登录/切换账号
-          </a>
-          <a className="primary" href={cloudMyEventsURL()} target="_blank" rel="noopener noreferrer">
-            <Trophy size={15} aria-hidden />
+        <nav className="cloud-events-tabs" role="tablist" aria-label="云比赛分类">
+          <button
+            className="cloud-events-tab"
+            id="cloud-events-public-tab"
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'public'}
+            aria-controls="cloud-events-public-panel"
+            tabIndex={activeTab === 'public' ? 0 : -1}
+            onClick={() => setActiveTab('public')}
+          >
+            杭州比赛
+          </button>
+          <button
+            className="cloud-events-tab"
+            id="cloud-events-mine-tab"
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'mine'}
+            aria-controls="cloud-events-mine-panel"
+            tabIndex={activeTab === 'mine' ? 0 : -1}
+            onClick={() => setActiveTab('mine')}
+          >
             我的比赛
-          </a>
+          </button>
         </nav>
 
-        <div className="cloud-event-list" aria-live="polite">
-          {loading && <p className="cloud-event-state">正在加载杭州比赛…</p>}
-          {!loading && error && (
-            <div className="cloud-event-state error" role="alert">
-              <p>{error}</p>
-              <button type="button" onClick={() => setRetry((value) => value + 1)}>重试</button>
-            </div>
-          )}
-          {!loading && !error && events.length === 0 && (
-            <p className="cloud-event-state">{monthLabel(month)}暂无杭州比赛</p>
-          )}
-          {!loading && !error && events.map((event) => (
-            <a
-              className="cloud-event-card"
-              href={cloudEventDetailURL(event.id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              key={event.id}
-            >
-              <span className="cloud-event-title">{event.title}</span>
-              <span className="cloud-event-date">{dateRange(event)}</span>
-              <span className="cloud-event-meta">
-                <span>{event.sport}</span>
-                <span>{event.fee === 0 ? '免费' : `¥${event.fee}`}</span>
-                <span><Users size={13} aria-hidden />已报 {event.registeredCount} 人</span>
-              </span>
-              <span className="cloud-event-organizer">{event.organizer}</span>
-            </a>
-          ))}
-        </div>
+        {activeTab === 'public' ? (
+          <div
+            className="cloud-event-list"
+            id="cloud-events-public-panel"
+            role="tabpanel"
+            aria-labelledby="cloud-events-public-tab"
+            aria-live="polite"
+          >
+            {loading && <p className="cloud-event-state">正在加载杭州比赛…</p>}
+            {!loading && error && (
+              <div className="cloud-event-state error" role="alert">
+                <p>{error}</p>
+                <button type="button" onClick={() => setRetry((value) => value + 1)}>重试</button>
+              </div>
+            )}
+            {!loading && !error && events.length === 0 && (
+              <p className="cloud-event-state">{monthLabel(month)}暂无杭州比赛</p>
+            )}
+            {!loading && !error && events.map((event) => (
+              <a
+                className="cloud-event-card"
+                href={cloudEventDetailURL(event.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                key={event.id}
+              >
+                <span className="cloud-event-title">{event.title}</span>
+                <span className="cloud-event-date">{dateRange(event)}</span>
+                <span className="cloud-event-meta">
+                  <span>{event.sport}</span>
+                  <span>{event.fee === 0 ? '免费' : `¥${event.fee}`}</span>
+                  <span><Users size={13} aria-hidden />已报 {event.registeredCount} 人</span>
+                </span>
+                <span className="cloud-event-organizer">{event.organizer}</span>
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="cloud-events-mine-panel"
+            id="cloud-events-mine-panel"
+            role="tabpanel"
+            aria-labelledby="cloud-events-mine-tab"
+          >
+            <YunbisaiMyEventsPanel api={myEventsApi} />
+          </div>
+        )}
       </div>
     </section>
   )

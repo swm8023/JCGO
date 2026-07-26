@@ -88,6 +88,23 @@ func TestYunbisaiClientLoginOrdersAndDetail(t *testing.T) {
 			},
 		})
 	})
+	mux.HandleFunc("/request/Event/Eventdetail", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("eventid") != "67043" {
+			t.Fatalf("event id = %q", r.URL.Query().Get("eventid"))
+		}
+		if r.Header.Get("token") != "" || r.Header.Get("Cookie") != "" {
+			t.Fatalf("public event detail should not receive saved credentials")
+		}
+		writeYunbisaiTestJSON(w, map[string]any{
+			"error": 0,
+			"datArr": map[string]any{
+				"eventresult": map[string]any{
+					"title": "杭州围棋公开赛", "begintime": "2026-08-01 09:00:00",
+					"endtime": "2026-08-01 17:00:00", "address": "杭州市上城区",
+				},
+			},
+		})
+	})
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
@@ -118,6 +135,10 @@ func TestYunbisaiClientLoginOrdersAndDetail(t *testing.T) {
 	detail, err := client.OrderDetail(ctx, auth, "order-1")
 	if err != nil || detail.OrderInfo["event_id"] != "67043" {
 		t.Fatalf("detail = %#v err %v", detail, err)
+	}
+	eventInfo, err := client.EventInfo(ctx, "67043")
+	if err != nil || eventInfo["begintime"] != "2026-08-01 09:00:00" {
+		t.Fatalf("event info = %#v err %v", eventInfo, err)
 	}
 }
 

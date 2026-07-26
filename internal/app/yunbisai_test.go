@@ -11,10 +11,13 @@ type fakeYunbisaiClient struct {
 	selectedAuth   YunbisaiAuth
 	orders         YunbisaiOrderPage
 	orderDetail    YunbisaiOrderDetail
+	eventInfo      map[string]any
 	ordersErr      error
 	orderDetailErr error
+	eventInfoErr   error
 	selectedLogin  string
 	orderPages     []int
+	eventInfoID    string
 }
 
 func (f *fakeYunbisaiClient) LoginStart(context.Context) (YunbisaiQRCode, error) {
@@ -37,6 +40,11 @@ func (f *fakeYunbisaiClient) Orders(_ context.Context, _ YunbisaiAuth, page int)
 
 func (f *fakeYunbisaiClient) OrderDetail(context.Context, YunbisaiAuth, string) (YunbisaiOrderDetail, error) {
 	return f.orderDetail, f.orderDetailErr
+}
+
+func (f *fakeYunbisaiClient) EventInfo(_ context.Context, eventID string) (map[string]any, error) {
+	f.eventInfoID = eventID
+	return f.eventInfo, f.eventInfoErr
 }
 
 func TestYunbisaiServiceUsesOpaqueLoginFlowAndFiltersOrders(t *testing.T) {
@@ -162,17 +170,19 @@ func TestYunbisaiServiceMapsOrderDetail(t *testing.T) {
 	}
 	client := &fakeYunbisaiClient{orderDetail: YunbisaiOrderDetail{
 		OrderInfo: map[string]any{
-			"orderid": "order-1", "event_id": "67043", "title": "杭州围棋公开赛",
-			"state": "2", "event_address": "杭州市上城区", "orgname": "杭州棋院",
+			"orderid": "order-1", "event_id": "67043", "state": "2",
 			"acost": "128.00", "createtime": "2026-07-01 10:00:00",
 		},
-		GameInfo: map[string]any{"begintime": "2026-08-01 09:00:00", "endtime": "2026-08-01 17:00:00"},
+		GameInfo: map[string]any{},
 		PlayerInfo: map[string]any{
 			"groupName": "甲组", "teamName": "杭州队",
 			"playerinfo": []any{
 				map[string]any{"idcardname": "棋手甲", "groupname": "甲组", "teamname": "杭州队"},
 			},
 		},
+	}, eventInfo: map[string]any{
+		"title": "杭州围棋公开赛", "begintime": "2026-08-01 09:00:00",
+		"endtime": "2026-08-01 17:00:00", "address": "杭州市上城区", "cname": "杭州棋院",
 	}}
 	service := NewYunbisaiService(YunbisaiServiceOptions{AuthStore: store, Client: client})
 	detail, err := service.MyEventDetail(ctx, "order-1")
@@ -184,6 +194,12 @@ func TestYunbisaiServiceMapsOrderDetail(t *testing.T) {
 	}
 	if detail.OfficialURL != "https://m.yunbisai.com/event/67043" || len(detail.Players) != 1 || detail.Players[0].Name != "棋手甲" {
 		t.Fatalf("detail links/players = %#v", detail)
+	}
+	if detail.StartTime != "2026-08-01 09:00:00" || detail.EndTime != "2026-08-01 17:00:00" || detail.Address != "杭州市上城区" || detail.Organizer != "杭州棋院" {
+		t.Fatalf("enriched detail = %#v", detail)
+	}
+	if client.eventInfoID != "67043" {
+		t.Fatalf("event info id = %q", client.eventInfoID)
 	}
 }
 

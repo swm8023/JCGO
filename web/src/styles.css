@@ -2187,7 +2187,12 @@ textarea:focus-visible {
 }
 
 .app-tab-button:focus-visible,
-.cloud-event-card:focus-visible {
+.cloud-event-card:focus-visible,
+.cloud-events-tab:focus-visible,
+.yunbisai-my-event-card:focus-visible,
+.yunbisai-account-list button:focus-visible,
+.yunbisai-session-actions button:focus-visible,
+.yunbisai-official-link:focus-visible {
   outline: 2px solid var(--table);
   outline-offset: -2px;
 }
@@ -2249,48 +2254,40 @@ textarea:focus-visible {
   font: inherit;
 }
 
-.cloud-events-account-actions {
+.cloud-events-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 160px));
-  justify-content: end;
-  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(420px, 100%);
+  gap: 3px;
   padding: 0 2px;
-}
-
-.cloud-events-account-actions a {
-  min-width: 0;
-  min-height: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 11px;
   box-sizing: border-box;
-  border: 1px solid rgb(184 168 152 / 0.58);
-  border-radius: 9px;
-  background: rgb(255 255 255 / 0.64);
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 750;
-  text-decoration: none;
-  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+  border-radius: 10px;
+  background: rgb(240 235 224 / 0.72);
 }
 
-.cloud-events-account-actions a:hover {
-  border-color: rgb(26 71 42 / 0.34);
-  background: rgb(26 71 42 / 0.06);
+.cloud-events-tab {
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.cloud-events-tab:hover {
+  background: rgb(255 255 255 / 0.52);
   color: var(--table);
+  transform: none;
 }
 
-.cloud-events-account-actions a.primary {
-  border-color: rgb(26 71 42 / 0.36);
-  background: rgb(26 71 42 / 0.1);
+.cloud-events-tab[aria-selected="true"] {
+  background: var(--surface-glaze), var(--surface-raised);
   color: var(--table);
-}
-
-.cloud-events-account-actions a:focus-visible {
-  outline: 2px solid var(--table);
-  outline-offset: 2px;
+  box-shadow: 0 2px 8px rgb(42 30 14 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.8);
 }
 
 .cloud-event-list {
@@ -2381,6 +2378,397 @@ textarea:focus-visible {
   color: var(--table);
   cursor: pointer;
   font-weight: 750;
+}
+
+.cloud-events-mine-panel,
+.yunbisai-my-events {
+  min-width: 0;
+  min-height: 0;
+}
+
+.cloud-events-mine-panel {
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.yunbisai-my-events {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 2px 2px 12px;
+  box-sizing: border-box;
+}
+
+.yunbisai-login {
+  min-height: 360px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  align-items: center;
+  gap: clamp(20px, 6vw, 72px);
+  padding: clamp(18px, 5vw, 56px);
+  box-sizing: border-box;
+  border: 1px solid rgb(212 201 184 / 0.66);
+  border-radius: 14px;
+  background: var(--surface-glaze), var(--surface-raised);
+  box-shadow: var(--shadow-warm);
+}
+
+.yunbisai-login-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.yunbisai-login-copy h3,
+.yunbisai-account-panel h3,
+.yunbisai-my-events-header h3,
+.yunbisai-detail-title h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(20px, 3vw, 28px);
+  line-height: 1.2;
+}
+
+.yunbisai-login-copy > p:not(.game-list-eyebrow),
+.yunbisai-account-panel > p,
+.yunbisai-my-events-header p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.yunbisai-login-note {
+  max-width: 520px;
+  font-size: 12px;
+}
+
+.yunbisai-qr-card {
+  min-width: 180px;
+  width: min(280px, 100%);
+  justify-self: center;
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 16px;
+  box-sizing: border-box;
+  border: 1px solid rgb(184 168 152 / 0.52);
+  border-radius: 13px;
+  background: rgb(255 255 255 / 0.78);
+}
+
+.yunbisai-qr-card img,
+.yunbisai-qr-placeholder {
+  width: min(232px, 100%);
+  aspect-ratio: 1;
+  display: block;
+  object-fit: contain;
+  border-radius: 7px;
+  background: var(--surface);
+}
+
+.yunbisai-qr-placeholder {
+  border: 1px dashed var(--line);
+}
+
+.yunbisai-qr-card button,
+.yunbisai-secondary-action,
+.yunbisai-load-more,
+.yunbisai-detail-back,
+.yunbisai-session-actions button {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 1px solid rgb(26 71 42 / 0.3);
+  border-radius: 8px;
+  background: rgb(26 71 42 / 0.08);
+  color: var(--table);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.yunbisai-account-panel {
+  min-height: 320px;
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: clamp(18px, 5vw, 52px);
+  border: 1px solid rgb(212 201 184 / 0.66);
+  border-radius: 14px;
+  background: var(--surface-glaze), var(--surface-raised);
+}
+
+.yunbisai-account-list {
+  width: min(620px, 100%);
+  display: grid;
+  gap: 8px;
+}
+
+.yunbisai-account-list button {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 1px solid rgb(212 201 184 / 0.72);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.66);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.yunbisai-account-list img,
+.yunbisai-account-avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgb(26 71 42 / 0.1);
+  color: var(--table);
+  font-weight: 850;
+}
+
+.yunbisai-account-list button > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.yunbisai-account-list strong,
+.yunbisai-account-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yunbisai-account-list small {
+  color: var(--muted);
+}
+
+.yunbisai-secondary-action {
+  justify-self: start;
+}
+
+.yunbisai-my-event-browser,
+.yunbisai-my-event-detail {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.yunbisai-my-events-header,
+.yunbisai-my-event-detail > header,
+.yunbisai-detail-title {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.yunbisai-my-events-header {
+  padding: 2px 2px 10px;
+  border-bottom: 1px solid rgb(184 168 152 / 0.38);
+}
+
+.yunbisai-session-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.yunbisai-session-actions > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.yunbisai-session-actions button:last-child {
+  border-color: rgb(153 27 27 / 0.18);
+  background: rgb(153 27 27 / 0.05);
+  color: var(--danger);
+}
+
+.yunbisai-my-event-list {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.yunbisai-my-event-card {
+  width: 100%;
+  min-width: 0;
+  min-height: 78px;
+  display: grid;
+  align-content: center;
+  gap: 9px;
+  padding: 13px 16px;
+  box-sizing: border-box;
+  border: 1px solid rgb(212 201 184 / 0.72);
+  border-radius: 10px;
+  background: var(--surface-glaze), var(--surface-raised);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 3px 12px rgb(42 30 14 / 0.05), inset 0 1px 0 rgb(255 255 255 / 0.78);
+}
+
+.yunbisai-my-event-card:hover {
+  border-color: rgb(26 71 42 / 0.28);
+}
+
+.yunbisai-my-event-main,
+.yunbisai-my-event-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.yunbisai-my-event-main strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+}
+
+.yunbisai-my-event-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.yunbisai-order-status {
+  flex: 0 0 auto;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.yunbisai-order-status.paid {
+  background: rgb(26 71 42 / 0.09);
+  color: var(--table);
+}
+
+.yunbisai-order-status.pending {
+  background: rgb(194 65 12 / 0.09);
+  color: var(--signal);
+}
+
+.yunbisai-load-more {
+  justify-self: center;
+}
+
+.yunbisai-my-event-detail {
+  padding: 2px;
+}
+
+.yunbisai-detail-title {
+  padding: 14px 16px;
+  border: 1px solid rgb(212 201 184 / 0.66);
+  border-radius: 11px;
+  background: rgb(255 255 255 / 0.5);
+}
+
+.yunbisai-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgb(212 201 184 / 0.62);
+  border-radius: 11px;
+  background: rgb(212 201 184 / 0.54);
+}
+
+.yunbisai-detail-grid > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 13px 15px;
+  background: var(--surface-glaze), var(--surface-raised);
+}
+
+.yunbisai-detail-grid dt,
+.yunbisai-detail-grid dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.yunbisai-detail-grid dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.yunbisai-detail-grid dd {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.yunbisai-player-section {
+  display: grid;
+  gap: 8px;
+}
+
+.yunbisai-player-section h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.yunbisai-player-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 7px;
+}
+
+.yunbisai-player-list article {
+  display: grid;
+  gap: 3px;
+  padding: 11px 13px;
+  border: 1px solid rgb(212 201 184 / 0.62);
+  border-radius: 9px;
+  background: rgb(255 255 255 / 0.52);
+}
+
+.yunbisai-player-list span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.yunbisai-official-link {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  justify-self: start;
+  padding: 0 15px;
+  border-radius: 9px;
+  background: var(--table);
+  color: white;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
 }
 
 .app-layout.page-open .board-stage,
@@ -4653,9 +5041,45 @@ textarea:focus-visible {
     padding: 0 7px;
   }
 
-  .cloud-events-account-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    padding: 0;
+  .cloud-events-tabs {
+    width: 100%;
+  }
+
+  .yunbisai-login {
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px;
+  }
+
+  .yunbisai-qr-card {
+    min-width: 180px;
+    width: min(250px, 100%);
+  }
+
+  .yunbisai-account-panel {
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .yunbisai-my-events-header,
+  .yunbisai-my-event-detail > header,
+  .yunbisai-detail-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .yunbisai-session-actions {
+    justify-content: flex-start;
+  }
+
+  .yunbisai-my-event-card {
+    min-height: 68px;
+    padding: 11px 12px;
+  }
+
+  .yunbisai-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .cloud-event-card {

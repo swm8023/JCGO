@@ -10,7 +10,6 @@ export type CloudEvent = {
 }
 
 const endpoint = 'https://open.yunbisai.com/api/Join/event'
-const myEventsEndpoint = 'https://m.yunbisai.com/console/myplay'
 const monthPattern = /^\d{4}-(0[1-9]|1[0-2])$/
 const sportLabels: Record<string, string> = {
   '1': '象棋',
@@ -58,14 +57,6 @@ export function cloudEventDetailURL(eventId: string) {
   const url = new URL('https://m.yunbisai.com/signUp')
   url.searchParams.set('eventid', eventId)
   return url.toString()
-}
-
-export function cloudMyEventsURL() {
-  return myEventsEndpoint
-}
-
-export function cloudAccountLoginURL() {
-  return 'https://www.yunbisai.com/login'
 }
 
 function mapRow(value: unknown): CloudEvent {

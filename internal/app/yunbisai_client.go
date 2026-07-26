@@ -280,6 +280,34 @@ func (c *YunbisaiClient) OrderDetail(ctx context.Context, auth YunbisaiAuth, ord
 	return YunbisaiOrderDetail(payload.Data), nil
 }
 
+func (c *YunbisaiClient) EventInfo(ctx context.Context, eventID string) (map[string]any, error) {
+	query := url.Values{"eventid": {strings.TrimSpace(eventID)}}
+	raw, _, err := c.request(
+		ctx,
+		http.MethodGet,
+		c.apiURL+"/request/Event/Eventdetail?"+query.Encode(),
+		nil,
+		YunbisaiAuth{},
+	)
+	if err != nil {
+		return nil, err
+	}
+	var payload struct {
+		Error int    `json:"error"`
+		Msg   string `json:"msg"`
+		Data  struct {
+			EventInfo map[string]any `json:"eventresult"`
+		} `json:"datArr"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return nil, errors.New("云比赛赛事详情数据格式无效")
+	}
+	if payload.Error != 0 || payload.Data.EventInfo == nil {
+		return nil, errors.New("云比赛赛事详情数据格式无效")
+	}
+	return payload.Data.EventInfo, nil
+}
+
 func (c *YunbisaiClient) request(ctx context.Context, method, endpoint string, form url.Values, auth YunbisaiAuth) ([]byte, []YunbisaiCookie, error) {
 	var body io.Reader
 	if form != nil {

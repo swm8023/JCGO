@@ -46,7 +46,7 @@ describe('right rail layout', () => {
   it('renders the four-tab app shell and Hangzhou events page', () => {
     expect(app).toContain("onOpenAppMenu={() => pushAppHistoryLayer('game-list')}")
     expect(app).toContain("pageLayer === 'cloud-events'")
-    expect(app).toContain('<CloudEventsPage />')
+    expect(app).toContain('<CloudEventsPage myEventsApi={yunbisaiApi} />')
     expect(app).toContain('<AppTabBar')
     expect(app).toContain('replaceAppHistoryLayer(layer)')
   })

@@ -32,6 +32,7 @@ type YunbisaiBackend interface {
 	LoginSelect(context.Context, YunbisaiLoginPoll, YunbisaiAccount) (YunbisaiAuth, error)
 	Orders(context.Context, YunbisaiAuth, int) (YunbisaiOrderPage, error)
 	OrderDetail(context.Context, YunbisaiAuth, string) (YunbisaiOrderDetail, error)
+	EventInfo(context.Context, string) (map[string]any, error)
 }
 
 type YunbisaiServiceOptions struct {
@@ -281,7 +282,13 @@ func (s *YunbisaiService) MyEventDetail(ctx context.Context, orderID string) (Yu
 	if err != nil {
 		return YunbisaiMyEventDetail{}, err
 	}
-	return mapYunbisaiEventDetail(orderID, remote), nil
+	detail := mapYunbisaiEventDetail(orderID, remote)
+	if detail.EventID != "" && yunbisaiDetailNeedsEventInfo(detail) {
+		if eventInfo, eventErr := s.client.EventInfo(ctx, detail.EventID); eventErr == nil {
+			detail = enrichYunbisaiEventDetail(detail, eventInfo)
+		}
+	}
+	return detail, nil
 }
 
 func (s *YunbisaiService) authorize(
@@ -375,6 +382,38 @@ func mapYunbisaiEventDetail(orderID string, remote YunbisaiOrderDetail) Yunbisai
 		detail.OfficialURL = "https://m.yunbisai.com/event/" + eventID
 	}
 	return detail
+}
+
+func yunbisaiDetailNeedsEventInfo(detail YunbisaiMyEventDetail) bool {
+	return detail.Title == "" ||
+		detail.StartTime == "" ||
+		detail.EndTime == "" ||
+		detail.Address == "" ||
+		detail.Organizer == ""
+}
+
+func enrichYunbisaiEventDetail(detail YunbisaiMyEventDetail, eventInfo map[string]any) YunbisaiMyEventDetail {
+	detail.Title = firstNonEmpty(detail.Title, firstYunbisaiText(eventInfo, "title"))
+	detail.StartTime = firstNonEmpty(detail.StartTime, firstYunbisaiText(eventInfo, "begintime"))
+	detail.EndTime = firstNonEmpty(detail.EndTime, firstYunbisaiText(eventInfo, "endtime"))
+	detail.Address = firstNonEmpty(
+		detail.Address,
+		firstYunbisaiText(eventInfo, "address"),
+		yunbisaiJoinedAddress(eventInfo),
+	)
+	detail.Organizer = firstNonEmpty(
+		detail.Organizer,
+		firstYunbisaiText(eventInfo, "cname", "orgname"),
+	)
+	return detail
+}
+
+func yunbisaiJoinedAddress(eventInfo map[string]any) string {
+	return strings.TrimSpace(strings.Join([]string{
+		firstYunbisaiText(eventInfo, "province_name"),
+		firstYunbisaiText(eventInfo, "city_name"),
+		firstYunbisaiText(eventInfo, "county_name"),
+	}, ""))
 }
 
 func mapYunbisaiPlayers(playerInfo map[string]any) []YunbisaiPlayer {
