@@ -78,8 +78,6 @@ describe('cloudEvents API', () => {
 
   it('builds official account and personal event URLs', () => {
     expect(cloudMyEventsURL()).toBe('https://m.yunbisai.com/console/myplay')
-    expect(cloudAccountLoginURL()).toBe(
-      'https://m.yunbisai.com/console/changeAccount?referer=https%3A%2F%2Fm.yunbisai.com%2Fconsole%2Fmyplay',
-    )
+    expect(cloudAccountLoginURL()).toBe('https://www.yunbisai.com/login')
   })
 })

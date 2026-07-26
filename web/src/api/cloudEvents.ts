@@ -65,9 +65,7 @@ export function cloudMyEventsURL() {
 }
 
 export function cloudAccountLoginURL() {
-  const url = new URL('https://m.yunbisai.com/console/changeAccount')
-  url.searchParams.set('referer', myEventsEndpoint)
-  return url.toString()
+  return 'https://www.yunbisai.com/login'
 }
 
 function mapRow(value: unknown): CloudEvent {

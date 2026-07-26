@@ -41,10 +41,7 @@ describe('CloudEventsPage', () => {
 
     await screen.findByText('2026 年 7 月暂无杭州比赛')
     const login = screen.getByRole('link', { name: '登录/切换账号' })
-    expect(login).toHaveAttribute(
-      'href',
-      'https://m.yunbisai.com/console/changeAccount?referer=https%3A%2F%2Fm.yunbisai.com%2Fconsole%2Fmyplay',
-    )
+    expect(login).toHaveAttribute('href', 'https://www.yunbisai.com/login')
     expect(login).toHaveAttribute('target', '_blank')
     expect(login).toHaveAttribute('rel', 'noopener noreferrer')
 
