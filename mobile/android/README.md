@@ -16,6 +16,8 @@ The output is:
 dist/jcgo-android-debug.apk
 ```
 
+This is a directly installable Debug-signed APK for testing, not a release-signed distribution package.
+
 With an Android device connected through ADB:
 
 ```powershell
