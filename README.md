@@ -74,3 +74,15 @@ JCGO uses Worker-only analysis. The server does not start KataGo directly. When 
 ~/.jcgo/model/<worker.model>
 ~/.jcgo/config/analysis_config.cfg
 ```
+
+## Android APK
+
+JCGO Android uses a Kotlin WebView Remote Shell. The APK embeds only a Bootstrap page, asks for an HTTPS JCGO server address, and then loads the remote Web UI. Deploying a new `web/dist` on the HTTPS server updates the UI without rebuilding the APK.
+
+Build a directly installable Debug APK from the repository root:
+
+```powershell
+.\scripts\build-android.ps1
+```
+
+The APK is written to `dist\jcgo-android-debug.apk`. See [`mobile/android/README.md`](mobile/android/README.md) for ADB installation and server requirements. APK self-update is intentionally not included.

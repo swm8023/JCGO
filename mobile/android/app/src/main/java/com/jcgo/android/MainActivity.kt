@@ -59,6 +59,7 @@ class MainActivity : Activity() {
     }
 
     @SuppressLint("SetJavaScriptEnabled")
+    @Suppress("DEPRECATION")
     private fun configureWebView(target: WebView) {
         target.setBackgroundColor(Color.rgb(30, 41, 59))
         target.settings.javaScriptEnabled = true
@@ -318,6 +319,7 @@ class MainActivity : Activity() {
         }
     }
 
+    @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Android API  Activity", ReplaceWith("super.onBackPressed()"))
     override fun onBackPressed() {
         if (webView.canGoBack()) {

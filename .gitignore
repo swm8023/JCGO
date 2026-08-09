@@ -6,3 +6,6 @@ web/*.out
 web/*.err
 .stage/
 release-assets/
+mobile/android/.gradle/
+mobile/android/.kotlin/
+mobile/android/**/build/
