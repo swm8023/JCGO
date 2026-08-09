@@ -15,6 +15,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
+import android.webkit.WebStorage
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
@@ -236,14 +237,20 @@ class MainActivity : Activity() {
 
     private fun clearCurrentServerState(onComplete: () -> Unit) {
         val currentUrl = webView.url.orEmpty()
-        if (configuredBaseUrl.isBlank() || !BaseUrlPolicy(configuredBaseUrl).contains(currentUrl)) {
-            onComplete()
-            return
+        val finish = {
+            WebStorage.getInstance().deleteAllData()
+            CookieManager.getInstance().removeAllCookies {
+                webView.clearHistory()
+                webView.clearCache(true)
+                webView.postDelayed(onComplete, 150)
+            }
         }
-        webView.evaluateJavascript(CLEAR_REMOTE_STATE_SCRIPT) {
-            webView.clearHistory()
-            webView.clearCache(true)
-            webView.postDelayed(onComplete, 150)
+        if (configuredBaseUrl.isBlank() || !BaseUrlPolicy(configuredBaseUrl).contains(currentUrl)) {
+            finish()
+        } else {
+            webView.evaluateJavascript(CLEAR_REMOTE_STATE_SCRIPT) {
+                finish()
+            }
         }
     }
 

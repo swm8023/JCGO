@@ -37,6 +37,14 @@ class RemoteShellContractTest {
     }
 
     @Test
+    fun serverSwitchClearsWebViewStorageAcrossRemoteOrigins() {
+        val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
+
+        assertTrue(activity.contains("WebStorage.getInstance().deleteAllData()"))
+        assertTrue(activity.contains("CookieManager.getInstance().removeAllCookies"))
+    }
+
+    @Test
     fun bootstrapPageUsesOnlyTheNativeBootstrapBridge() {
         val bootstrap = source("src/main/assets/bootstrap/index.html")
 
