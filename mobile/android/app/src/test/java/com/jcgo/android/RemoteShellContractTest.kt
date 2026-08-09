@@ -1,0 +1,53 @@
+package com.jcgo.android
+
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import java.nio.file.Files
+import java.nio.file.Path
+
+class RemoteShellContractTest {
+    @Test
+    fun manifestRequiresSecureRemoteWebView() {
+        val manifest = source("src/main/AndroidManifest.xml")
+
+        assertTrue(manifest.contains("android.permission.INTERNET"))
+        assertTrue(manifest.contains("android:usesCleartextTraffic=\"false\""))
+        assertTrue(manifest.contains(".MainActivity"))
+    }
+
+    @Test
+    fun activityLoadsLocalBootstrapAndConfiguredRemotePage() {
+        val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
+
+        assertTrue(activity.contains("loadUrl(ANDROID_BOOTSTRAP_URL)"))
+        assertTrue(activity.contains("loadConfiguredRemote"))
+        assertTrue(activity.contains("BaseUrlProbe"))
+        assertTrue(activity.contains("WebViewCompat.addWebMessageListener"))
+    }
+
+    @Test
+    fun activityDisablesFileAccessAndUsesAndroidFileChooser() {
+        val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
+
+        assertTrue(activity.contains("allowFileAccess = false"))
+        assertTrue(activity.contains("allowContentAccess = false"))
+        assertTrue(activity.contains("MIXED_CONTENT_NEVER_ALLOW"))
+        assertTrue(activity.contains("onShowFileChooser"))
+        assertTrue(activity.contains("ACTION_OPEN_DOCUMENT"))
+    }
+
+    @Test
+    fun bootstrapPageUsesOnlyTheNativeBootstrapBridge() {
+        val bootstrap = source("src/main/assets/bootstrap/index.html")
+
+        assertTrue(bootstrap.contains("window.jcgoBootstrap"))
+        assertTrue(bootstrap.contains("bootstrap.saveBaseUrl"))
+        assertTrue(bootstrap.contains("bootstrap.retry"))
+        assertTrue(bootstrap.contains("bootstrap.reset"))
+    }
+
+    private fun source(relativePath: String): String {
+        val path = Path.of(relativePath)
+        return if (Files.isRegularFile(path)) String(Files.readAllBytes(path)) else ""
+    }
+}
