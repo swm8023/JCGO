@@ -26,6 +26,18 @@ class RemoteShellContractTest {
     }
 
     @Test
+    fun activityServesEmbeddedBootstrapThroughWebViewAssetLoader() {
+        val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
+        val client = source("src/main/java/com/jcgo/android/StableOriginWebViewClient.kt")
+
+        assertTrue(activity.contains("StableOriginWebViewClient"))
+        assertTrue(client.contains("WebViewAssetLoader.Builder"))
+        assertTrue(client.contains("AssetsPathHandler(context)"))
+        assertTrue(client.contains("url.toString() == ANDROID_BOOTSTRAP_URL"))
+        assertTrue(client.contains("assetLoader.shouldInterceptRequest(url)"))
+    }
+
+    @Test
     fun activityDisablesFileAccessAndUsesAndroidFileChooser() {
         val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
 
