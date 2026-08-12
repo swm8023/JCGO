@@ -16,6 +16,18 @@ class RemoteShellContractTest {
     }
 
     @Test
+    fun launcherUsesTheOfficialWebJcgoIcon() {
+        val manifest = source("src/main/AndroidManifest.xml")
+        val androidIcon = Path.of("src/main/res/drawable-nodpi/jcgo_launcher.png")
+        val webIcon = Path.of("../../../web/public/icons/jcgo-512.png")
+
+        assertTrue(manifest.contains("android:icon=\"@drawable/jcgo_launcher\""))
+        assertTrue(Files.isRegularFile(androidIcon))
+        assertTrue(Files.isRegularFile(webIcon))
+        assertTrue(Files.readAllBytes(androidIcon).contentEquals(Files.readAllBytes(webIcon)))
+    }
+
+    @Test
     fun activityLoadsLocalBootstrapAndConfiguredRemotePage() {
         val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
 
