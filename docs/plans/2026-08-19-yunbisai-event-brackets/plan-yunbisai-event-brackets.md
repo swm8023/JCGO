@@ -67,7 +67,7 @@ Invoke `git-workflow` checkpoint for `docs/wiki/wiki.md` and `docs/wiki/cloud-ev
 
 **Acceptance:** The client fetches all groups and one selected/latest round, rejects malformed public responses, never sends saved authentication to these public endpoints, and normalizes JSONP before the service consumes it.
 
-- [ ] **Step 1: Write failing group-client tests**
+- [x] **Step 1: Write failing group-client tests**
 
 Add `TestYunbisaiClientEventGroups` to the existing `httptest.Server` client tests. The fixture must:
 
@@ -84,7 +84,7 @@ go test ./internal/app -run TestYunbisaiClientEventGroups -count=1
 
 Expected: FAIL because the public group client method and model do not exist.
 
-- [ ] **Step 2: Write failing JSONP pairing tests**
+- [x] **Step 2: Write failing JSONP pairing tests**
 
 Add `TestYunbisaiClientGroupPairings` with a handler for `/request/group/againstplan` that asserts `groupid=331092`, accepts an empty `bout` for latest-round loading and `bout=6` for an explicit round, then returns a JSONP envelope containing `lastbout`, `total_bout`, and rows with `seatnum`, both player/team names, `p1_result`/`p2_result`, and scores. Assert:
 
@@ -102,7 +102,7 @@ go test ./internal/app -run TestYunbisaiClientGroupPairings -count=1
 
 Expected: FAIL because the method and JSONP decoder do not exist.
 
-- [ ] **Step 3: Implement the minimal client models and public requests**
+- [x] **Step 3: Implement the minimal client models and public requests**
 
 Add client-facing raw models and methods with these contracts:
 
@@ -113,7 +113,7 @@ func (c *YunbisaiClient) GroupPairings(ctx context.Context, groupID string, bout
 
 Use the existing `request` helper with an empty `YunbisaiAuth`. Add strict event/group ID validation at the service boundary; the client must reject malformed envelopes, invalid JSONP wrappers, missing group IDs, missing round metadata, or rows without required pairing identity. Parse JSONP by extracting the JSON value from the callback wrapper and never expose raw response text in errors.
 
-- [ ] **Step 4: Verify the client tests are green**
+- [x] **Step 4: Verify the client tests are green**
 
 Run:
 
@@ -123,7 +123,7 @@ go test ./internal/app -run "TestYunbisaiClient(EventGroups|GroupPairings)" -cou
 
 Expected: PASS, including the no-credentials assertions and malformed-response cases.
 
-- [ ] **Step 5: Run the existing client regression tests**
+- [x] **Step 5: Run the existing client regression tests**
 
 Run:
 
@@ -133,9 +133,9 @@ go test ./internal/app -run TestYunbisaiClient -count=1
 
 Expected: PASS with the login, order, detail, waiting, expiry, and malformed-payload coverage unchanged.
 
-- [ ] **Step 6: Git checkpoint**
+- [x] **Step 6: Git checkpoint**
 
-Invoke `git-workflow` checkpoint for `internal/app/yunbisai_client.go` and `internal/app/yunbisai_client_test.go` only after all Task 2 tests pass. Record the commit hash and subject.
+Invoke `git-workflow` checkpoint for `internal/app/yunbisai_client.go` and `internal/app/yunbisai_client_test.go` only after all Task 2 tests pass. Recorded commit: `7ade1fa feat: add Yunbisai group pairing client`.
 
 ### Task 3: Expose normalized groups and pairings through the backend service and RPC
 
