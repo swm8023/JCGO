@@ -15,6 +15,8 @@ type YunbisaiServiceBackend interface {
 	Logout(context.Context) error
 	MyEvents(context.Context, int) (YunbisaiMyEventsResult, error)
 	MyEventDetail(context.Context, string) (YunbisaiMyEventDetail, error)
+	EventGroups(context.Context, string) ([]YunbisaiEventGroup, error)
+	GroupPairings(context.Context, string, int) (YunbisaiGroupPairings, error)
 }
 
 type yunbisaiLoginPollParams struct {
@@ -32,6 +34,15 @@ type yunbisaiMyEventsParams struct {
 
 type yunbisaiMyEventDetailParams struct {
 	OrderID string `json:"orderId"`
+}
+
+type yunbisaiEventGroupsParams struct {
+	EventID string `json:"eventId"`
+}
+
+type yunbisaiGroupPairingsParams struct {
+	GroupID string `json:"groupId"`
+	Bout    *int   `json:"bout"`
 }
 
 func (h *Handler) yunbisaiLoginPoll(ctx context.Context, params json.RawMessage) (YunbisaiLoginPollResult, error) {
@@ -80,4 +91,35 @@ func (h *Handler) yunbisaiMyEventDetail(ctx context.Context, params json.RawMess
 		return YunbisaiMyEventDetail{}, errors.New("orderId is required")
 	}
 	return h.yunbisai.MyEventDetail(ctx, in.OrderID)
+}
+
+func (h *Handler) yunbisaiEventGroups(ctx context.Context, params json.RawMessage) ([]YunbisaiEventGroup, error) {
+	var in yunbisaiEventGroupsParams
+	if err := decodeParams(params, &in); err != nil {
+		return nil, err
+	}
+	in.EventID = strings.TrimSpace(in.EventID)
+	if in.EventID == "" {
+		return nil, errors.New("eventId is required")
+	}
+	return h.yunbisai.EventGroups(ctx, in.EventID)
+}
+
+func (h *Handler) yunbisaiGroupPairings(ctx context.Context, params json.RawMessage) (YunbisaiGroupPairings, error) {
+	var in yunbisaiGroupPairingsParams
+	if err := decodeParams(params, &in); err != nil {
+		return YunbisaiGroupPairings{}, err
+	}
+	in.GroupID = strings.TrimSpace(in.GroupID)
+	if in.GroupID == "" {
+		return YunbisaiGroupPairings{}, errors.New("groupId is required")
+	}
+	bout := 0
+	if in.Bout != nil {
+		if *in.Bout <= 0 {
+			return YunbisaiGroupPairings{}, errors.New("bout must be positive")
+		}
+		bout = *in.Bout
+	}
+	return h.yunbisai.GroupPairings(ctx, in.GroupID, bout)
 }

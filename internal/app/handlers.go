@@ -195,6 +195,10 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 		return h.yunbisaiMyEvents(ctx, params)
 	case "yunbisai.myEventDetail":
 		return h.yunbisaiMyEventDetail(ctx, params)
+	case "yunbisai.eventGroups":
+		return h.yunbisaiEventGroups(ctx, params)
+	case "yunbisai.groupPairings":
+		return h.yunbisaiGroupPairings(ctx, params)
 	default:
 		return nil, errors.New("method not found")
 	}

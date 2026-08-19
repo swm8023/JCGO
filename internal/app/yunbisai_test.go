@@ -18,6 +18,13 @@ type fakeYunbisaiClient struct {
 	selectedLogin  string
 	orderPages     []int
 	eventInfoID    string
+	eventGroups    []YunbisaiRemoteGroup
+	eventGroupsErr error
+	eventGroupID   string
+	pairingRound   YunbisaiRemotePairingRound
+	pairingErr     error
+	pairingGroupID string
+	pairingBout    int
 }
 
 func (f *fakeYunbisaiClient) LoginStart(context.Context) (YunbisaiQRCode, error) {
@@ -45,6 +52,17 @@ func (f *fakeYunbisaiClient) OrderDetail(context.Context, YunbisaiAuth, string) 
 func (f *fakeYunbisaiClient) EventInfo(_ context.Context, eventID string) (map[string]any, error) {
 	f.eventInfoID = eventID
 	return f.eventInfo, f.eventInfoErr
+}
+
+func (f *fakeYunbisaiClient) EventGroups(_ context.Context, eventID string) ([]YunbisaiRemoteGroup, error) {
+	f.eventGroupID = eventID
+	return f.eventGroups, f.eventGroupsErr
+}
+
+func (f *fakeYunbisaiClient) GroupPairings(_ context.Context, groupID string, bout int) (YunbisaiRemotePairingRound, error) {
+	f.pairingGroupID = groupID
+	f.pairingBout = bout
+	return f.pairingRound, f.pairingErr
 }
 
 func TestYunbisaiServiceUsesOpaqueLoginFlowAndFiltersOrders(t *testing.T) {
@@ -200,6 +218,80 @@ func TestYunbisaiServiceMapsOrderDetail(t *testing.T) {
 	}
 	if client.eventInfoID != "67043" {
 		t.Fatalf("event info id = %q", client.eventInfoID)
+	}
+}
+
+func TestYunbisaiServiceLoadsEventGroupsOnce(t *testing.T) {
+	client := &fakeYunbisaiClient{eventGroups: []YunbisaiRemoteGroup{{
+		GroupID: "331092", Name: "8级组", PlayerCount: 27,
+		StartTime: "2026-06-07 00:00:00", EndTime: "2026-06-07 19:30:00",
+	}}}
+	service := NewYunbisaiService(YunbisaiServiceOptions{Client: client})
+
+	groups, err := service.EventGroups(context.Background(), "67043")
+	if err != nil || len(groups) != 1 {
+		t.Fatalf("groups = %#v err %v", groups, err)
+	}
+	if client.eventGroupID != "67043" {
+		t.Fatalf("event group id = %q", client.eventGroupID)
+	}
+	if groups[0].GroupID != "331092" || groups[0].Name != "8级组" || groups[0].PlayerCount != 27 {
+		t.Fatalf("group = %#v", groups[0])
+	}
+}
+
+func TestYunbisaiServiceMapsGroupPairings(t *testing.T) {
+	client := &fakeYunbisaiClient{pairingRound: YunbisaiRemotePairingRound{
+		GroupName: "8级组", LastBout: 7, TotalBout: 7,
+		Rows: []YunbisaiRemotePairing{
+			{
+				SeatNumber: "1", P1Name: "棋手甲", P1TeamName: "甲队", P1Result: "1", P1Score: "2.0",
+				P2Name: "棋手乙", P2TeamName: "乙队", P2Result: "2", P2Score: "0.0",
+			},
+			{SeatNumber: "2", P1Name: "棋手丙", P1Result: "1", P2Name: "--", P2Result: ""},
+			{SeatNumber: "3", P1Name: "棋手丁", P1Result: "9", P2Name: "棋手戊", P2Result: "9"},
+		},
+	}}
+	service := NewYunbisaiService(YunbisaiServiceOptions{Client: client})
+
+	result, err := service.GroupPairings(context.Background(), "331092", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.pairingGroupID != "331092" || client.pairingBout != 0 {
+		t.Fatalf("pairing call = %#v", client)
+	}
+	if result.GroupID != "331092" || result.GroupName != "8级组" || result.Round != 7 || result.TotalRounds != 7 || len(result.Matches) != 3 {
+		t.Fatalf("result = %#v", result)
+	}
+	if result.Matches[0].Player1.Result != "win" || result.Matches[0].Player2.Result != "loss" {
+		t.Fatalf("known results = %#v", result.Matches[0])
+	}
+	if result.Matches[1].Player2.Result != "bye" {
+		t.Fatalf("bye result = %#v", result.Matches[1])
+	}
+	if result.Matches[2].Player1.Result != "unknown" || result.Matches[2].Player2.Result != "unknown" {
+		t.Fatalf("unknown results = %#v", result.Matches[2])
+	}
+}
+
+func TestYunbisaiServiceRejectsInvalidGroupRequests(t *testing.T) {
+	client := &fakeYunbisaiClient{}
+	service := NewYunbisaiService(YunbisaiServiceOptions{Client: client})
+	if _, err := service.EventGroups(context.Background(), " "); err == nil {
+		t.Fatal("blank event id should fail")
+	}
+	if client.eventGroupID != "" {
+		t.Fatalf("event groups called for invalid id = %q", client.eventGroupID)
+	}
+	if _, err := service.GroupPairings(context.Background(), " ", 0); err == nil {
+		t.Fatal("blank group id should fail")
+	}
+	if _, err := service.GroupPairings(context.Background(), "331092", -1); err == nil {
+		t.Fatal("negative bout should fail")
+	}
+	if client.pairingGroupID != "" {
+		t.Fatalf("pairings called for invalid request = %#v", client)
 	}
 }
 

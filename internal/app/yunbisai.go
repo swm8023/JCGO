@@ -33,6 +33,8 @@ type YunbisaiBackend interface {
 	Orders(context.Context, YunbisaiAuth, int) (YunbisaiOrderPage, error)
 	OrderDetail(context.Context, YunbisaiAuth, string) (YunbisaiOrderDetail, error)
 	EventInfo(context.Context, string) (map[string]any, error)
+	EventGroups(context.Context, string) ([]YunbisaiRemoteGroup, error)
+	GroupPairings(context.Context, string, int) (YunbisaiRemotePairingRound, error)
 }
 
 type YunbisaiServiceOptions struct {
@@ -110,6 +112,36 @@ type YunbisaiPlayer struct {
 	Name      string `json:"name"`
 	GroupName string `json:"groupName,omitempty"`
 	TeamName  string `json:"teamName,omitempty"`
+}
+
+type YunbisaiEventGroup struct {
+	GroupID     string `json:"groupId"`
+	Name        string `json:"name"`
+	PlayerCount int    `json:"playerCount"`
+	StartTime   string `json:"startTime,omitempty"`
+	EndTime     string `json:"endTime,omitempty"`
+}
+
+type YunbisaiPairingPlayer struct {
+	Name     string `json:"name"`
+	TeamName string `json:"teamName,omitempty"`
+	Result   string `json:"result"`
+	Score    string `json:"score,omitempty"`
+}
+
+type YunbisaiPairing struct {
+	SeatNumber    string                `json:"seatNumber"`
+	AgainstPlanID string                `json:"againstPlanId,omitempty"`
+	Player1       YunbisaiPairingPlayer `json:"player1"`
+	Player2       YunbisaiPairingPlayer `json:"player2"`
+}
+
+type YunbisaiGroupPairings struct {
+	GroupID     string            `json:"groupId"`
+	GroupName   string            `json:"groupName,omitempty"`
+	Round       int               `json:"round"`
+	TotalRounds int               `json:"totalRounds"`
+	Matches     []YunbisaiPairing `json:"matches"`
 }
 
 func NewYunbisaiService(opts YunbisaiServiceOptions) *YunbisaiService {
@@ -214,6 +246,85 @@ func (s *YunbisaiService) LoginSelect(ctx context.Context, flowID, loginID strin
 
 func (s *YunbisaiService) Logout(ctx context.Context) error {
 	return s.authStore.Clear(ctx)
+}
+
+func (s *YunbisaiService) EventGroups(ctx context.Context, eventID string) ([]YunbisaiEventGroup, error) {
+	eventID = strings.TrimSpace(eventID)
+	if eventID == "" {
+		return nil, errors.New("云比赛赛事编号不能为空")
+	}
+	remote, err := s.client.EventGroups(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+	groups := make([]YunbisaiEventGroup, 0, len(remote))
+	for _, item := range remote {
+		groupID := strings.TrimSpace(item.GroupID)
+		name := strings.TrimSpace(item.Name)
+		if groupID == "" || name == "" || item.PlayerCount < 0 {
+			return nil, errors.New("云比赛组别数据格式无效")
+		}
+		groups = append(groups, YunbisaiEventGroup{
+			GroupID: groupID, Name: name, PlayerCount: item.PlayerCount,
+			StartTime: item.StartTime, EndTime: item.EndTime,
+		})
+	}
+	return groups, nil
+}
+
+func (s *YunbisaiService) GroupPairings(ctx context.Context, groupID string, bout int) (YunbisaiGroupPairings, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return YunbisaiGroupPairings{}, errors.New("云比赛组别编号不能为空")
+	}
+	if bout < 0 {
+		return YunbisaiGroupPairings{}, errors.New("云比赛轮次无效")
+	}
+	remote, err := s.client.GroupPairings(ctx, groupID, bout)
+	if err != nil {
+		return YunbisaiGroupPairings{}, err
+	}
+	if remote.LastBout <= 0 || remote.TotalBout < remote.LastBout {
+		return YunbisaiGroupPairings{}, errors.New("云比赛对阵数据格式无效")
+	}
+	result := YunbisaiGroupPairings{
+		GroupID: groupID, GroupName: strings.TrimSpace(remote.GroupName),
+		Round: remote.LastBout, TotalRounds: remote.TotalBout,
+		Matches: make([]YunbisaiPairing, 0, len(remote.Rows)),
+	}
+	for _, row := range remote.Rows {
+		if strings.TrimSpace(row.SeatNumber) == "" || (strings.TrimSpace(row.P1Name) == "" && strings.TrimSpace(row.P2Name) == "") {
+			return YunbisaiGroupPairings{}, errors.New("云比赛对阵数据格式无效")
+		}
+		result.Matches = append(result.Matches, YunbisaiPairing{
+			SeatNumber: row.SeatNumber, AgainstPlanID: row.AgainstPlanID,
+			Player1: YunbisaiPairingPlayer{
+				Name: row.P1Name, TeamName: row.P1TeamName,
+				Result: normalizeYunbisaiPairingResult(row.P1Name, row.P1Result), Score: row.P1Score,
+			},
+			Player2: YunbisaiPairingPlayer{
+				Name: row.P2Name, TeamName: row.P2TeamName,
+				Result: normalizeYunbisaiPairingResult(row.P2Name, row.P2Result), Score: row.P2Score,
+			},
+		})
+	}
+	return result, nil
+}
+
+func normalizeYunbisaiPairingResult(name, result string) string {
+	if strings.TrimSpace(name) == "" || strings.TrimSpace(name) == "--" || strings.TrimSpace(name) == "-" {
+		return "bye"
+	}
+	switch strings.TrimSpace(result) {
+	case "1":
+		return "win"
+	case "2":
+		return "loss"
+	case "":
+		return "pending"
+	default:
+		return "unknown"
+	}
 }
 
 func (s *YunbisaiService) MyEvents(ctx context.Context, page int) (YunbisaiMyEventsResult, error) {

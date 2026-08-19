@@ -77,6 +77,7 @@ type YunbisaiRemoteGroup struct {
 }
 
 type YunbisaiRemotePairingRound struct {
+	GroupName string
 	LastBout  int
 	TotalBout int
 	Rows      []YunbisaiRemotePairing
@@ -399,6 +400,7 @@ func (c *YunbisaiClient) GroupPairings(ctx context.Context, groupID string, bout
 		Error int    `json:"error"`
 		Msg   string `json:"msg"`
 		Data  struct {
+			Title     string           `json:"title"`
 			Rows      []map[string]any `json:"rows"`
 			LastBout  any              `json:"lastbout"`
 			TotalBout any              `json:"total_bout"`
@@ -415,7 +417,7 @@ func (c *YunbisaiClient) GroupPairings(ctx context.Context, groupID string, bout
 	if !ok || totalBout < lastBout {
 		return YunbisaiRemotePairingRound{}, errors.New("云比赛对阵数据格式无效")
 	}
-	result := YunbisaiRemotePairingRound{LastBout: lastBout, TotalBout: totalBout, Rows: make([]YunbisaiRemotePairing, 0, len(payload.Data.Rows))}
+	result := YunbisaiRemotePairingRound{GroupName: textValue(payload.Data.Title), LastBout: lastBout, TotalBout: totalBout, Rows: make([]YunbisaiRemotePairing, 0, len(payload.Data.Rows))}
 	for _, row := range payload.Data.Rows {
 		pairing := YunbisaiRemotePairing{
 			SeatNumber: textValue(row["seatnum"]), AgainstPlanID: textValue(row["againstplanid"]),

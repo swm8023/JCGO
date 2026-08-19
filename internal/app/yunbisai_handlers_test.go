@@ -8,12 +8,15 @@ import (
 )
 
 type fakeYunbisaiServiceBackend struct {
-	polledFlow    string
-	selectedFlow  string
-	selectedLogin string
-	eventsPage    int
-	detailOrder   string
-	loggedOut     bool
+	polledFlow     string
+	selectedFlow   string
+	selectedLogin  string
+	eventsPage     int
+	detailOrder    string
+	loggedOut      bool
+	eventGroupID   string
+	pairingGroupID string
+	pairingBout    int
 }
 
 func (f *fakeYunbisaiServiceBackend) Status(context.Context) (YunbisaiStatusResult, error) {
@@ -69,6 +72,17 @@ func (f *fakeYunbisaiServiceBackend) MyEventDetail(_ context.Context, orderID st
 	}, nil
 }
 
+func (f *fakeYunbisaiServiceBackend) EventGroups(_ context.Context, eventID string) ([]YunbisaiEventGroup, error) {
+	f.eventGroupID = eventID
+	return []YunbisaiEventGroup{{GroupID: "331092", Name: "8级组", PlayerCount: 27}}, nil
+}
+
+func (f *fakeYunbisaiServiceBackend) GroupPairings(_ context.Context, groupID string, bout int) (YunbisaiGroupPairings, error) {
+	f.pairingGroupID = groupID
+	f.pairingBout = bout
+	return YunbisaiGroupPairings{GroupID: groupID, Round: 7, TotalRounds: 7}, nil
+}
+
 func TestHandlerCallYunbisaiMethods(t *testing.T) {
 	handler, token := newTestHandler(t)
 	fake := &fakeYunbisaiServiceBackend{}
@@ -82,6 +96,9 @@ func TestHandlerCallYunbisaiMethods(t *testing.T) {
 		callResult[any](t, handler, token, "yunbisai.logout", nil),
 		callResult[YunbisaiMyEventsResult](t, handler, token, "yunbisai.myEvents", map[string]any{"page": 2}),
 		callResult[YunbisaiMyEventDetail](t, handler, token, "yunbisai.myEventDetail", map[string]any{"orderId": "order-1"}),
+		callResult[[]YunbisaiEventGroup](t, handler, token, "yunbisai.eventGroups", map[string]any{"eventId": "67043"}),
+		callResult[YunbisaiGroupPairings](t, handler, token, "yunbisai.groupPairings", map[string]any{"groupId": "331092"}),
+		callResult[YunbisaiGroupPairings](t, handler, token, "yunbisai.groupPairings", map[string]any{"groupId": "331092", "bout": 6}),
 	}
 
 	if fake.polledFlow != "flow-1" || fake.selectedFlow != "flow-1" || fake.selectedLogin != "7" {
@@ -89,6 +106,9 @@ func TestHandlerCallYunbisaiMethods(t *testing.T) {
 	}
 	if !fake.loggedOut || fake.eventsPage != 2 || fake.detailOrder != "order-1" {
 		t.Fatalf("data calls = %#v", fake)
+	}
+	if fake.eventGroupID != "67043" || fake.pairingGroupID != "331092" || fake.pairingBout != 6 {
+		t.Fatalf("group calls = %#v", fake)
 	}
 	for _, result := range results {
 		raw, err := json.Marshal(result)
@@ -115,6 +135,10 @@ func TestYunbisaiHandlerValidatesParameters(t *testing.T) {
 		{method: "yunbisai.loginSelect", params: map[string]any{"flowId": "", "loginId": "7"}},
 		{method: "yunbisai.loginSelect", params: map[string]any{"flowId": "flow-1", "loginId": ""}},
 		{method: "yunbisai.myEventDetail", params: map[string]any{"orderId": " "}},
+		{method: "yunbisai.eventGroups", params: map[string]any{"eventId": " "}},
+		{method: "yunbisai.groupPairings", params: map[string]any{"groupId": ""}},
+		{method: "yunbisai.groupPairings", params: map[string]any{"groupId": "331092", "bout": 0}},
+		{method: "yunbisai.groupPairings", params: map[string]any{"groupId": "331092", "bout": -1}},
 	}
 	for _, tc := range cases {
 		raw, err := json.Marshal(tc.params)
