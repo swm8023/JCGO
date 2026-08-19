@@ -148,7 +148,7 @@ Invoke `git-workflow` checkpoint for `internal/app/yunbisai_client.go` and `inte
 
 **Acceptance:** The service returns frontend-safe groups and round data, maps known results without guessing unknown values, validates RPC parameters before external calls, and dispatches the new methods without credentials in the result.
 
-- [ ] **Step 1: Extend the fake backend and write failing service tests**
+- [x] **Step 1: Extend the fake backend and write failing service tests**
 
 Extend `fakeYunbisaiClient` with `EventGroups`, `GroupPairings`, call records, and configured errors. Add:
 
@@ -164,7 +164,7 @@ go test ./internal/app -run "TestYunbisaiService(EventGroups|GroupPairings|Rejec
 
 Expected: FAIL because the service methods and normalized models do not exist.
 
-- [ ] **Step 2: Write failing handler dispatch and validation tests**
+- [x] **Step 2: Write failing handler dispatch and validation tests**
 
 Extend the handler fake and dispatch table tests with:
 
@@ -183,7 +183,7 @@ go test ./internal/app -run "TestYunbisaiHandler|TestHandlerCallYunbisai" -count
 
 Expected: FAIL because the RPC parameters, methods, and dispatch cases are absent.
 
-- [ ] **Step 3: Implement service models, mapping, and handler dispatch**
+- [x] **Step 3: Implement service models, mapping, and handler dispatch**
 
 Add normalized models for `YunbisaiEventGroup`, `YunbisaiGroupPairings`, and `YunbisaiPairing` in the existing Yunbisai app boundary. Extend `YunbisaiBackend` and `YunbisaiServiceBackend`, implement:
 
@@ -194,7 +194,7 @@ func (s *YunbisaiService) GroupPairings(context.Context, string, int) (YunbisaiG
 
 Map `p1_result`/`p2_result` values `1` to win and `2` to loss; represent bye and unknown/missing values explicitly. Add parameter structs and two handler methods, then register both switch cases in `Handler.Call`. Keep these public-data calls independent of saved Yunbisai auth and do not add ranking-table calls.
 
-- [ ] **Step 4: Verify backend focused and regression tests**
+- [x] **Step 4: Verify backend focused and regression tests**
 
 Run:
 
@@ -204,9 +204,9 @@ go test ./internal/app -run "TestYunbisai(Service|Handler|HandlerCallYunbisai|Cl
 
 Expected: PASS for new and existing Yunbisai behavior.
 
-- [ ] **Step 5: Git checkpoint**
+- [x] **Step 5: Git checkpoint**
 
-Invoke `git-workflow` checkpoint for the backend service, handler, dispatch, and their tests after the focused suite passes. Record the commit hash and subject.
+Invoke `git-workflow` checkpoint for the backend service, handler, dispatch, and their tests after the focused suite passes. Recorded commit: `00c8d46 feat: expose Yunbisai groups and pairings`.
 
 ### Task 4: Add frontend types and JSON-RPC wiring
 
