@@ -22,7 +22,7 @@
 
 **Acceptance:** Wiki contains only stable, approved facts about the existing Yunbisai integration, the new group/pairing data flow, and the request-count rule; the root index links to the new page.
 
-- [ ] **Step 1: Read the existing wiki index and confirm the root-page scope**
+- [x] **Step 1: Read the existing wiki index and confirm the root-page scope**
 
 Run:
 
@@ -32,7 +32,7 @@ Get-Content docs/wiki/wiki.md -Raw
 
 Expected: the existing top-level index is understood before adding the cloud-events page.
 
-- [ ] **Step 2: Write the approved stable knowledge**
+- [x] **Step 2: Write the approved stable knowledge**
 
 Create `docs/wiki/cloud-events.md` with a first-line `> 摘要：` summary and sections covering:
 
@@ -44,7 +44,7 @@ Create `docs/wiki/cloud-events.md` with a first-line `> 摘要：` summary and s
 
 Update `docs/wiki/wiki.md` with a link to `cloud-events.md` without changing unrelated entries.
 
-- [ ] **Step 3: Verify wiki structure and stability**
+- [x] **Step 3: Verify wiki structure and stability**
 
 Run:
 
@@ -55,9 +55,9 @@ git diff --check
 
 Expected: both pages have required summaries/headings, the index link exists, and there is no whitespace error or unapproved implementation checklist.
 
-- [ ] **Step 4: Git checkpoint**
+- [x] **Step 4: Git checkpoint**
 
-Invoke `git-workflow` checkpoint for `docs/wiki/wiki.md` and `docs/wiki/cloud-events.md` only after Step 3 passes. Record the commit hash and subject.
+Invoke `git-workflow` checkpoint for `docs/wiki/wiki.md` and `docs/wiki/cloud-events.md` only after Step 3 passes. Recorded commit: `4778e5f docs: document Yunbisai cloud events`.
 
 ### Task 2: Add the public Yunbisai group and pairing client
 
