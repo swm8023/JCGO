@@ -375,6 +375,36 @@ export interface YunbisaiMyEventDetail {
   players?: YunbisaiPlayer[]
 }
 
+export interface YunbisaiEventGroup {
+  groupId: string
+  name: string
+  playerCount: number
+  startTime?: string
+  endTime?: string
+}
+
+export interface YunbisaiPairingPlayer {
+  name: string
+  teamName?: string
+  result: string
+  score?: string
+}
+
+export interface YunbisaiPairing {
+  seatNumber: string
+  againstPlanId?: string
+  player1: YunbisaiPairingPlayer
+  player2: YunbisaiPairingPlayer
+}
+
+export interface YunbisaiGroupPairings {
+  groupId: string
+  groupName?: string
+  round: number
+  totalRounds: number
+  matches: YunbisaiPairing[]
+}
+
 export interface YunbisaiMyEventsAPI {
   status(): Promise<YunbisaiStatusResult>
   loginStart(): Promise<YunbisaiLoginStartResult>
@@ -383,4 +413,6 @@ export interface YunbisaiMyEventsAPI {
   logout(): Promise<void>
   myEvents(page: number): Promise<YunbisaiMyEventsResult>
   myEventDetail(orderId: string): Promise<YunbisaiMyEventDetail>
+  eventGroups(eventId: string): Promise<YunbisaiEventGroup[]>
+  groupPairings(groupId: string, bout?: number): Promise<YunbisaiGroupPairings>
 }

@@ -381,6 +381,10 @@ export default function App() {
     logout: () => requireClient().call('yunbisai.logout'),
     myEvents: (page) => requireClient().call('yunbisai.myEvents', { page }),
     myEventDetail: (orderId) => requireClient().call('yunbisai.myEventDetail', { orderId }),
+    eventGroups: (eventId) => requireClient().call('yunbisai.eventGroups', { eventId }),
+    groupPairings: (groupId, bout) => bout === undefined
+      ? requireClient().call('yunbisai.groupPairings', { groupId })
+      : requireClient().call('yunbisai.groupPairings', { groupId, bout }),
   }
 
   const logoutYuanluobo = async () => {

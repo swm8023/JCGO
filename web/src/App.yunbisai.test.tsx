@@ -30,6 +30,20 @@ vi.mock('./api/jsonrpc', () => ({
       if (method === 'yunbisai.myEvents') {
         return Promise.resolve({ loggedIn: true, total: 0, page: 1, events: [] })
       }
+      if (method === 'yunbisai.eventGroups') {
+        return Promise.resolve([
+          { groupId: '331092', name: '8级组', playerCount: 27 },
+        ])
+      }
+      if (method === 'yunbisai.groupPairings') {
+        return Promise.resolve({
+          groupId: '331092',
+          groupName: '8级组',
+          round: 7,
+          totalRounds: 7,
+          matches: [],
+        })
+      }
       return Promise.resolve(undefined)
     }
   },
@@ -42,6 +56,9 @@ vi.mock('./components/CloudEventsPage', () => ({
       onClick={() => {
         void myEventsApi.status()
         void myEventsApi.myEvents(1)
+        void myEventsApi.eventGroups('67043')
+        void myEventsApi.groupPairings('331092')
+        void myEventsApi.groupPairings('331092', 6)
       }}
     >
       调用云比赛 API
@@ -78,6 +95,22 @@ describe('App Yunbisai API wiring', () => {
     await waitFor(() => {
       expect(rpc.calls).toContainEqual({ method: 'yunbisai.status', params: undefined })
       expect(rpc.calls).toContainEqual({ method: 'yunbisai.myEvents', params: { page: 1 } })
+    })
+  })
+
+  it('passes group and pairing RPC methods with latest and explicit round params', async () => {
+    render(<App />)
+
+    await screen.findByLabelText('打开功能菜单')
+    await userEvent.click(screen.getByLabelText('打开功能菜单'))
+    await userEvent.click(screen.getByRole('button', { name: '云比赛' }))
+
+    await userEvent.click(screen.getByRole('button', { name: '调用云比赛 API' }))
+
+    await waitFor(() => {
+      expect(rpc.calls).toContainEqual({ method: 'yunbisai.eventGroups', params: { eventId: '67043' } })
+      expect(rpc.calls).toContainEqual({ method: 'yunbisai.groupPairings', params: { groupId: '331092' } })
+      expect(rpc.calls).toContainEqual({ method: 'yunbisai.groupPairings', params: { groupId: '331092', bout: 6 } })
     })
   })
 })
