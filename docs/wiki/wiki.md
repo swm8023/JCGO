@@ -5,3 +5,7 @@
 ## 顶层目录
 
 - [`mobile/`](mobile/mobile.md)：Android 移动端架构、运行约定和部署知识。
+
+## 专题页面
+
+- [`cloud-events.md`](cloud-events.md)：云比赛公开赛事、“我的比赛”及组别对阵数据流。
