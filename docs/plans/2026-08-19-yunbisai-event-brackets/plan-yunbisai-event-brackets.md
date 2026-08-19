@@ -217,7 +217,7 @@ Invoke `git-workflow` checkpoint for the backend service, handler, dispatch, and
 
 **Acceptance:** The frontend API exposes the two new server-safe methods with optional latest-round semantics, and `App` sends exactly the intended RPC method/parameters.
 
-- [ ] **Step 1: Write failing API wiring assertions**
+- [x] **Step 1: Write failing API wiring assertions**
 
 Extend the existing RPC fake in `App.yunbisai.test.tsx` to return group and pairing fixtures. Add assertions that rendering the cloud page and opening a detail can invoke:
 
@@ -236,11 +236,11 @@ npm test -- --run src/App.yunbisai.test.tsx
 
 Expected: FAIL because the API interface and App wiring do not expose the new methods.
 
-- [ ] **Step 2: Implement frontend-safe types and wiring**
+- [x] **Step 2: Implement frontend-safe types and wiring**
 
 Add `YunbisaiEventGroup`, `YunbisaiPairingPlayer`, `YunbisaiPairing`, and `YunbisaiGroupPairings` types. Extend `YunbisaiMyEventsAPI` with `eventGroups(eventId)` and `groupPairings(groupId, bout?)`. Add App RPC functions that omit `bout` for latest-round requests and include it for explicit rounds.
 
-- [ ] **Step 3: Verify API wiring**
+- [x] **Step 3: Verify API wiring**
 
 Run:
 
@@ -251,9 +251,9 @@ npm test -- --run src/App.yunbisai.test.tsx
 
 Expected: PASS with existing cloud-event wiring assertions unchanged.
 
-- [ ] **Step 4: Git checkpoint**
+- [x] **Step 4: Git checkpoint**
 
-Invoke `git-workflow` checkpoint for `web/src/api/types.ts`, `web/src/App.tsx`, and `web/src/App.yunbisai.test.tsx` after the focused test passes. Record the commit hash and subject.
+Invoke `git-workflow` checkpoint for `web/src/api/types.ts`, `web/src/App.tsx`, and `web/src/App.yunbisai.test.tsx` after the focused test passes. Recorded commit: `1e01abc feat: wire Yunbisai group RPCs to web`.
 
 ### Task 5: Build the group list, cached round view, and responsive styling
 
