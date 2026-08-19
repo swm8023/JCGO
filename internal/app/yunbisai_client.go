@@ -68,6 +68,33 @@ type YunbisaiOrderDetail struct {
 	PlayerInfo map[string]any
 }
 
+type YunbisaiRemoteGroup struct {
+	GroupID     string
+	Name        string
+	PlayerCount int
+	StartTime   string
+	EndTime     string
+}
+
+type YunbisaiRemotePairingRound struct {
+	LastBout  int
+	TotalBout int
+	Rows      []YunbisaiRemotePairing
+}
+
+type YunbisaiRemotePairing struct {
+	SeatNumber    string
+	AgainstPlanID string
+	P1Name        string
+	P1TeamName    string
+	P1Result      string
+	P1Score       string
+	P2Name        string
+	P2TeamName    string
+	P2Result      string
+	P2Score       string
+}
+
 type YunbisaiAuthInvalidError struct {
 	Message string
 }
@@ -308,6 +335,103 @@ func (c *YunbisaiClient) EventInfo(ctx context.Context, eventID string) (map[str
 	return payload.Data.EventInfo, nil
 }
 
+func (c *YunbisaiClient) EventGroups(ctx context.Context, eventID string) ([]YunbisaiRemoteGroup, error) {
+	eventID = strings.TrimSpace(eventID)
+	if eventID == "" {
+		return nil, errors.New("云比赛赛事编号不能为空")
+	}
+	raw, _, err := c.request(ctx, http.MethodGet, c.dataCenterURL+"/api/lswl-groups/event/"+url.PathEscape(eventID), nil, YunbisaiAuth{})
+	if err != nil {
+		return nil, err
+	}
+	var payload struct {
+		Error int             `json:"error"`
+		Data  json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil || payload.Error != 0 || len(payload.Data) == 0 || string(payload.Data) == "null" {
+		return nil, errors.New("云比赛组别数据格式无效")
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal(payload.Data, &rows); err != nil {
+		return nil, errors.New("云比赛组别数据格式无效")
+	}
+	groups := make([]YunbisaiRemoteGroup, 0, len(rows))
+	for _, row := range rows {
+		groupID := textValue(row["groupid"])
+		name := textValue(row["groupname"])
+		if groupID == "" || name == "" {
+			return nil, errors.New("云比赛组别数据格式无效")
+		}
+		playerCount, ok := integerValue(row["pnumber"])
+		if !ok {
+			return nil, errors.New("云比赛组别数据格式无效")
+		}
+		groups = append(groups, YunbisaiRemoteGroup{
+			GroupID: groupID, Name: name, PlayerCount: playerCount,
+			StartTime: textValue(row["begintime"]), EndTime: textValue(row["endtime"]),
+		})
+	}
+	return groups, nil
+}
+
+func (c *YunbisaiClient) GroupPairings(ctx context.Context, groupID string, bout int) (YunbisaiRemotePairingRound, error) {
+	groupID = strings.TrimSpace(groupID)
+	if groupID == "" {
+		return YunbisaiRemotePairingRound{}, errors.New("云比赛组别编号不能为空")
+	}
+	query := url.Values{
+		"callback": {"jcgoYunbisaiPairings"},
+		"groupid":  {groupID},
+		"bout":     {""},
+	}
+	if bout > 0 {
+		query.Set("bout", strconv.Itoa(bout))
+	}
+	raw, _, err := c.request(ctx, http.MethodGet, c.apiURL+"/request/group/againstplan?"+query.Encode(), nil, YunbisaiAuth{})
+	if err != nil {
+		return YunbisaiRemotePairingRound{}, err
+	}
+	jsonPayload, err := decodeYunbisaiJSONP(raw)
+	if err != nil {
+		return YunbisaiRemotePairingRound{}, errors.New("云比赛对阵数据格式无效")
+	}
+	var payload struct {
+		Error int    `json:"error"`
+		Msg   string `json:"msg"`
+		Data  struct {
+			Rows      []map[string]any `json:"rows"`
+			LastBout  any              `json:"lastbout"`
+			TotalBout any              `json:"total_bout"`
+		} `json:"datArr"`
+	}
+	if err := json.Unmarshal(jsonPayload, &payload); err != nil || payload.Error != 0 {
+		return YunbisaiRemotePairingRound{}, errors.New("云比赛对阵数据格式无效")
+	}
+	lastBout, ok := integerValue(payload.Data.LastBout)
+	if !ok || lastBout <= 0 {
+		return YunbisaiRemotePairingRound{}, errors.New("云比赛对阵数据格式无效")
+	}
+	totalBout, ok := integerValue(payload.Data.TotalBout)
+	if !ok || totalBout < lastBout {
+		return YunbisaiRemotePairingRound{}, errors.New("云比赛对阵数据格式无效")
+	}
+	result := YunbisaiRemotePairingRound{LastBout: lastBout, TotalBout: totalBout, Rows: make([]YunbisaiRemotePairing, 0, len(payload.Data.Rows))}
+	for _, row := range payload.Data.Rows {
+		pairing := YunbisaiRemotePairing{
+			SeatNumber: textValue(row["seatnum"]), AgainstPlanID: textValue(row["againstplanid"]),
+			P1Name: textValue(row["p1"]), P1TeamName: textValue(row["p1_teamname"]),
+			P1Result: textValue(row["p1_result"]), P1Score: textValue(row["p1_score"]),
+			P2Name: textValue(row["p2"]), P2TeamName: textValue(row["p2_teamname"]),
+			P2Result: textValue(row["p2_result"]), P2Score: textValue(row["p2_score"]),
+		}
+		if pairing.SeatNumber == "" || (pairing.P1Name == "" && pairing.P2Name == "") {
+			return YunbisaiRemotePairingRound{}, errors.New("云比赛对阵数据格式无效")
+		}
+		result.Rows = append(result.Rows, pairing)
+	}
+	return result, nil
+}
+
 func (c *YunbisaiClient) request(ctx context.Context, method, endpoint string, form url.Values, auth YunbisaiAuth) ([]byte, []YunbisaiCookie, error) {
 	var body io.Reader
 	if form != nil {
@@ -402,4 +526,28 @@ func textValue(value any) string {
 	default:
 		return ""
 	}
+}
+
+func integerValue(value any) (int, bool) {
+	raw := textValue(value)
+	if raw == "" {
+		return 0, false
+	}
+	parsed, err := strconv.Atoi(raw)
+	return parsed, err == nil
+}
+
+func decodeYunbisaiJSONP(raw []byte) ([]byte, error) {
+	value := strings.TrimSpace(string(raw))
+	value = strings.TrimSuffix(value, ";")
+	open := strings.IndexByte(value, '(')
+	close := strings.LastIndexByte(value, ')')
+	if open <= 0 || close <= open || close != len(value)-1 {
+		return nil, errors.New("invalid JSONP")
+	}
+	jsonValue := strings.TrimSpace(value[open+1 : close])
+	if !json.Valid([]byte(jsonValue)) {
+		return nil, errors.New("invalid JSONP payload")
+	}
+	return []byte(jsonValue), nil
 }

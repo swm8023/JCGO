@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -179,6 +180,117 @@ func TestYunbisaiClientRejectsMalformedPayload(t *testing.T) {
 	client := NewYunbisaiClient(YunbisaiClientOptions{HTTPClient: server.Client(), DataCenterURL: server.URL})
 	if _, err := client.LoginStart(context.Background()); err == nil {
 		t.Fatal("malformed QR payload should fail")
+	}
+}
+
+func TestYunbisaiClientEventGroups(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/lswl-groups/event/67043", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("token") != "" || r.Header.Get("Cookie") != "" {
+			t.Fatalf("public event groups should not receive saved credentials")
+		}
+		writeYunbisaiTestJSON(w, map[string]any{
+			"error": 0,
+			"data": []map[string]any{{
+				"groupname": "8级组", "groupid": 331092, "pnumber": 27,
+				"begintime": "2026-06-07 00:00:00", "endtime": "2026-06-07 19:30:00",
+			}},
+		})
+	})
+	mux.HandleFunc("/api/lswl-groups/event/malformed", func(w http.ResponseWriter, r *http.Request) {
+		writeYunbisaiTestJSON(w, map[string]any{"error": 0, "data": map[string]any{"wrong": true}})
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	client := NewYunbisaiClient(YunbisaiClientOptions{HTTPClient: server.Client(), DataCenterURL: server.URL})
+
+	groups, err := client.EventGroups(context.Background(), "67043")
+	if err != nil || len(groups) != 1 {
+		t.Fatalf("groups = %#v err %v", groups, err)
+	}
+	if groups[0].GroupID != "331092" || groups[0].Name != "8级组" || groups[0].PlayerCount != 27 {
+		t.Fatalf("group = %#v", groups[0])
+	}
+	if groups[0].StartTime != "2026-06-07 00:00:00" || groups[0].EndTime != "2026-06-07 19:30:00" {
+		t.Fatalf("group times = %#v", groups[0])
+	}
+	if _, err := client.EventGroups(context.Background(), "malformed"); err == nil {
+		t.Fatal("malformed group envelope should fail")
+	}
+}
+
+func TestYunbisaiClientGroupPairings(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/request/group/againstplan", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("groupid") != "331092" {
+			t.Fatalf("group id = %q", r.URL.Query().Get("groupid"))
+		}
+		if r.Header.Get("token") != "" || r.Header.Get("Cookie") != "" {
+			t.Fatalf("public group pairings should not receive saved credentials")
+		}
+		callback := r.URL.Query().Get("callback")
+		if callback == "" {
+			t.Fatal("callback is required")
+		}
+		bout := r.URL.Query().Get("bout")
+		if bout != "" && bout != "6" {
+			t.Fatalf("bout = %q", bout)
+		}
+		round := "7"
+		if bout == "6" {
+			round = "6"
+		}
+		payload := map[string]any{
+			"error": 0,
+			"datArr": map[string]any{
+				"lastbout": round, "total_bout": "7",
+				"rows": []map[string]any{{
+					"seatnum": "1", "againstplanid": "64532240",
+					"p1_teamname": "浙江省之江棋院壶庐分院", "p2_teamname": "博趣围棋",
+					"p1": "苏景澄", "p2": "魏宋子恒", "p1_result": "1", "p2_result": "2",
+					"p1_score": "2.0", "p2_score": "0.0",
+				}},
+			},
+		}
+		raw, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.Header().Set("Content-Type", "application/javascript")
+		_, _ = fmt.Fprintf(w, "%s(%s)", callback, raw)
+	})
+	brokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript")
+		_, _ = fmt.Fprint(w, "not-jsonp")
+	}))
+	errorServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writeYunbisaiTestJSON(w, map[string]any{"error": 1, "msg": "failed"})
+	}))
+	server := httptest.NewServer(mux)
+	defer server.Close()
+	defer brokenServer.Close()
+	defer errorServer.Close()
+
+	client := NewYunbisaiClient(YunbisaiClientOptions{HTTPClient: server.Client(), APIURL: server.URL})
+	latest, err := client.GroupPairings(context.Background(), "331092", 0)
+	if err != nil || latest.LastBout != 7 || latest.TotalBout != 7 || len(latest.Rows) != 1 {
+		t.Fatalf("latest = %#v err %v", latest, err)
+	}
+	if latest.Rows[0].P1Result != "1" || latest.Rows[0].P2Result != "2" || latest.Rows[0].P1Score != "2.0" {
+		t.Fatalf("latest row = %#v", latest.Rows[0])
+	}
+	explicit, err := client.GroupPairings(context.Background(), "331092", 6)
+	if err != nil || explicit.LastBout != 6 {
+		t.Fatalf("explicit = %#v err %v", explicit, err)
+	}
+
+	brokenClient := NewYunbisaiClient(YunbisaiClientOptions{HTTPClient: brokenServer.Client(), APIURL: brokenServer.URL})
+	if _, err := brokenClient.GroupPairings(context.Background(), "331092", 0); err == nil {
+		t.Fatal("malformed JSONP should fail")
+	}
+	errorClient := NewYunbisaiClient(YunbisaiClientOptions{HTTPClient: errorServer.Client(), APIURL: errorServer.URL})
+	if _, err := errorClient.GroupPairings(context.Background(), "331092", 0); err == nil {
+		t.Fatal("non-zero pairing envelope should fail")
 	}
 }
 
