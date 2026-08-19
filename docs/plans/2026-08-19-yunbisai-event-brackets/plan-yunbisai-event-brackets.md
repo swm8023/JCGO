@@ -264,7 +264,7 @@ Invoke `git-workflow` checkpoint for `web/src/api/types.ts`, `web/src/App.tsx`, 
 
 **Acceptance:** The current in-tab detail shows all groups with the registered group highlighted, lazy-loads the latest round, navigates rounds with bounded requests, caches visited data, and isolates group/pairing errors.
 
-- [ ] **Step 1: Extend component fixtures and write failing interaction tests**
+- [x] **Step 1: Extend component fixtures and write failing interaction tests**
 
 Update the `YunbisaiMyEventsAPI` test fixture with `eventGroups` and `groupPairings`. Add tests for these single behaviors:
 
@@ -284,19 +284,19 @@ npm test -- --run src/components/YunbisaiMyEventsPanel.test.tsx
 
 Expected: FAIL because the component has no group or pairing view.
 
-- [ ] **Step 2: Implement detail group loading and per-page caches**
+- [x] **Step 2: Implement detail group loading and per-page caches**
 
 Add group state and a one-call-per-event loader after detail opens. Compare group names with the already loaded detail player group only for the visual “我的组别” marker. Store group results and pairing results in refs keyed by event/group and `groupId + bout`; ignore stale async responses after unmount or view changes.
 
-- [ ] **Step 3: Implement the in-tab pairing view**
+- [x] **Step 3: Implement the in-tab pairing view**
 
 Add a group selection view with a back-to-detail action, latest-round loading, round metadata, previous/next buttons, match cards, result labels, empty states, retry states, and no ranking-table request. Keep session actions and existing official-detail link behavior available from the detail view.
 
-- [ ] **Step 4: Add focused styles and mobile behavior**
+- [x] **Step 4: Add focused styles and mobile behavior**
 
 Extend `web/src/styles.css` for group cards, the highlighted registered group, pairing header/round controls, match rows, result states, loading/errors, and the existing mobile breakpoint. Preserve the current panel's typography, focus outlines, scroll containment, and two-column detail grid behavior.
 
-- [ ] **Step 5: Verify component tests and frontend regression**
+- [x] **Step 5: Verify component tests and frontend regression**
 
 Run:
 
@@ -307,9 +307,9 @@ npm test -- --run src/components/YunbisaiMyEventsPanel.test.tsx src/components/C
 
 Expected: PASS, including request-count/cache assertions and existing login/list/detail behavior.
 
-- [ ] **Step 6: Git checkpoint**
+- [x] **Step 6: Git checkpoint**
 
-Invoke `git-workflow` checkpoint for the component, component tests, and styles after the focused frontend suite passes. Record the commit hash and subject.
+Invoke `git-workflow` checkpoint for the component, component tests, and styles after the focused frontend suite passes. Recorded commit: `ec98fe3 feat: add Yunbisai group pairing views`.
 
 ### Task 6: Run full verification and the real completed-event flow
 
