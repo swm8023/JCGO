@@ -2,12 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { CalendarCheck2, ChevronLeft, ExternalLink, LogOut, RefreshCw, UserRound } from 'lucide-react'
 import type {
   YunbisaiAccount,
+  YunbisaiEventGroup,
+  YunbisaiGroupPairings,
   YunbisaiMyEvent,
   YunbisaiMyEventDetail,
   YunbisaiMyEventsAPI,
+  YunbisaiPairing,
 } from '../api/types'
 
-type View = 'login' | 'accounts' | 'list' | 'detail'
+type View = 'login' | 'accounts' | 'list' | 'detail' | 'group'
 type LoadState = 'idle' | 'loading' | 'error'
 
 type YunbisaiMyEventsPanelProps = {
@@ -27,8 +30,35 @@ export function YunbisaiMyEventsPanel({ api }: YunbisaiMyEventsPanelProps) {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [detail, setDetail] = useState<YunbisaiMyEventDetail>()
+  const [groups, setGroups] = useState<YunbisaiEventGroup[]>([])
+  const [groupLoadState, setGroupLoadState] = useState<LoadState>('idle')
+  const [groupError, setGroupError] = useState<string>()
+  const [selectedGroup, setSelectedGroup] = useState<YunbisaiEventGroup>()
+  const [pairings, setPairings] = useState<YunbisaiGroupPairings>()
+  const [pairingLoadState, setPairingLoadState] = useState<LoadState>('idle')
+  const [pairingError, setPairingError] = useState<string>()
+  const [pairingTarget, setPairingTarget] = useState<{ groupID: string; bout?: number }>()
   const mounted = useRef(false)
   const pollBusy = useRef(false)
+  const groupCache = useRef(new Map<string, YunbisaiEventGroup[]>())
+  const pairingCache = useRef(new Map<string, YunbisaiGroupPairings>())
+  const groupRequestID = useRef(0)
+  const pairingRequestID = useRef(0)
+
+  const resetGroupData = useCallback(() => {
+    groupCache.current.clear()
+    pairingCache.current.clear()
+    groupRequestID.current += 1
+    pairingRequestID.current += 1
+    setGroups([])
+    setGroupLoadState('idle')
+    setGroupError(undefined)
+    setSelectedGroup(undefined)
+    setPairings(undefined)
+    setPairingLoadState('idle')
+    setPairingError(undefined)
+    setPairingTarget(undefined)
+  }, [])
 
   const beginLogin = useCallback(async () => {
     setView('login')
@@ -36,6 +66,7 @@ export function YunbisaiMyEventsPanel({ api }: YunbisaiMyEventsPanelProps) {
     setImageURL(undefined)
     setAccounts([])
     setDetail(undefined)
+    resetGroupData()
     setError(undefined)
     setLoadState('loading')
     setChecking(false)
@@ -50,7 +81,7 @@ export function YunbisaiMyEventsPanel({ api }: YunbisaiMyEventsPanelProps) {
       setError(errorMessage(reason))
       setLoadState('error')
     }
-  }, [api])
+  }, [api, resetGroupData])
 
   const loadEvents = useCallback(async (nextPage: number, replace: boolean) => {
     setError(undefined)
@@ -158,6 +189,78 @@ export function YunbisaiMyEventsPanel({ api }: YunbisaiMyEventsPanelProps) {
     }
   }
 
+  const loadGroups = useCallback(async (eventID: string, force = false) => {
+    const normalizedEventID = eventID.trim()
+    const requestID = ++groupRequestID.current
+    if (!normalizedEventID) {
+      setGroups([])
+      setGroupLoadState('idle')
+      setGroupError(undefined)
+      return
+    }
+    const cached = groupCache.current.get(normalizedEventID)
+    if (!force && cached) {
+      setGroups(cached)
+      setGroupLoadState('idle')
+      setGroupError(undefined)
+      return
+    }
+    setGroupLoadState('loading')
+    setGroupError(undefined)
+    try {
+      const result = await api.eventGroups(normalizedEventID)
+      if (!mounted.current || requestID !== groupRequestID.current) return
+      groupCache.current.set(normalizedEventID, result)
+      setGroups(result)
+      setGroupLoadState('idle')
+    } catch (reason) {
+      if (!mounted.current || requestID !== groupRequestID.current) return
+      setGroupError(errorMessage(reason))
+      setGroupLoadState('error')
+    }
+  }, [api])
+
+  const loadPairings = useCallback(async (groupID: string, bout?: number) => {
+    const normalizedGroupID = groupID.trim()
+    if (!normalizedGroupID) return
+    const key = pairingCacheKey(normalizedGroupID, bout)
+    const requestID = ++pairingRequestID.current
+    setPairingTarget({ groupID: normalizedGroupID, bout })
+    setPairingError(undefined)
+    const cached = pairingCache.current.get(key)
+    if (cached) {
+      setPairings(cached)
+      setPairingLoadState('idle')
+      return
+    }
+    setPairings(undefined)
+    setPairingLoadState('loading')
+    try {
+      const result = bout === undefined
+        ? await api.groupPairings(normalizedGroupID)
+        : await api.groupPairings(normalizedGroupID, bout)
+      if (!mounted.current || requestID !== pairingRequestID.current) return
+      pairingCache.current.set(key, result)
+      pairingCache.current.set(pairingCacheKey(normalizedGroupID, result.round), result)
+      if (bout === undefined) pairingCache.current.set(pairingCacheKey(normalizedGroupID, undefined), result)
+      setPairings(result)
+      setPairingLoadState('idle')
+    } catch (reason) {
+      if (!mounted.current || requestID !== pairingRequestID.current) return
+      setPairingError(errorMessage(reason))
+      setPairingLoadState('error')
+    }
+  }, [api])
+
+  const openGroup = (group: YunbisaiEventGroup) => {
+    setSelectedGroup(group)
+    setPairings(undefined)
+    setPairingError(undefined)
+    setPairingLoadState('idle')
+    setView('group')
+    void loadPairings(group.groupId)
+  }
+
   const openDetail = async (orderID: string) => {
     setError(undefined)
     setLoadState('loading')
@@ -170,8 +273,17 @@ export function YunbisaiMyEventsPanel({ api }: YunbisaiMyEventsPanelProps) {
         return
       }
       setDetail(result)
+      setGroups([])
+      setGroupLoadState('idle')
+      setGroupError(undefined)
+      setSelectedGroup(undefined)
+      setPairings(undefined)
+      setPairingLoadState('idle')
+      setPairingError(undefined)
+      setPairingTarget(undefined)
       setView('detail')
       setLoadState('idle')
+      if (result.eventId) void loadGroups(result.eventId)
     } catch (reason) {
       if (!mounted.current) return
       setError(errorMessage(reason))
@@ -326,6 +438,55 @@ export function YunbisaiMyEventsPanel({ api }: YunbisaiMyEventsPanelProps) {
             <DetailField label="下单时间" value={detail.createdAt} />
             <DetailField label="订单编号" value={detail.orderId} />
           </dl>
+          <section className="yunbisai-group-section" aria-label="赛事组别">
+            <div className="yunbisai-section-heading">
+              <div>
+                <p className="game-list-eyebrow">参赛分组</p>
+                <h4>赛事组别</h4>
+              </div>
+              {groupLoadState === 'loading' && <span className="yunbisai-section-status">加载中…</span>}
+            </div>
+            {groupLoadState === 'error' && (
+              <div className="yunbisai-inline-error" role="alert">
+                <span>{groupError || '组别加载失败'}</span>
+                <button
+                  type="button"
+                  onClick={() => detail.eventId && void loadGroups(detail.eventId, true)}
+                >
+                  重试加载组别
+                </button>
+              </div>
+            )}
+            {groupLoadState === 'idle' && groups.length === 0 && (
+              <p className="yunbisai-empty-note">暂无组别</p>
+            )}
+            {groups.length > 0 && (
+              <div className="yunbisai-group-list">
+                {groups.map((group) => {
+                  const registered = detail.players?.some((player) => (
+                    Boolean(player.groupName?.trim()) && player.groupName?.trim() === group.name.trim()
+                  )) ?? false
+                  return (
+                    <button
+                      key={group.groupId}
+                      className={`yunbisai-group-card${registered ? ' registered' : ''}`}
+                      type="button"
+                      onClick={() => openGroup(group)}
+                    >
+                      <span className="yunbisai-group-card-main">
+                        <strong>{group.name}</strong>
+                        {registered && <em>我的组别</em>}
+                      </span>
+                      <span className="yunbisai-group-card-meta">
+                        <span>{group.playerCount > 0 ? `${group.playerCount} 人` : '人数待公布'}</span>
+                        {(group.startTime || group.endTime) && <span>{formatTimeRange(group.startTime, group.endTime)}</span>}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </section>
           {(detail.players?.length ?? 0) > 0 && (
             <section className="yunbisai-player-section" aria-label="参赛棋手">
               <h4>参赛棋手</h4>
@@ -350,6 +511,81 @@ export function YunbisaiMyEventsPanel({ api }: YunbisaiMyEventsPanelProps) {
               打开云比赛原始详情
             </a>
           )}
+        </div>
+      )}
+
+      {view === 'group' && selectedGroup && (
+        <div className="yunbisai-group-detail">
+          <header className="yunbisai-group-detail-header">
+            <button
+              className="yunbisai-detail-back"
+              type="button"
+              onClick={() => {
+                setView('detail')
+                setSelectedGroup(undefined)
+                setPairings(undefined)
+                setPairingError(undefined)
+                setPairingLoadState('idle')
+              }}
+            >
+              <ChevronLeft size={17} aria-hidden />
+              返回赛事详情
+            </button>
+            <SessionActions account={account} onEndSession={endSession} />
+          </header>
+          <div className="yunbisai-pairing-title">
+            <div>
+              <p className="game-list-eyebrow">组别对阵</p>
+              <h3>{selectedGroup.name}对阵表</h3>
+            </div>
+            <span>{selectedGroup.playerCount > 0 ? `${selectedGroup.playerCount} 人` : '人数待公布'}</span>
+          </div>
+          <section className="yunbisai-pairing-section" aria-label={`${selectedGroup.name}对阵表`}>
+            {pairingLoadState === 'loading' && (
+              <p className="yunbisai-pairing-state" aria-live="polite">正在加载对阵表…</p>
+            )}
+            {pairingLoadState === 'error' && (
+              <div className="yunbisai-inline-error" role="alert">
+                <span>{pairingError || '对阵表加载失败'}</span>
+                <button
+                  type="button"
+                  onClick={() => pairingTarget && void loadPairings(pairingTarget.groupID, pairingTarget.bout)}
+                >
+                  重试对阵表
+                </button>
+              </div>
+            )}
+            {pairings && (
+              <>
+                <div className="yunbisai-round-controls">
+                  <button
+                    type="button"
+                    disabled={pairingLoadState === 'loading' || pairings.round <= 1}
+                    onClick={() => void loadPairings(selectedGroup.groupId, pairings.round - 1)}
+                  >
+                    上一轮
+                  </button>
+                  <strong aria-live="polite">第 {pairings.round} / {pairings.totalRounds} 轮</strong>
+                  <button
+                    type="button"
+                    disabled={pairingLoadState === 'loading' || pairings.round >= pairings.totalRounds}
+                    onClick={() => void loadPairings(selectedGroup.groupId, pairings.round + 1)}
+                  >
+                    下一轮
+                  </button>
+                </div>
+                {pairings.matches.length === 0
+                  ? <p className="yunbisai-pairing-state">暂无对阵</p>
+                  : (
+                    <div className="yunbisai-match-list">
+                      {pairings.matches.map((match) => (
+                        <PairingMatch key={`${match.seatNumber}-${match.againstPlanId || 'match'}`} match={match} />
+                      ))}
+                    </div>
+                  )}
+              </>
+            )}
+          </section>
         </div>
       )}
 
@@ -380,6 +616,31 @@ function SessionActions({
   )
 }
 
+function PairingMatch({ match }: { match: YunbisaiPairing }) {
+  return (
+    <article className="yunbisai-match-card" aria-label={`${match.seatNumber}台`}>
+      <div className="yunbisai-match-seat">{match.seatNumber} 台</div>
+      <div className="yunbisai-match-players">
+        <PairingPlayer player={match.player1} />
+        <span className="yunbisai-match-versus" aria-hidden="true">VS</span>
+        <PairingPlayer player={match.player2} />
+      </div>
+    </article>
+  )
+}
+
+function PairingPlayer({ player }: { player: YunbisaiPairing['player1'] }) {
+  const resultClass = player.result.replace(/[^a-z-]/gi, '') || 'unknown'
+  return (
+    <div className="yunbisai-pairing-player">
+      <strong>{pairingPlayerName(player.name)}</strong>
+      {player.teamName && <small>{player.teamName}</small>}
+      <span className={`yunbisai-result ${resultClass}`}>{pairingResultLabel(player.result)}</span>
+      {player.score && <small>得分 {player.score}</small>}
+    </div>
+  )
+}
+
 function DetailField({ label, value }: { label: string; value?: string }) {
   if (!value) return null
   return (
@@ -403,6 +664,25 @@ function statusLabel(status: YunbisaiMyEvent['status']) {
 function formatTimeRange(start?: string, end?: string) {
   if (start && end) return `${start} — ${end}`
   return start || end
+}
+
+function pairingCacheKey(groupID: string, bout?: number) {
+  return `${groupID}:${bout === undefined ? 'latest' : bout}`
+}
+
+function pairingPlayerName(name: string) {
+  if (name.trim().toLowerCase() === 'bye') return '轮空'
+  return name.trim() || '待定'
+}
+
+function pairingResultLabel(result: string) {
+  switch (result) {
+    case 'win': return '胜'
+    case 'loss': return '负'
+    case 'bye': return '轮空'
+    case 'pending': return '待定'
+    default: return '结果待确认'
+  }
 }
 
 function errorMessage(reason: unknown) {

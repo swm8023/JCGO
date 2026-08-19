@@ -2192,7 +2192,10 @@ textarea:focus-visible {
 .yunbisai-my-event-card:focus-visible,
 .yunbisai-account-list button:focus-visible,
 .yunbisai-session-actions button:focus-visible,
-.yunbisai-official-link:focus-visible {
+.yunbisai-official-link:focus-visible,
+.yunbisai-group-card:focus-visible,
+.yunbisai-round-controls button:focus-visible,
+.yunbisai-inline-error button:focus-visible {
   outline: 2px solid var(--table);
   outline-offset: -2px;
 }
@@ -2723,6 +2726,289 @@ textarea:focus-visible {
   color: var(--ink);
   font-size: 13px;
   font-weight: 700;
+}
+
+.yunbisai-group-section,
+.yunbisai-group-detail,
+.yunbisai-pairing-section {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.yunbisai-section-heading,
+.yunbisai-group-detail-header,
+.yunbisai-pairing-title,
+.yunbisai-round-controls {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.yunbisai-section-heading h4 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.yunbisai-section-heading .game-list-eyebrow,
+.yunbisai-pairing-title .game-list-eyebrow {
+  margin: 0 0 3px;
+}
+
+.yunbisai-section-status,
+.yunbisai-pairing-title > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.yunbisai-group-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.yunbisai-group-card {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+  padding: 13px 14px;
+  border: 1px solid rgb(212 201 184 / 0.72);
+  border-radius: 10px;
+  background: var(--surface-glaze), var(--surface-raised);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 3px 12px rgb(42 30 14 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.78);
+}
+
+.yunbisai-group-card:hover {
+  border-color: rgb(26 71 42 / 0.3);
+}
+
+.yunbisai-group-card.registered {
+  border-color: rgb(26 71 42 / 0.46);
+  background: linear-gradient(135deg, rgb(26 71 42 / 0.1), rgb(255 255 255 / 0.72));
+}
+
+.yunbisai-group-card-main,
+.yunbisai-group-card-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.yunbisai-group-card-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.yunbisai-group-card-main em {
+  flex: 0 0 auto;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgb(26 71 42 / 0.1);
+  color: var(--table);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 850;
+}
+
+.yunbisai-group-card-meta {
+  align-items: flex-start;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.yunbisai-inline-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid rgb(153 27 27 / 0.18);
+  border-radius: 9px;
+  background: rgb(153 27 27 / 0.05);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.yunbisai-inline-error button {
+  flex: 0 0 auto;
+  min-height: 31px;
+  padding: 0 10px;
+  border: 1px solid rgb(153 27 27 / 0.24);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 0.7);
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.yunbisai-empty-note,
+.yunbisai-pairing-state {
+  margin: 0;
+  padding: 20px 14px;
+  border: 1px dashed rgb(184 168 152 / 0.46);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.yunbisai-group-detail {
+  padding: 2px;
+}
+
+.yunbisai-pairing-title {
+  padding: 14px 16px;
+  border: 1px solid rgb(212 201 184 / 0.66);
+  border-radius: 11px;
+  background: rgb(255 255 255 / 0.5);
+}
+
+.yunbisai-pairing-title h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(20px, 3vw, 28px);
+  line-height: 1.2;
+}
+
+.yunbisai-round-controls {
+  justify-content: center;
+  padding: 3px 0;
+}
+
+.yunbisai-round-controls button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgb(26 71 42 / 0.3);
+  border-radius: 8px;
+  background: rgb(26 71 42 / 0.08);
+  color: var(--table);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.yunbisai-round-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.yunbisai-round-controls strong {
+  min-width: 104px;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: center;
+}
+
+.yunbisai-match-list {
+  display: grid;
+  gap: 8px;
+}
+
+.yunbisai-match-card {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid rgb(212 201 184 / 0.62);
+  border-radius: 10px;
+  background: var(--surface-glaze), var(--surface-raised);
+}
+
+.yunbisai-match-seat {
+  color: var(--table);
+  font-size: 12px;
+  font-weight: 850;
+  text-align: center;
+}
+
+.yunbisai-match-players {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.yunbisai-pairing-player {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 3px;
+}
+
+.yunbisai-pairing-player:last-child {
+  justify-items: end;
+  text-align: right;
+}
+
+.yunbisai-pairing-player strong,
+.yunbisai-pairing-player small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yunbisai-pairing-player strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.yunbisai-pairing-player small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.yunbisai-result {
+  width: fit-content;
+  min-height: 21px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgb(184 168 152 / 0.15);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.yunbisai-result.win {
+  background: rgb(26 71 42 / 0.1);
+  color: var(--table);
+}
+
+.yunbisai-result.loss {
+  background: rgb(153 27 27 / 0.08);
+  color: var(--danger);
+}
+
+.yunbisai-result.bye {
+  background: rgb(194 65 12 / 0.09);
+  color: var(--signal);
+}
+
+.yunbisai-match-versus {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
 }
 
 .yunbisai-player-section {
@@ -5064,7 +5350,9 @@ textarea:focus-visible {
 
   .yunbisai-my-events-header,
   .yunbisai-my-event-detail > header,
-  .yunbisai-detail-title {
+  .yunbisai-group-detail-header,
+  .yunbisai-detail-title,
+  .yunbisai-pairing-title {
     align-items: stretch;
     flex-direction: column;
   }
@@ -5080,6 +5368,28 @@ textarea:focus-visible {
 
   .yunbisai-detail-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yunbisai-group-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yunbisai-inline-error {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .yunbisai-inline-error button {
+    align-self: flex-start;
+  }
+
+  .yunbisai-round-controls {
+    justify-content: space-between;
+  }
+
+  .yunbisai-match-card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
   }
 
   .cloud-event-card {

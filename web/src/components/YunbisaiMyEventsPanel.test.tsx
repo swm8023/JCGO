@@ -2,7 +2,12 @@ import '@testing-library/jest-dom/vitest'
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { YunbisaiMyEvent, YunbisaiMyEventsAPI } from '../api/types'
+import type {
+  YunbisaiEventGroup,
+  YunbisaiGroupPairings,
+  YunbisaiMyEvent,
+  YunbisaiMyEventsAPI,
+} from '../api/types'
 import { YunbisaiMyEventsPanel } from './YunbisaiMyEventsPanel'
 
 const event: YunbisaiMyEvent = {
@@ -13,6 +18,38 @@ const event: YunbisaiMyEvent = {
   createdAt: '2026-07-01 10:00:00',
   amount: '128.00',
   officialUrl: '',
+}
+
+const groups: YunbisaiEventGroup[] = [
+  {
+    groupId: '331092',
+    name: '8级组',
+    playerCount: 27,
+    startTime: '2026-08-01 09:00:00',
+    endTime: '2026-08-01 17:00:00',
+  },
+  {
+    groupId: '331093',
+    name: '9级组',
+    playerCount: 31,
+    startTime: '2026-08-02 09:00:00',
+    endTime: '2026-08-02 17:00:00',
+  },
+]
+
+const finalPairings: YunbisaiGroupPairings = {
+  groupId: '331092',
+  groupName: '8级组',
+  round: 7,
+  totalRounds: 7,
+  matches: [
+    {
+      seatNumber: '1',
+      againstPlanId: 'plan-1',
+      player1: { name: '张三', teamName: '杭州队', result: 'win', score: '2' },
+      player2: { name: '李四', teamName: '宁波队', result: 'loss', score: '0' },
+    },
+  ],
 }
 
 function api(overrides: Partial<YunbisaiMyEventsAPI> = {}): YunbisaiMyEventsAPI {
@@ -36,8 +73,10 @@ function api(overrides: Partial<YunbisaiMyEventsAPI> = {}): YunbisaiMyEventsAPI 
       amount: '128.00',
       createdAt: '2026-07-01 10:00:00',
       officialUrl: 'https://m.yunbisai.com/event/67043',
-      players: [{ name: '棋手甲', groupName: '甲组', teamName: '杭州队' }],
+      players: [{ name: '棋手甲', groupName: '8级组', teamName: '杭州队' }],
     })),
+    eventGroups: vi.fn(() => Promise.resolve(groups)),
+    groupPairings: vi.fn(() => Promise.resolve(finalPairings)),
     ...overrides,
   }
 }
@@ -170,6 +209,150 @@ describe('YunbisaiMyEventsPanel', () => {
     )
     await userEvent.click(screen.getByRole('button', { name: '返回我的比赛' }))
     expect(await screen.findByRole('button', { name: /杭州围棋公开赛/ })).toBeInTheDocument()
+  })
+
+  it('loads all groups once, shows their metadata, and highlights the registered group', async () => {
+    const testAPI = api()
+    render(<YunbisaiMyEventsPanel api={testAPI} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    const groupSection = await screen.findByRole('region', { name: '赛事组别' })
+
+    expect(within(groupSection).getByText('8级组')).toBeInTheDocument()
+    expect(within(groupSection).getByText('27 人')).toBeInTheDocument()
+    expect(within(groupSection).getByText('2026-08-01 09:00:00 — 2026-08-01 17:00:00')).toBeInTheDocument()
+    expect(within(groupSection).getByText('我的组别')).toBeInTheDocument()
+    expect(testAPI.eventGroups).toHaveBeenCalledTimes(1)
+    expect(testAPI.eventGroups).toHaveBeenCalledWith('67043')
+  })
+
+  it('loads the selected group final round and renders players, teams, results, and scores', async () => {
+    const testAPI = api()
+    render(<YunbisaiMyEventsPanel api={testAPI} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /8级组/ }))
+
+    const pairingSection = await screen.findByRole('region', { name: '8级组对阵表' })
+    expect(within(pairingSection).getByText('第 7 / 7 轮')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('1 台')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('张三')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('杭州队')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('李四')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('宁波队')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('胜')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('负')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('得分 2')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('得分 0')).toBeInTheDocument()
+    expect(testAPI.groupPairings).toHaveBeenCalledTimes(1)
+    expect(testAPI.groupPairings).toHaveBeenCalledWith('331092')
+  })
+
+  it('requests the previous round once and reuses a cached round when moving forward', async () => {
+    const testAPI = api({
+      groupPairings: vi.fn((_groupID: string, bout?: number) => Promise.resolve(
+        bout === 6 ? { ...finalPairings, round: 6 } : finalPairings,
+      )),
+    })
+    render(<YunbisaiMyEventsPanel api={testAPI} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /8级组/ }))
+    await screen.findByText('第 7 / 7 轮')
+
+    await userEvent.click(screen.getByRole('button', { name: '上一轮' }))
+    expect(await screen.findByText('第 6 / 7 轮')).toBeInTheDocument()
+    expect(testAPI.groupPairings).toHaveBeenNthCalledWith(2, '331092', 6)
+
+    await userEvent.click(screen.getByRole('button', { name: '下一轮' }))
+    expect(await screen.findByText('第 7 / 7 轮')).toBeInTheDocument()
+    expect(testAPI.groupPairings).toHaveBeenCalledTimes(2)
+  })
+
+  it('loads another group only when selected and keeps the group list cached', async () => {
+    const testAPI = api({
+      groupPairings: vi.fn((groupID: string) => Promise.resolve(
+        groupID === '331093'
+          ? { ...finalPairings, groupId: '331093', groupName: '9级组' }
+          : finalPairings,
+      )),
+    })
+    render(<YunbisaiMyEventsPanel api={testAPI} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /8级组/ }))
+    await screen.findByText('第 7 / 7 轮')
+    await userEvent.click(screen.getByRole('button', { name: '返回赛事详情' }))
+    await userEvent.click(screen.getByRole('button', { name: /9级组/ }))
+
+    expect(await screen.findByRole('region', { name: '9级组对阵表' })).toBeInTheDocument()
+    expect(testAPI.eventGroups).toHaveBeenCalledTimes(1)
+    expect(testAPI.groupPairings).toHaveBeenNthCalledWith(1, '331092')
+    expect(testAPI.groupPairings).toHaveBeenNthCalledWith(2, '331093')
+  })
+
+  it('keeps basic event detail visible and retries an isolated group-list failure', async () => {
+    const testAPI = api({
+      eventGroups: vi.fn()
+        .mockRejectedValueOnce(new Error('组别网络不可用'))
+        .mockResolvedValueOnce(groups),
+    })
+    render(<YunbisaiMyEventsPanel api={testAPI} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    expect(await screen.findByRole('heading', { name: '杭州围棋公开赛' })).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('组别网络不可用')
+    await userEvent.click(screen.getByRole('button', { name: '重试加载组别' }))
+
+    expect(await screen.findByText('8级组')).toBeInTheDocument()
+    expect(testAPI.eventGroups).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the group title visible and retries an isolated pairing failure', async () => {
+    const testAPI = api({
+      groupPairings: vi.fn()
+        .mockRejectedValueOnce(new Error('对阵网络不可用'))
+        .mockResolvedValueOnce(finalPairings),
+    })
+    render(<YunbisaiMyEventsPanel api={testAPI} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /8级组/ }))
+    expect(await screen.findByRole('heading', { name: '8级组对阵表' })).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent('对阵网络不可用')
+    await userEvent.click(screen.getByRole('button', { name: '重试对阵表' }))
+
+    expect(await screen.findByText('第 7 / 7 轮')).toBeInTheDocument()
+    expect(testAPI.groupPairings).toHaveBeenCalledTimes(2)
+  })
+
+  it('renders empty pairings and unknown results without inventing a winner', async () => {
+    const emptyAPI = api({
+      groupPairings: vi.fn(() => Promise.resolve({ ...finalPairings, matches: [] })),
+    })
+    const { unmount } = render(<YunbisaiMyEventsPanel api={emptyAPI} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /8级组/ }))
+    expect(await screen.findByText('暂无对阵')).toBeInTheDocument()
+    unmount()
+
+    const unknownAPI = api({
+      groupPairings: vi.fn(() => Promise.resolve({
+        ...finalPairings,
+        matches: [{
+          seatNumber: '2',
+          player1: { name: '待确认甲', result: 'unknown' },
+          player2: { name: '', result: 'pending' },
+        }],
+      })),
+    })
+    render(<YunbisaiMyEventsPanel api={unknownAPI} />)
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /8级组/ }))
+    const pairingSection = await screen.findByRole('region', { name: '8级组对阵表' })
+    expect(within(pairingSection).getByText('结果待确认')).toBeInTheDocument()
+    expect(within(pairingSection).queryByText('胜')).not.toBeInTheDocument()
   })
 
   it('logs out and switches accounts without exposing credentials', async () => {

@@ -26,6 +26,8 @@ function myEventsApi(): YunbisaiMyEventsAPI {
     logout: vi.fn(() => Promise.resolve()),
     myEvents: vi.fn(() => Promise.resolve({ loggedIn: true, total: 0, page: 1, events: [] })),
     myEventDetail: vi.fn(() => Promise.resolve({ loggedIn: true })),
+    eventGroups: vi.fn(() => Promise.resolve([])),
+    groupPairings: vi.fn(() => Promise.resolve({ groupId: '', round: 1, totalRounds: 1, matches: [] })),
   }
 }
 
