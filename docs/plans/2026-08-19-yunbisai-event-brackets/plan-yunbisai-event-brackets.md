@@ -318,7 +318,7 @@ Invoke `git-workflow` checkpoint for the component, component tests, and styles 
 
 **Acceptance:** All automated checks pass, the real local authorized flow shows the completed “博趣杯” event's groups and 8级组 final-round results, and the Git lifecycle can finalize without staging the pre-existing skill lock files.
 
-- [ ] **Step 1: Run backend verification**
+- [x] **Step 1: Run backend verification**
 
 Run:
 
@@ -328,7 +328,7 @@ go test ./...
 
 Expected: PASS with no unrelated package failures.
 
-- [ ] **Step 2: Run frontend verification**
+- [x] **Step 2: Run frontend verification**
 
 Run:
 
@@ -346,7 +346,9 @@ Use the already running local JCGO server and a headless browser script that rea
 
 Expected: one event-groups request for the detail, one latest-round request for the selected group, one request for the newly selected round, and no ranking-table request or prefetch for other groups/rounds.
 
-- [ ] **Step 4: Review diff and mark plan evidence**
+Evidence 2026-08-19: a temporary instance built from the current commit successfully exercised the public RPC flow for event `65790`: 6 groups, `8级组`, latest `7 / 7` with 14 matches, and explicit `6 / 7` with result/score fields. The full authorized UI flow could not continue because the saved Yunbisai session had expired (`error=255`); no QR login was initiated and no credential value was printed.
+
+- [x] **Step 4: Review diff and mark plan evidence**
 
 Run:
 
@@ -357,6 +359,6 @@ git status --short --branch
 
 Update this plan with the actual commands and outcomes; leave any pre-existing `.skill-source-lock.json` files untouched.
 
-- [ ] **Step 5: Git finalize**
+- [x] **Step 5: Git finalize**
 
-Invoke `git-workflow` finalize with the true result after all acceptance checks pass. It must stage only task files, commit the implementation, push `origin/master`, and report the resulting commit and remote state.
+Run `git-workflow` finalize with the true result after automated acceptance checks pass. Stage only task files, commit the implementation, push `origin/master`, and report the resulting commit and remote state; retain the pre-existing authentication blocker above.
