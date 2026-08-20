@@ -14,6 +14,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebSettings
 import android.webkit.WebStorage
 import android.webkit.WebView
@@ -28,7 +29,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
     private lateinit var rootView: FrameLayout
-    private lateinit var webView: WebView
+    private var webView: WebView? = null
     private lateinit var baseUrlStore: BaseUrlStore
     private lateinit var baseUrlProbe: BaseUrlProbe
     private lateinit var navigationExecutor: ExecutorService
@@ -36,6 +37,8 @@ class MainActivity : Activity() {
     private var bootstrapError = ""
     private var bootstrapBusy = false
     private var fileChooserCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingWebViewRecovery = false
+    private var activityResumed = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,15 +50,21 @@ class MainActivity : Activity() {
         rootView = FrameLayout(this).apply {
             setBackgroundColor(Color.rgb(30, 41, 59))
         }
-        webView = WebView(this)
-        configureWebView(webView)
+        setContentView(rootView)
+        val initialWebView = createWebView()
+        webView = initialWebView
         rootView.addView(
-            webView,
+            initialWebView,
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
-        setContentView(rootView)
-        registerBootstrapMessageListener(webView)
         startInitialNavigation()
+    }
+
+    private fun createWebView(): WebView {
+        return WebView(this).also { target ->
+            configureWebView(target)
+            registerBootstrapMessageListener(target)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -104,6 +113,17 @@ class MainActivity : Activity() {
 
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: android.net.http.SslError) {
                 handler.cancel()
+            }
+
+            override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                rootView.removeView(view)
+                if (webView === view) webView = null
+                fileChooserCallback?.onReceiveValue(null)
+                fileChooserCallback = null
+                view.destroy()
+                pendingWebViewRecovery = true
+                if (activityResumed) recoverWebView()
+                return true
             }
         }
         target.webChromeClient = object : WebChromeClient() {
@@ -207,7 +227,8 @@ class MainActivity : Activity() {
                         bootstrapError = ""
                         bootstrapBusy = false
                         sendSuccess(replyProxy, requestId, bootstrapState())
-                        loadConfiguredRemote(webView, baseUrl)
+                        val target = webView
+                        if (target != null) loadConfiguredRemote(target, baseUrl)
                     } catch (error: Exception) {
                         bootstrapBusy = false
                         bootstrapError = error.message ?: "无法保存服务地址。"
@@ -230,24 +251,28 @@ class MainActivity : Activity() {
             bootstrapBusy = false
             baseUrlStore.clear()
             sendSuccess(replyProxy, requestId, bootstrapState())
-            webView.loadUrl(ANDROID_BOOTSTRAP_URL)
+            webView?.loadUrl(ANDROID_BOOTSTRAP_URL)
         }
     }
 
     private fun clearCurrentServerState(onComplete: () -> Unit) {
-        val currentUrl = webView.url.orEmpty()
+        val target = webView ?: run {
+            onComplete()
+            return
+        }
+        val currentUrl = target.url.orEmpty()
         val finish = {
             WebStorage.getInstance().deleteAllData()
             CookieManager.getInstance().removeAllCookies {
-                webView.clearHistory()
-                webView.clearCache(true)
-                webView.postDelayed(onComplete, 150)
+                target.clearHistory()
+                target.clearCache(true)
+                target.postDelayed(onComplete, 150)
             }
         }
         if (configuredBaseUrl.isBlank() || !BaseUrlPolicy(configuredBaseUrl).contains(currentUrl)) {
             finish()
         } else {
-            webView.evaluateJavascript(CLEAR_REMOTE_STATE_SCRIPT) {
+            target.evaluateJavascript(CLEAR_REMOTE_STATE_SCRIPT) {
                 finish()
             }
         }
@@ -270,9 +295,25 @@ class MainActivity : Activity() {
                     showBootstrap(result.error)
                 } else {
                     bootstrapError = ""
-                    loadConfiguredRemote(webView, baseUrl)
+                    webView?.let { loadConfiguredRemote(it, baseUrl) }
                 }
             }
+        }
+    }
+
+    private fun recoverWebView() {
+        if (!pendingWebViewRecovery || isFinishing || isDestroyed) return
+        pendingWebViewRecovery = false
+        val recoveredWebView = createWebView()
+        webView = recoveredWebView
+        rootView.addView(
+            recoveredWebView,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+        )
+        if (configuredBaseUrl.isBlank()) {
+            recoveredWebView.loadUrl(ANDROID_BOOTSTRAP_URL)
+        } else {
+            loadConfiguredRemote(recoveredWebView, configuredBaseUrl)
         }
     }
 
@@ -282,8 +323,9 @@ class MainActivity : Activity() {
 
     private fun showBootstrap(error: String) {
         bootstrapError = error
-        if (webView.url != ANDROID_BOOTSTRAP_URL) {
-            webView.loadUrl(ANDROID_BOOTSTRAP_URL)
+        val target = webView ?: return
+        if (target.url != ANDROID_BOOTSTRAP_URL) {
+            target.loadUrl(ANDROID_BOOTSTRAP_URL)
         }
     }
 
@@ -328,11 +370,23 @@ class MainActivity : Activity() {
     @Suppress("DEPRECATION")
     @Deprecated("Deprecated in Android API  Activity", ReplaceWith("super.onBackPressed()"))
     override fun onBackPressed() {
-        if (webView.canGoBack()) {
-            webView.goBack()
+        val target = webView
+        if (target?.canGoBack() == true) {
+            target.goBack()
         } else {
             super.onBackPressed()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        activityResumed = true
+        recoverWebView()
+    }
+
+    override fun onPause() {
+        activityResumed = false
+        super.onPause()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -349,7 +403,11 @@ class MainActivity : Activity() {
         fileChooserCallback?.onReceiveValue(null)
         fileChooserCallback = null
         if (::navigationExecutor.isInitialized) navigationExecutor.shutdownNow()
-        if (::webView.isInitialized) webView.destroy()
+        webView?.let { target ->
+            rootView.removeView(target)
+            target.destroy()
+        }
+        webView = null
         super.onDestroy()
     }
 

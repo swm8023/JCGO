@@ -69,6 +69,26 @@ class RemoteShellContractTest {
     }
 
     @Test
+    fun activityRecreatesWebViewAfterRendererTermination() {
+        val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
+
+        assertTrue(activity.contains("onRenderProcessGone"))
+        assertTrue(activity.contains("removeView(view)"))
+        assertTrue(activity.contains("view.destroy()"))
+        assertTrue(activity.contains("createWebView()"))
+        assertTrue(activity.contains("return true"))
+    }
+
+    @Test
+    fun activityDefersRendererRecoveryUntilResume() {
+        val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
+
+        assertTrue(activity.contains("pendingWebViewRecovery"))
+        assertTrue(activity.contains("override fun onResume()"))
+        assertTrue(activity.contains("recoverWebView()"))
+    }
+
+    @Test
     fun bootstrapPageUsesOnlyTheNativeBootstrapBridge() {
         val bootstrap = source("src/main/assets/bootstrap/index.html")
 
