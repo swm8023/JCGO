@@ -116,6 +116,7 @@ class MainActivity : Activity() {
             }
 
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+                // A terminated renderer leaves this WebView unusable; always replace it before loading again.
                 rootView.removeView(view)
                 if (webView === view) webView = null
                 fileChooserCallback?.onReceiveValue(null)
