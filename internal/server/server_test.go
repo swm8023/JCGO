@@ -125,3 +125,52 @@ func TestServerServesStaticFilesWithSPAFallback(t *testing.T) {
 		t.Fatalf("fallback body = %q", body)
 	}
 }
+
+func TestServerSetsCacheControlForStaticResponses(t *testing.T) {
+	dir := t.TempDir()
+	for _, path := range []string{
+		"index.html",
+		"sw.js",
+		"manifest.webmanifest",
+		filepath.Join("assets", "index-AbCd1234.js"),
+		filepath.Join("icons", "jcgo-192.png"),
+	} {
+		fullPath := filepath.Join(dir, path)
+		if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(fullPath, []byte(path), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	srv := httptest.NewServer(New(Config{AccessToken: "secret", StaticDir: dir}, nil).Handler())
+	defer srv.Close()
+
+	tests := []struct {
+		name  string
+		path  string
+		cache string
+	}{
+		{name: "root entry", path: "/", cache: "no-cache, must-revalidate"},
+		{name: "explicit entry", path: "/index.html", cache: "no-cache, must-revalidate"},
+		{name: "spa fallback", path: "/events/123", cache: "no-cache, must-revalidate"},
+		{name: "service worker", path: "/sw.js", cache: "no-cache, must-revalidate"},
+		{name: "manifest", path: "/manifest.webmanifest", cache: "no-cache, must-revalidate"},
+		{name: "hashed bundle", path: "/assets/index-AbCd1234.js", cache: "public, max-age=31536000, immutable"},
+		{name: "unhashed icon", path: "/icons/jcgo-192.png", cache: "no-cache, must-revalidate"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, err := http.Get(srv.URL + tt.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer resp.Body.Close()
+			if got := resp.Header.Get("Cache-Control"); got != tt.cache {
+				t.Fatalf("Cache-Control = %q, want %q", got, tt.cache)
+			}
+		})
+	}
+}

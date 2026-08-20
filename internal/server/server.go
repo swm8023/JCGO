@@ -28,6 +28,11 @@ type Server struct {
 	workerHandler WorkerHandler
 }
 
+const (
+	staticRevalidationCacheControl = "no-cache, must-revalidate"
+	immutableAssetCacheControl     = "public, max-age=31536000, immutable"
+)
+
 func New(cfg Config, handler RPCHandler) *Server {
 	return NewWithWorker(cfg, handler, nil)
 }
@@ -54,11 +59,21 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 	if clean != "." {
 		path := filepath.Join(s.cfg.StaticDir, clean)
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			setStaticCacheControl(w, r.URL.Path)
 			http.ServeFile(w, r, path)
 			return
 		}
 	}
+	w.Header().Set("Cache-Control", staticRevalidationCacheControl)
 	http.ServeFile(w, r, filepath.Join(s.cfg.StaticDir, "index.html"))
+}
+
+func setStaticCacheControl(w http.ResponseWriter, requestPath string) {
+	cacheControl := staticRevalidationCacheControl
+	if strings.HasPrefix(requestPath, "/assets/") {
+		cacheControl = immutableAssetCacheControl
+	}
+	w.Header().Set("Cache-Control", cacheControl)
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {

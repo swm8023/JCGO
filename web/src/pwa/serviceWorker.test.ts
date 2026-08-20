@@ -31,6 +31,20 @@ describe('service worker', () => {
     expect(serviceWorker).toContain("const CACHE_NAME = 'jcgo-static-v6'")
     expect(serviceWorker).not.toMatch(/STATIC_ASSETS\s*=\s*\[[^\]]*manifest\.webmanifest/)
     expect(serviceWorker).toContain("url.pathname === '/manifest.webmanifest'")
-    expect(serviceWorker).toContain('fetch(event.request).catch(() => caches.match(event.request))')
+    expect(serviceWorker).toContain('function networkFirst(request)')
+    expect(serviceWorker).toContain('event.respondWith(networkFirst(event.request))')
+  })
+
+  it('keeps generated build assets cacheable without making the app shell cache-first', () => {
+    expect(serviceWorker).toContain("const IMMUTABLE_ASSET_PREFIX = '/assets/'")
+    expect(serviceWorker).toContain('function isImmutableBuildAsset(url)')
+    expect(serviceWorker).toContain('function cacheFirst(request)')
+    expect(serviceWorker).toContain('STATIC_ASSETS.includes(url.pathname) || isImmutableBuildAsset(url)')
+    expect(serviceWorker).toContain('event.respondWith(cacheFirst(event.request))')
+  })
+
+  it('does not let the service worker script itself become a cached build asset', () => {
+    expect(serviceWorker).toContain("url.pathname === '/sw.js'")
+    expect(serviceWorker).toContain("url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest'")
   })
 })

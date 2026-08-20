@@ -1,6 +1,7 @@
 const CACHE_NAME = 'jcgo-static-v6'
 const SHARED_CACHE_NAME = 'jcgo-shared-v1'
 const SHARED_SGF_URL = '/shared-sgf/latest'
+const IMMUTABLE_ASSET_PREFIX = '/assets/'
 const STATIC_ASSETS = ['/icons/jcgo-192.png', '/icons/jcgo-512.png', '/icons/jcgo-maskable-512.png', '/icons/apple-touch-icon.png']
 
 self.addEventListener('install', (event) => {
@@ -27,16 +28,38 @@ self.addEventListener('fetch', (event) => {
     return
   }
   if (event.request.method !== 'GET') return
-  if (url.pathname === '/manifest.webmanifest') {
-    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)))
+  if (url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest' || event.request.mode === 'navigate') {
+    event.respondWith(networkFirst(event.request))
     return
   }
-  if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)))
+  if (url.pathname === SHARED_SGF_URL) {
+    event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)))
     return
   }
-  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)))
+  if (STATIC_ASSETS.includes(url.pathname) || isImmutableBuildAsset(url)) {
+    event.respondWith(cacheFirst(event.request))
+    return
+  }
+  event.respondWith(fetch(event.request))
 })
+
+function networkFirst(request) {
+  return fetch(request).catch(() => caches.match(request))
+}
+
+function cacheFirst(request) {
+  return caches.match(request).then((cached) => {
+    if (cached) return cached
+    return fetch(request).then((response) => {
+      if (!response.ok) return response
+      return caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()).then(() => response))
+    })
+  })
+}
+
+function isImmutableBuildAsset(url) {
+  return url.pathname.startsWith(IMMUTABLE_ASSET_PREFIX)
+}
 
 async function storeSharedSGF(request) {
   const formData = await request.formData()
