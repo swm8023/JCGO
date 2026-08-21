@@ -151,11 +151,19 @@ func TestYunbisaiClientReturnsWaitingAndAuthInvalid(t *testing.T) {
 	mux.HandleFunc("/api/order/list", func(w http.ResponseWriter, r *http.Request) {
 		writeYunbisaiTestJSON(w, map[string]any{"error": 255, "msg": "登录已过期"})
 	})
+	mux.HandleFunc("/request/index/index", func(w http.ResponseWriter, r *http.Request) {
+		writeYunbisaiTestJSON(w, map[string]any{
+			"error":  255,
+			"msg":    "登录已过期",
+			"datArr": "",
+		})
+	})
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
 	client := NewYunbisaiClient(YunbisaiClientOptions{
 		HTTPClient: server.Client(), DataCenterURL: server.URL, OpenURL: server.URL,
+		WWWURL: server.URL,
 	})
 	poll, err := client.LoginPoll(context.Background(), "scene-1")
 	if err != nil || poll.Status != "waiting" {
@@ -169,6 +177,12 @@ func TestYunbisaiClientReturnsWaitingAndAuthInvalid(t *testing.T) {
 	}
 	if errors.Is(err, context.Canceled) || err.Error() == "secret-token" {
 		t.Fatalf("unsafe error = %v", err)
+	}
+	_, err = client.OrderDetail(context.Background(), YunbisaiAuth{
+		Token: "secret-token", Account: YunbisaiAccount{LoginID: "7"},
+	}, "order-1")
+	if err == nil || !IsYunbisaiAuthInvalid(err) {
+		t.Fatalf("detail err = %v", err)
 	}
 }
 

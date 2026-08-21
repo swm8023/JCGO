@@ -288,13 +288,9 @@ func (c *YunbisaiClient) OrderDetail(ctx context.Context, auth YunbisaiAuth, ord
 		return YunbisaiOrderDetail{}, err
 	}
 	var payload struct {
-		Error int    `json:"error"`
-		Msg   string `json:"msg"`
-		Data  struct {
-			OrderInfo  map[string]any `json:"orderInfo"`
-			GameInfo   map[string]any `json:"GameInfo"`
-			PlayerInfo map[string]any `json:"PlayerInfo"`
-		} `json:"datArr"`
+		Error int             `json:"error"`
+		Msg   string          `json:"msg"`
+		Data  json.RawMessage `json:"datArr"`
 	}
 	if err := json.Unmarshal(raw, &payload); err != nil {
 		return YunbisaiOrderDetail{}, errors.New("云比赛订单详情数据格式无效")
@@ -302,10 +298,18 @@ func (c *YunbisaiClient) OrderDetail(ctx context.Context, auth YunbisaiAuth, ord
 	if payload.Error == 255 {
 		return YunbisaiOrderDetail{}, YunbisaiAuthInvalidError{Message: payload.Msg}
 	}
-	if payload.Error != 0 || payload.Data.OrderInfo == nil {
+	if payload.Error != 0 {
 		return YunbisaiOrderDetail{}, errors.New("云比赛订单详情数据格式无效")
 	}
-	return YunbisaiOrderDetail(payload.Data), nil
+	var data struct {
+		OrderInfo  map[string]any `json:"orderInfo"`
+		GameInfo   map[string]any `json:"GameInfo"`
+		PlayerInfo map[string]any `json:"PlayerInfo"`
+	}
+	if err := json.Unmarshal(payload.Data, &data); err != nil || data.OrderInfo == nil {
+		return YunbisaiOrderDetail{}, errors.New("云比赛订单详情数据格式无效")
+	}
+	return YunbisaiOrderDetail(data), nil
 }
 
 func (c *YunbisaiClient) EventInfo(ctx context.Context, eventID string) (map[string]any, error) {
