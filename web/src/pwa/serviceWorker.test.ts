@@ -28,7 +28,7 @@ describe('service worker', () => {
   })
 
   it('refreshes orientation metadata instead of freezing the manifest in the static cache', () => {
-    expect(serviceWorker).toContain("const CACHE_NAME = 'jcgo-static-v6'")
+    expect(serviceWorker).toContain("const CACHE_NAME = 'jcgo-static-v7'")
     expect(serviceWorker).not.toMatch(/STATIC_ASSETS\s*=\s*\[[^\]]*manifest\.webmanifest/)
     expect(serviceWorker).toContain("url.pathname === '/manifest.webmanifest'")
     expect(serviceWorker).toContain('function networkFirst(request)')

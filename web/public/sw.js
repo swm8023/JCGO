@@ -1,4 +1,4 @@
-const CACHE_NAME = 'jcgo-static-v6'
+const CACHE_NAME = 'jcgo-static-v7'
 const SHARED_CACHE_NAME = 'jcgo-shared-v1'
 const SHARED_SGF_URL = '/shared-sgf/latest'
 const IMMUTABLE_ASSET_PREFIX = '/assets/'
