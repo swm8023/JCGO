@@ -27,16 +27,18 @@ type YunbisaiAccount struct {
 }
 
 type YunbisaiAuth struct {
-	Token     string           `json:"token"`
-	LoginType string           `json:"loginType"`
-	Account   YunbisaiAccount  `json:"account"`
-	Cookies   []YunbisaiCookie `json:"cookies"`
-	UpdatedAt time.Time        `json:"updatedAt"`
+	Token         string           `json:"token"`
+	LoginType     string           `json:"loginType"`
+	Account       YunbisaiAccount  `json:"account"`
+	Cookies       []YunbisaiCookie `json:"cookies"`
+	UpdatedAt     time.Time        `json:"updatedAt"`
+	InvalidatedAt *time.Time       `json:"invalidatedAt,omitempty"`
 }
 
 type YunbisaiAuthStore interface {
 	Load(context.Context) (YunbisaiAuth, bool, error)
 	Save(context.Context, YunbisaiAuth) error
+	MarkInvalid(context.Context) error
 	Clear(context.Context) error
 }
 
@@ -63,6 +65,9 @@ func (s *YunbisaiFileAuthStore) Load(context.Context) (YunbisaiAuth, bool, error
 	if !validYunbisaiAuth(auth) {
 		return YunbisaiAuth{}, false, nil
 	}
+	if auth.InvalidatedAt != nil {
+		return auth, false, nil
+	}
 	return auth, true, nil
 }
 
@@ -70,10 +75,36 @@ func (s *YunbisaiFileAuthStore) Save(_ context.Context, auth YunbisaiAuth) error
 	if !validYunbisaiAuth(auth) {
 		return errors.New("yunbisai auth token and login id are required")
 	}
+	auth.InvalidatedAt = nil
 	auth.UpdatedAt = time.Now().UTC()
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
+	return s.write(auth)
+}
+
+func (s *YunbisaiFileAuthStore) MarkInvalid(_ context.Context) error {
+	data, err := os.ReadFile(s.path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var auth YunbisaiAuth
+	if err := json.Unmarshal(data, &auth); err != nil {
+		return err
+	}
+	if !validYunbisaiAuth(auth) {
+		return nil
+	}
+	now := time.Now().UTC()
+	auth.InvalidatedAt = &now
+	auth.UpdatedAt = now
+	return s.write(auth)
+}
+
+func (s *YunbisaiFileAuthStore) write(auth YunbisaiAuth) error {
 	data, err := json.MarshalIndent(auth, "", "  ")
 	if err != nil {
 		return err
@@ -109,11 +140,25 @@ func (s *YunbisaiMemoryAuthStore) Save(_ context.Context, auth YunbisaiAuth) err
 	if !validYunbisaiAuth(auth) {
 		return errors.New("yunbisai auth token and login id are required")
 	}
+	auth.InvalidatedAt = nil
 	auth.UpdatedAt = time.Now().UTC()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.auth = auth
 	s.ok = true
+	return nil
+}
+
+func (s *YunbisaiMemoryAuthStore) MarkInvalid(_ context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !validYunbisaiAuth(s.auth) {
+		return nil
+	}
+	now := time.Now().UTC()
+	s.auth.InvalidatedAt = &now
+	s.auth.UpdatedAt = now
+	s.ok = false
 	return nil
 }
 

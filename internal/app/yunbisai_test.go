@@ -163,7 +163,7 @@ func TestYunbisaiServiceRequiresSelectionForMultipleAccounts(t *testing.T) {
 	}
 }
 
-func TestYunbisaiServiceClearsExpiredAuthorization(t *testing.T) {
+func TestYunbisaiServiceMarksExpiredAuthorizationInvalid(t *testing.T) {
 	ctx := context.Background()
 	store := NewYunbisaiMemoryAuthStore()
 	if err := store.Save(ctx, yunbisaiTestAuth("7")); err != nil {
@@ -175,8 +175,31 @@ func TestYunbisaiServiceClearsExpiredAuthorization(t *testing.T) {
 	if err != nil || result.LoggedIn {
 		t.Fatalf("result = %#v err %v", result, err)
 	}
-	if _, ok, err := store.Load(ctx); err != nil || ok {
-		t.Fatalf("auth after expiry = ok %v err %v", ok, err)
+	auth, ok, err := store.Load(ctx)
+	if err != nil || ok || auth.Token == "" {
+		t.Fatalf("auth after expiry = %#v ok %v err %v", auth, ok, err)
+	}
+	second, err := service.MyEvents(ctx, 1)
+	if err != nil || second.LoggedIn || len(client.orderPages) != 1 {
+		t.Fatalf("second expired load = %#v calls %v err %v", second, client.orderPages, err)
+	}
+}
+
+func TestYunbisaiServicePreservesAuthorizationAfterExpiredDetail(t *testing.T) {
+	ctx := context.Background()
+	store := NewYunbisaiMemoryAuthStore()
+	if err := store.Save(ctx, yunbisaiTestAuth("7")); err != nil {
+		t.Fatal(err)
+	}
+	client := &fakeYunbisaiClient{orderDetailErr: YunbisaiAuthInvalidError{}}
+	service := NewYunbisaiService(YunbisaiServiceOptions{AuthStore: store, Client: client})
+	detail, err := service.MyEventDetail(ctx, "order-1")
+	if err != nil || detail.LoggedIn {
+		t.Fatalf("detail = %#v err %v", detail, err)
+	}
+	auth, ok, err := store.Load(ctx)
+	if err != nil || ok || auth.Token == "" {
+		t.Fatalf("auth after detail expiry = %#v ok %v err %v", auth, ok, err)
 	}
 }
 

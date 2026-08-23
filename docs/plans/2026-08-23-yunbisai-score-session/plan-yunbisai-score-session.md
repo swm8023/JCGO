@@ -21,7 +21,7 @@
 
 **Acceptance:** Wiki documents the approved session-retention behavior, the current-total/opponent-current-total fields, and that no ranking or extra score request is added.
 
-- [ ] Step 1: Read the current page and identify the exact sections to extend
+- [x] Step 1: Read the current page and identify the exact sections to extend
 
 Run:
 
@@ -29,7 +29,7 @@ Run:
 
 Expected: the existing request-control and pairing sections are available for a focused update without changing unrelated cloud-event knowledge.
 
-- [ ] Step 2: Write the approved stable knowledge
+- [x] Step 2: Write the approved stable knowledge
 
 Update docs/wiki/cloud-events.md to state:
 
@@ -38,7 +38,7 @@ Update docs/wiki/cloud-events.md to state:
 3. The pairing view displays each player's current total and the current total of the opponent on the same board; it does not calculate full historical opponent tiebreak points.
 4. No independent standings/ranking request is made; existing group/round request and cache behavior remains unchanged.
 
-- [ ] Step 3: Verify the wiki update
+- [x] Step 3: Verify the wiki update
 
 Run:
 
@@ -47,7 +47,7 @@ Run:
 
 Expected: all approved facts are present, no unrelated section is changed, and whitespace validation passes.
 
-- [ ] Step 4: Git checkpoint
+- [x] Step 4: Git checkpoint
 
 Checkpoint only docs/wiki/cloud-events.md after Step 3 passes. Record the commit hash and subject in the execution log.
 
@@ -61,7 +61,7 @@ Checkpoint only docs/wiki/cloud-events.md after Step 3 passes. Record the commit
 
 **Acceptance:** Authentication failure leaves the file present with a persisted invalid marker, Status/order loading treats it as logged out without another remote order request, explicit logout still deletes it, and successful login replaces the invalid state.
 
-- [ ] Step 1: Write failing authorization-store tests
+- [x] Step 1: Write failing authorization-store tests
 
 Add tests covering:
 
@@ -75,7 +75,7 @@ Run:
 
 Expected: FAIL because the invalid-state field and store operation do not exist.
 
-- [ ] Step 2: Write the failing service regression test
+- [x] Step 2: Write the failing service regression test
 
 Replace the existing auto-clear expectation with a test that configures Orders to return YunbisaiAuthInvalidError, then asserts:
 
@@ -90,11 +90,11 @@ Run:
 
 Expected: FAIL because the current service clears the store and the fake has no invalid-state behavior.
 
-- [ ] Step 3: Implement the minimal invalid-state storage and service path
+- [x] Step 3: Implement the minimal invalid-state storage and service path
 
 Implement a persisted invalid marker on YunbisaiAuth, add a store method that marks the current authorization invalid without deleting it, make Load report marked credentials unavailable, clear the marker on Save, and replace the automatic Clear calls in loadOrders and MyEventDetail with the new invalidation operation. Leave explicit Logout on Clear.
 
-- [ ] Step 4: Run the focused authorization tests
+- [x] Step 4: Run the focused authorization tests
 
 Run:
 
@@ -102,7 +102,7 @@ Run:
 
 Expected: PASS with the new preservation behavior and existing login/order/detail regressions green.
 
-- [ ] Step 5: Git checkpoint
+- [x] Step 5: Git checkpoint
 
 Checkpoint only internal/app/yunbisai_auth.go, internal/app/yunbisai.go, internal/app/yunbisai_auth_test.go, and internal/app/yunbisai_test.go after focused tests pass. Record the commit hash and subject.
 

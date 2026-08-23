@@ -387,7 +387,7 @@ func (s *YunbisaiService) MyEventDetail(ctx context.Context, orderID string) (Yu
 	}
 	remote, err := s.client.OrderDetail(ctx, auth, orderID)
 	if IsYunbisaiAuthInvalid(err) {
-		_ = s.authStore.Clear(ctx)
+		_ = s.authStore.MarkInvalid(ctx)
 		return YunbisaiMyEventDetail{LoggedIn: false}, nil
 	}
 	if err != nil {
@@ -443,7 +443,7 @@ func (s *YunbisaiService) deleteExpiredFlowsLocked() {
 func (s *YunbisaiService) loadOrders(ctx context.Context, auth YunbisaiAuth) ([]YunbisaiOrder, bool, error) {
 	first, err := s.client.Orders(ctx, auth, 1)
 	if IsYunbisaiAuthInvalid(err) {
-		_ = s.authStore.Clear(ctx)
+		_ = s.authStore.MarkInvalid(ctx)
 		return nil, true, nil
 	}
 	if err != nil {
@@ -454,7 +454,7 @@ func (s *YunbisaiService) loadOrders(ctx context.Context, auth YunbisaiAuth) ([]
 	for page := 2; page <= pageCount; page++ {
 		next, err := s.client.Orders(ctx, auth, page)
 		if IsYunbisaiAuthInvalid(err) {
-			_ = s.authStore.Clear(ctx)
+			_ = s.authStore.MarkInvalid(ctx)
 			return nil, true, nil
 		}
 		if err != nil {
