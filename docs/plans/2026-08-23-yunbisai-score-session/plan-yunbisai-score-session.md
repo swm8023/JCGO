@@ -223,6 +223,6 @@ Run:
 
 Expected: only approved session retention, score mapping, UI, tests, wiki, spec, and plan changes are present; no token, Cookie, openId, sCode, sceneId, or key is added to frontend data or logs.
 
-- [ ] Step 5: Git checkpoint/finalize
+- [x] Step 5: Git checkpoint/finalize
 
 After all verification passes, run the configured git-workflow checkpoint for any remaining independent documentation/test unit, then run git-workflow finalize with the actual completion result. Push the verified commits to origin/master as required by repository preferences.
