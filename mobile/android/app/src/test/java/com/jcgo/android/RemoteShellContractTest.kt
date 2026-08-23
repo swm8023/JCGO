@@ -89,6 +89,14 @@ class RemoteShellContractTest {
     }
 
     @Test
+    fun activityPausesAndResumesWebViewWithItsLifecycle() {
+        val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
+
+        assertTrue(activity.contains("target?.onPause()"))
+        assertTrue(activity.contains("target?.onResume()"))
+    }
+
+    @Test
     fun bootstrapPageUsesOnlyTheNativeBootstrapBridge() {
         val bootstrap = source("src/main/assets/bootstrap/index.html")
 

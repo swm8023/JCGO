@@ -382,11 +382,15 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         activityResumed = true
+        val target = webView
+        target?.onResume()
         recoverWebView()
     }
 
     override fun onPause() {
         activityResumed = false
+        val target = webView
+        target?.onPause()
         super.onPause()
     }
 
