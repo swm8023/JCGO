@@ -187,7 +187,7 @@ Checkpoint only web/src/components/YunbisaiMyEventsPanel.tsx and web/src/compone
 
 **Acceptance:** All required tests and build pass, the diff contains only approved files and the wiki/spec/plan, and no new external request path or sensitive-field exposure appears.
 
-- [ ] Step 1: Run the complete Go suite
+- [x] Step 1: Run the complete Go suite
 
 Run:
 
@@ -195,7 +195,7 @@ Run:
 
 Expected: PASS.
 
-- [ ] Step 2: Run the complete frontend test suite
+- [x] Step 2: Run the complete frontend test suite
 
 Run:
 
@@ -204,7 +204,7 @@ Run:
 
 Expected: PASS with no unhandled errors or warnings.
 
-- [ ] Step 3: Run the production frontend build
+- [x] Step 3: Run the production frontend build
 
 Run:
 
@@ -213,7 +213,7 @@ Run:
 
 Expected: TypeScript and Vite production build complete successfully.
 
-- [ ] Step 4: Inspect diff and sensitive-field boundaries
+- [x] Step 4: Inspect diff and sensitive-field boundaries
 
 Run:
 
