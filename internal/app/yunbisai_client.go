@@ -90,10 +90,12 @@ type YunbisaiRemotePairing struct {
 	P1TeamName    string
 	P1Result      string
 	P1Score       string
+	P1Integral    string
 	P2Name        string
 	P2TeamName    string
 	P2Result      string
 	P2Score       string
+	P2Integral    string
 }
 
 type YunbisaiAuthInvalidError struct {
@@ -426,9 +428,9 @@ func (c *YunbisaiClient) GroupPairings(ctx context.Context, groupID string, bout
 		pairing := YunbisaiRemotePairing{
 			SeatNumber: textValue(row["seatnum"]), AgainstPlanID: textValue(row["againstplanid"]),
 			P1Name: textValue(row["p1"]), P1TeamName: textValue(row["p1_teamname"]),
-			P1Result: textValue(row["p1_result"]), P1Score: textValue(row["p1_score"]),
+			P1Result: textValue(row["p1_result"]), P1Score: textValue(row["p1_score"]), P1Integral: textValue(row["p1_integral"]),
 			P2Name: textValue(row["p2"]), P2TeamName: textValue(row["p2_teamname"]),
-			P2Result: textValue(row["p2_result"]), P2Score: textValue(row["p2_score"]),
+			P2Result: textValue(row["p2_result"]), P2Score: textValue(row["p2_score"]), P2Integral: textValue(row["p2_integral"]),
 		}
 		if pairing.SeatNumber == "" || (pairing.P1Name == "" && pairing.P2Name == "") {
 			return YunbisaiRemotePairingRound{}, errors.New("云比赛对阵数据格式无效")

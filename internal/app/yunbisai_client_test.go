@@ -263,6 +263,7 @@ func TestYunbisaiClientGroupPairings(t *testing.T) {
 					"p1_teamname": "浙江省之江棋院壶庐分院", "p2_teamname": "博趣围棋",
 					"p1": "苏景澄", "p2": "魏宋子恒", "p1_result": "1", "p2_result": "2",
 					"p1_score": "2.0", "p2_score": "0.0",
+					"p1_integral": "12.0", "p2_integral": "10.0",
 				}},
 			},
 		}
@@ -290,7 +291,7 @@ func TestYunbisaiClientGroupPairings(t *testing.T) {
 	if err != nil || latest.LastBout != 7 || latest.TotalBout != 7 || len(latest.Rows) != 1 {
 		t.Fatalf("latest = %#v err %v", latest, err)
 	}
-	if latest.Rows[0].P1Result != "1" || latest.Rows[0].P2Result != "2" || latest.Rows[0].P1Score != "2.0" {
+	if latest.Rows[0].P1Result != "1" || latest.Rows[0].P2Result != "2" || latest.Rows[0].P1Score != "2.0" || latest.Rows[0].P1Integral != "12.0" || latest.Rows[0].P2Integral != "10.0" {
 		t.Fatalf("latest row = %#v", latest.Rows[0])
 	}
 	explicit, err := client.GroupPairings(context.Background(), "331092", 6)

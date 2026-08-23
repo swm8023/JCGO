@@ -117,7 +117,7 @@ Checkpoint only internal/app/yunbisai_auth.go, internal/app/yunbisai.go, interna
 
 **Acceptance:** The existing public pairing request maps p1_integral and p2_integral to optional totalScore fields while retaining single-game scores, and no additional RPC or HTTP request is introduced.
 
-- [ ] Step 1: Write the failing client and service mapping tests
+- [x] Step 1: Write the failing client and service mapping tests
 
 Extend the pairing fixture with p1_integral: "12.0" and p2_integral: "10.0". Assert the client retains both raw total values and the service exposes them as Player1.TotalScore and Player2.TotalScore alongside the existing Score values. Add a missing-integral row assertion that leaves TotalScore empty rather than producing 0.
 
@@ -127,11 +127,11 @@ Run:
 
 Expected: FAIL because the raw and normalized pairing models do not contain total-score fields.
 
-- [ ] Step 2: Implement the minimal pairing total-score mapping
+- [x] Step 2: Implement the minimal pairing total-score mapping
 
 Add optional total-score fields to the Go remote/domain pairing player models, parse p1_integral/p2_integral in GroupPairings, and copy them into the service result. Keep the existing p1_score/p2_score mapping and result normalization unchanged.
 
-- [ ] Step 3: Add the frontend model contract and run focused Go tests
+- [x] Step 3: Add the frontend model contract and run focused Go tests
 
 Add optional totalScore to the TypeScript YunbisaiPairingPlayer interface, then run:
 
@@ -139,7 +139,7 @@ Add optional totalScore to the TypeScript YunbisaiPairingPlayer interface, then 
 
 Expected: PASS with no credential fields in the returned pairing model and no changed request count.
 
-- [ ] Step 4: Git checkpoint
+- [x] Step 4: Git checkpoint
 
 Checkpoint only internal/app/yunbisai_client.go, internal/app/yunbisai.go, web/src/api/types.ts, internal/app/yunbisai_client_test.go, and internal/app/yunbisai_test.go after focused tests pass. Record the commit hash and subject.
 

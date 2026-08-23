@@ -268,8 +268,8 @@ func TestYunbisaiServiceMapsGroupPairings(t *testing.T) {
 		GroupName: "8级组", LastBout: 7, TotalBout: 7,
 		Rows: []YunbisaiRemotePairing{
 			{
-				SeatNumber: "1", P1Name: "棋手甲", P1TeamName: "甲队", P1Result: "1", P1Score: "2.0",
-				P2Name: "棋手乙", P2TeamName: "乙队", P2Result: "2", P2Score: "0.0",
+				SeatNumber: "1", P1Name: "棋手甲", P1TeamName: "甲队", P1Result: "1", P1Score: "2.0", P1Integral: "12.0",
+				P2Name: "棋手乙", P2TeamName: "乙队", P2Result: "2", P2Score: "0.0", P2Integral: "10.0",
 			},
 			{SeatNumber: "2", P1Name: "棋手丙", P1Result: "1", P2Name: "--", P2Result: ""},
 			{SeatNumber: "3", P1Name: "棋手丁", P1Result: "9", P2Name: "棋手戊", P2Result: "9"},
@@ -289,6 +289,12 @@ func TestYunbisaiServiceMapsGroupPairings(t *testing.T) {
 	}
 	if result.Matches[0].Player1.Result != "win" || result.Matches[0].Player2.Result != "loss" {
 		t.Fatalf("known results = %#v", result.Matches[0])
+	}
+	if result.Matches[0].Player1.TotalScore != "12.0" || result.Matches[0].Player2.TotalScore != "10.0" || result.Matches[0].Player1.Score != "2.0" {
+		t.Fatalf("total scores = %#v", result.Matches[0])
+	}
+	if result.Matches[1].Player1.TotalScore != "" || result.Matches[1].Player2.TotalScore != "" {
+		t.Fatalf("missing total scores = %#v", result.Matches[1])
 	}
 	if result.Matches[1].Player2.Result != "bye" {
 		t.Fatalf("bye result = %#v", result.Matches[1])

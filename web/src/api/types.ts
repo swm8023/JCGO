@@ -388,6 +388,7 @@ export interface YunbisaiPairingPlayer {
   teamName?: string
   result: string
   score?: string
+  totalScore?: string
 }
 
 export interface YunbisaiPairing {

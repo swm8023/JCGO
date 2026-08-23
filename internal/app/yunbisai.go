@@ -123,10 +123,11 @@ type YunbisaiEventGroup struct {
 }
 
 type YunbisaiPairingPlayer struct {
-	Name     string `json:"name"`
-	TeamName string `json:"teamName,omitempty"`
-	Result   string `json:"result"`
-	Score    string `json:"score,omitempty"`
+	Name       string `json:"name"`
+	TeamName   string `json:"teamName,omitempty"`
+	Result     string `json:"result"`
+	Score      string `json:"score,omitempty"`
+	TotalScore string `json:"totalScore,omitempty"`
 }
 
 type YunbisaiPairing struct {
@@ -300,11 +301,11 @@ func (s *YunbisaiService) GroupPairings(ctx context.Context, groupID string, bou
 			SeatNumber: row.SeatNumber, AgainstPlanID: row.AgainstPlanID,
 			Player1: YunbisaiPairingPlayer{
 				Name: row.P1Name, TeamName: row.P1TeamName,
-				Result: normalizeYunbisaiPairingResult(row.P1Name, row.P1Result), Score: row.P1Score,
+				Result: normalizeYunbisaiPairingResult(row.P1Name, row.P1Result), Score: row.P1Score, TotalScore: row.P1Integral,
 			},
 			Player2: YunbisaiPairingPlayer{
 				Name: row.P2Name, TeamName: row.P2TeamName,
-				Result: normalizeYunbisaiPairingResult(row.P2Name, row.P2Result), Score: row.P2Score,
+				Result: normalizeYunbisaiPairingResult(row.P2Name, row.P2Result), Score: row.P2Score, TotalScore: row.P2Integral,
 			},
 		})
 	}
