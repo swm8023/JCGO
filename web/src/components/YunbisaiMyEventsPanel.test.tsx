@@ -46,8 +46,8 @@ const finalPairings: YunbisaiGroupPairings = {
     {
       seatNumber: '1',
       againstPlanId: 'plan-1',
-      player1: { name: '张三', teamName: '杭州队', result: 'win', score: '2' },
-      player2: { name: '李四', teamName: '宁波队', result: 'loss', score: '0' },
+      player1: { name: '张三', teamName: '杭州队', result: 'win', score: '2', totalScore: '12' },
+      player2: { name: '李四', teamName: '宁波队', result: 'loss', score: '0', totalScore: '10' },
     },
   ],
 }
@@ -244,8 +244,33 @@ describe('YunbisaiMyEventsPanel', () => {
     expect(within(pairingSection).getByText('负')).toBeInTheDocument()
     expect(within(pairingSection).getByText('得分 2')).toBeInTheDocument()
     expect(within(pairingSection).getByText('得分 0')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('当前总分 12')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('当前总分 10')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('对手当前总分 10')).toBeInTheDocument()
+    expect(within(pairingSection).getByText('对手当前总分 12')).toBeInTheDocument()
     expect(testAPI.groupPairings).toHaveBeenCalledTimes(1)
     expect(testAPI.groupPairings).toHaveBeenCalledWith('331092')
+  })
+
+  it('shows explicit empty states for missing totals and a bye without another request', async () => {
+    const testAPI = api({
+      groupPairings: vi.fn(() => Promise.resolve({
+        ...finalPairings,
+        matches: [{
+          seatNumber: '2',
+          player1: { name: '待确认甲', result: 'pending' },
+          player2: { name: '', result: 'bye' },
+        }],
+      })),
+    })
+    render(<YunbisaiMyEventsPanel api={testAPI} />)
+
+    await userEvent.click(await screen.findByRole('button', { name: /杭州围棋公开赛/ }))
+    await userEvent.click(await screen.findByRole('button', { name: /8级组/ }))
+    const pairingSection = await screen.findByRole('region', { name: '8级组对阵表' })
+    expect(within(pairingSection).getAllByText('当前总分 待公布')).toHaveLength(2)
+    expect(within(pairingSection).getByText('无对手')).toBeInTheDocument()
+    expect(testAPI.groupPairings).toHaveBeenCalledTimes(1)
   })
 
   it('requests the previous round once and reuses a cached round when moving forward', async () => {

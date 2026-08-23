@@ -621,15 +621,21 @@ function PairingMatch({ match }: { match: YunbisaiPairing }) {
     <article className="yunbisai-match-card" aria-label={`${match.seatNumber}台`}>
       <div className="yunbisai-match-seat">{match.seatNumber} 台</div>
       <div className="yunbisai-match-players">
-        <PairingPlayer player={match.player1} />
+        <PairingPlayer player={match.player1} opponent={match.player2} />
         <span className="yunbisai-match-versus" aria-hidden="true">VS</span>
-        <PairingPlayer player={match.player2} />
+        <PairingPlayer player={match.player2} opponent={match.player1} />
       </div>
     </article>
   )
 }
 
-function PairingPlayer({ player }: { player: YunbisaiPairing['player1'] }) {
+function PairingPlayer({
+  player,
+  opponent,
+}: {
+  player: YunbisaiPairing['player1']
+  opponent: YunbisaiPairing['player1']
+}) {
   const resultClass = player.result.replace(/[^a-z-]/gi, '') || 'unknown'
   return (
     <div className="yunbisai-pairing-player">
@@ -637,6 +643,10 @@ function PairingPlayer({ player }: { player: YunbisaiPairing['player1'] }) {
       {player.teamName && <small>{player.teamName}</small>}
       <span className={`yunbisai-result ${resultClass}`}>{pairingResultLabel(player.result)}</span>
       {player.score && <small>得分 {player.score}</small>}
+      <small>当前总分 {pairingTotalScore(player.totalScore)}</small>
+      {hasPairingOpponent(opponent.name)
+        ? <small>对手当前总分 {pairingTotalScore(opponent.totalScore)}</small>
+        : <small>无对手</small>}
     </div>
   )
 }
@@ -671,8 +681,21 @@ function pairingCacheKey(groupID: string, bout?: number) {
 }
 
 function pairingPlayerName(name: string) {
-  if (name.trim().toLowerCase() === 'bye') return '轮空'
+  if (isMissingPairingName(name)) return '轮空'
   return name.trim() || '待定'
+}
+
+function hasPairingOpponent(name: string) {
+  return !isMissingPairingName(name) && name.trim() !== ''
+}
+
+function isMissingPairingName(name: string) {
+  const normalized = name.trim().toLowerCase()
+  return normalized === 'bye' || normalized === '--' || normalized === '-'
+}
+
+function pairingTotalScore(score?: string) {
+  return score?.trim() || '待公布'
 }
 
 function pairingResultLabel(result: string) {

@@ -151,7 +151,7 @@ Checkpoint only internal/app/yunbisai_client.go, internal/app/yunbisai.go, web/s
 
 **Acceptance:** Each paired player shows their current total and the other player's current total using the existing single pairing response; bye/missing-total states are explicit and existing request/cache assertions remain unchanged.
 
-- [ ] Step 1: Write failing component tests
+- [x] Step 1: Write failing component tests
 
 Extend the pairing fixture with totalScore: "12.0" and totalScore: "10.0". After opening the group, assert the UI contains both 当前总分 12.0/当前总分 10.0 and the corresponding 对手当前总分 labels. Add a bye or missing-total fixture and assert 无对手/待公布 without an extra groupPairings call.
 
@@ -162,11 +162,11 @@ Run:
 
 Expected: FAIL because the panel currently renders only single-game score and does not render totalScore or opponent totals.
 
-- [ ] Step 2: Implement the minimal pairing presentation
+- [x] Step 2: Implement the minimal pairing presentation
 
 Pass each match's opposite player into PairingPlayer, render the player's totalScore as 当前总分, render the opposite player's totalScore as 对手当前总分, and use explicit empty-state text for missing totals or no opponent. Do not alter loadPairings, its cache keys, or its request flow.
 
-- [ ] Step 3: Run the focused frontend test
+- [x] Step 3: Run the focused frontend test
 
 Run:
 
@@ -175,7 +175,7 @@ Run:
 
 Expected: PASS, including existing latest-round, round-navigation, caching, error, and request-count cases.
 
-- [ ] Step 4: Git checkpoint
+- [x] Step 4: Git checkpoint
 
 Checkpoint only web/src/components/YunbisaiMyEventsPanel.tsx and web/src/components/YunbisaiMyEventsPanel.test.tsx after the focused component suite passes. Record the commit hash and subject.
 
