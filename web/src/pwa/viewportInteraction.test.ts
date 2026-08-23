@@ -67,6 +67,7 @@ class FakeDocumentTarget extends FakeEventTarget {
   readonly root = new FakeElement('div', this)
   readonly viewportMeta = new FakeElement('meta', this)
   readonly documentElement = { style: new FakeStyle(), clientWidth: 0, clientHeight: 0, scrollWidth: 0, scrollHeight: 0 }
+  visibilityState: DocumentVisibilityState = 'visible'
 
   constructor() {
     super()
@@ -289,6 +290,52 @@ describe('viewport interaction guards', () => {
 
     cleanup()
     expect(windowTarget.listeners.get('resize')).toEqual([])
+  })
+
+  it('ignores transient zero-height viewport samples while the WebView is hidden', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+
+    installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.innerHeight = 0
+    windowTarget.visualViewport.height = 0
+    windowTarget.dispatch('resize', new Event('resize'))
+
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('932px')
+    expect(documentTarget.documentElement.style.values.get('--app-width')).toBeUndefined()
+    expect(documentTarget.root.style.values.get('transform')).toBeUndefined()
+  })
+
+  it('refreshes viewport dimensions when a background page becomes visible again', async () => {
+    const moduleName = './viewportInteraction'
+    const { installViewportInteractionGuards } = (await import(moduleName)) as typeof import('./viewportInteraction')
+    const windowTarget = new FakeWindowTarget()
+    const documentTarget = new FakeDocumentTarget()
+
+    const cleanup = installViewportInteractionGuards(
+      windowTarget as unknown as Window,
+      documentTarget as unknown as Document,
+    )
+
+    windowTarget.innerHeight = 960
+    windowTarget.visualViewport.height = 960
+    documentTarget.dispatch('visibilitychange', new Event('visibilitychange'))
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('960px')
+
+    windowTarget.innerHeight = 980
+    windowTarget.visualViewport.height = 980
+    windowTarget.dispatch('pageshow', new Event('pageshow'))
+    expect(documentTarget.documentElement.style.values.get('--app-height')).toBe('980px')
+
+    cleanup()
+    expect(documentTarget.listeners.get('visibilitychange')).toEqual([])
+    expect(windowTarget.listeners.get('pageshow')).toEqual([])
   })
 
   it('updates the centered portrait canvas when landscape viewport geometry changes', async () => {

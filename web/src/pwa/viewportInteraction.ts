@@ -36,6 +36,10 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   }
   const updateViewport = (source: string) => {
     const viewport = currentViewportSize(windowTarget)
+    if (!isUsableViewport(viewport)) {
+      writeDebug(source)
+      return
+    }
     const coarsePointer = hasCoarsePointer(windowTarget)
     const portraitViewport = portraitViewportSize(viewport, coarsePointer)
     const nextAppWidth = portraitViewport.width
@@ -63,6 +67,12 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   const handleScreenOrientationChange = () => {
     updateViewport('orientation')
   }
+  const handleVisibilityChange = () => {
+    if (documentTarget.visibilityState === 'visible') updateViewport('visible')
+  }
+  const handlePageShow = () => {
+    updateViewport('pageshow')
+  }
 
   requestPrimaryPortraitOrientation(windowTarget)
   handleResize()
@@ -74,6 +84,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
   windowTarget.addEventListener('resize', handleResize)
   windowTarget.visualViewport?.addEventListener('resize', handleVisualViewportResize)
   windowTarget.screen.orientation?.addEventListener?.('change', handleScreenOrientationChange)
+  documentTarget.addEventListener('visibilitychange', handleVisibilityChange)
+  windowTarget.addEventListener('pageshow', handlePageShow)
 
   return () => {
     for (const eventName of gestureEvents) {
@@ -84,6 +96,8 @@ export function installViewportInteractionGuards(windowTarget: Window = window, 
     windowTarget.removeEventListener('resize', handleResize)
     windowTarget.visualViewport?.removeEventListener('resize', handleVisualViewportResize)
     windowTarget.screen.orientation?.removeEventListener?.('change', handleScreenOrientationChange)
+    documentTarget.removeEventListener('visibilitychange', handleVisibilityChange)
+    windowTarget.removeEventListener('pageshow', handlePageShow)
     clearPortraitFallback(documentTarget)
     debugOverlay?.remove()
   }
@@ -113,6 +127,10 @@ function currentViewportSize(windowTarget: Window): ViewportSize {
     width: viewport.width,
     height: Math.max(viewport.height, visualViewport.height),
   }
+}
+
+function isUsableViewport(viewport: ViewportSize) {
+  return Number.isFinite(viewport.width) && Number.isFinite(viewport.height) && viewport.width > 0 && viewport.height > 0
 }
 
 function portraitViewportSize(viewport: ViewportSize, coarsePointer: boolean): AppViewportSize {
