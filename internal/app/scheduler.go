@@ -70,6 +70,7 @@ type Scheduler struct {
 	engine      katago.Analyzer
 	closed      chan struct{}
 	closeOnce   sync.Once
+	wg          sync.WaitGroup
 	mu          sync.Mutex
 	runs        map[string]*analysisRun
 	lanes       map[string]*workerLane
@@ -298,10 +299,14 @@ func (s *Scheduler) Status() katago.Status {
 
 func (s *Scheduler) Close() error {
 	s.closeOnce.Do(func() {
-		s.cancelAllRuns()
+		s.mu.Lock()
 		close(s.closed)
+		s.mu.Unlock()
+		s.cancelAllRuns()
+		_ = s.engine.Close()
 	})
-	return s.engine.Close()
+	s.wg.Wait()
+	return nil
 }
 
 func (s *Scheduler) laneForLocked(workerName string) *workerLane {
@@ -327,11 +332,17 @@ func (s *Scheduler) wakeLane(lane *workerLane) {
 }
 
 func (s *Scheduler) ensureLaneRunner(lane *workerLane) {
+	select {
+	case <-s.closed:
+		return
+	default:
+	}
 	if lane.running {
 		return
 	}
 	lane.running = true
-	go s.runLane(lane.workerName)
+	s.wg.Add(1)
+	go func() { defer s.wg.Done(); s.runLane(lane.workerName) }()
 }
 
 func (s *Scheduler) runLane(workerName string) {
@@ -353,6 +364,11 @@ func (s *Scheduler) runLane(workerName string) {
 
 func (s *Scheduler) nextLaneTask(workerName string) (scheduledNode, bool) {
 	for {
+		select {
+		case <-s.closed:
+			return scheduledNode{}, false
+		default:
+		}
 		s.mu.Lock()
 		lane := s.lanes[workerName]
 		if lane == nil {
@@ -463,6 +479,12 @@ func (s *Scheduler) analyze(ctx context.Context, task task, query katago.Query) 
 func (s *Scheduler) setTaskCancel(task scheduledNode, cancel context.CancelFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	select {
+	case <-s.closed:
+		cancel()
+		return
+	default:
+	}
 	lane := s.lanes[task.workerName]
 	if lane != nil && lane.current != nil && lane.current.id == task.id {
 		lane.current.cancel = cancel

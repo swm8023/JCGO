@@ -4,11 +4,111 @@ import (
 	"archive/zip"
 	"context"
 	"errors"
+	"jcgo/internal/managed"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+func TestPowerShellGuardRecognizesLiveLockAndIgnoresStaleOwner(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows installed scripts")
+	}
+	dir := t.TempDir()
+	owner, err := managed.Acquire(dir, "worker", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	script := filepath.Join(dir, "guard.ps1")
+	if err := os.WriteFile(script, []byte("$ErrorActionPreference='Stop'\n$script:StateDir="+psSingleQuote(dir)+"\n"+maintenanceGuardScript+"\nAssert-MaintenanceAllowed\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run := func() ([]byte, error) {
+		cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script)
+		managed.HideWindow(cmd)
+		return cmd.CombinedOutput()
+	}
+	output, err := run()
+	if err == nil || !strings.Contains(string(output), "Hub Monitor") {
+		t.Fatalf("live managed owner: %s %v", output, err)
+	}
+	owner.Close()
+	output, err = run()
+	if err != nil {
+		t.Fatalf("stale owner: %s %v", output, err)
+	}
+}
+
+func TestPublishRejectsLiveManagedRootsBeforeStoppingOrReplacing(t *testing.T) {
+	home := t.TempDir()
+	opts := Options{HomeDir: home}
+	state := StateDir(opts)
+	if err := os.MkdirAll(filepath.Join(state, "bin"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := filepath.Join(state, "bin", "installed.txt")
+	if err := os.WriteFile(sentinel, []byte("keep"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	owner, err := managed.Acquire(state, "server", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	runner := &recordingRunner{}
+	err = Publish(context.Background(), opts, runner, StagedRelease{PublishDir: t.TempDir()})
+	if err == nil || !strings.Contains(err.Error(), "Hub Monitor") {
+		t.Errorf("managed deployment error=%v", err)
+	}
+	if len(runner.calls) != 0 {
+		t.Errorf("stop command invoked while managed: %v", runner.calls)
+	}
+	data, err := os.ReadFile(sentinel)
+	if err != nil || string(data) != "keep" {
+		t.Errorf("installation modified before rejecting managed runtime: %q %v", data, err)
+	}
+}
+
+func TestStoppedManagedPublishPreservesPrivateDataAndConfig(t *testing.T) {
+	root := t.TempDir()
+	opts := Options{HomeDir: filepath.Join(root, "home"), RepoRoot: filepath.Join(root, "repo")}
+	state := StateDir(opts)
+	owner, err := managed.Acquire(state, "server", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner.Close()
+	private := map[string]string{"config.json": `{"server":{"enabled":true,"port":4380,"token":"private"},"worker":{"enabled":false},"hub":{"enabled":true},"log":{"level":"warn"}}`, "db/jcgo.sqlite": "database sentinel", "games/game.sgf": "SGF sentinel", "games/game.analysis.json": "analysis sentinel", "model/custom.bin.gz": "custom model sentinel"}
+	for path, data := range private {
+		target := filepath.Join(state, path)
+		if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(target, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stage := filepath.Join(root, "stage")
+	for _, name := range []string{"bin", "web", "config", "model"} {
+		if err := os.MkdirAll(filepath.Join(stage, name), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(stage, "web", "index.html"), []byte("new web"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Publish(context.Background(), opts, &recordingRunner{}, StagedRelease{PublishDir: stage}); err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range private {
+		assertFile(t, filepath.Join(state, path), want)
+	}
+	assertFile(t, filepath.Join(state, "web", "index.html"), "new web")
+}
 
 func TestEnsureConfigCreatesConnectionOnlyDefaultConfig(t *testing.T) {
 	root := t.TempDir()

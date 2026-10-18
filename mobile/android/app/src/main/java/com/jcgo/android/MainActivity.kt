@@ -16,7 +16,6 @@ import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebSettings
-import android.webkit.WebStorage
 import android.webkit.WebView
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -262,20 +261,23 @@ class MainActivity : Activity() {
             return
         }
         val currentUrl = target.url.orEmpty()
-        val finish = {
-            WebStorage.getInstance().deleteAllData()
-            CookieManager.getInstance().removeAllCookies {
-                target.clearHistory()
-                target.clearCache(true)
-                target.postDelayed(onComplete, 150)
-            }
+        val finish: () -> Unit = {
+            target.clearHistory()
+            target.post(onComplete)
         }
         if (configuredBaseUrl.isBlank() || !BaseUrlPolicy(configuredBaseUrl).contains(currentUrl)) {
             finish()
         } else {
             target.evaluateJavascript(CLEAR_REMOTE_STATE_SCRIPT) {
-                finish()
+                awaitRemoteCleanup(target, 40, finish)
             }
+        }
+    }
+
+    private fun awaitRemoteCleanup(target: WebView, attempts: Int, onComplete: () -> Unit) {
+        target.evaluateJavascript("window.__jcgoCleanupDone === true") { complete ->
+            if (complete == "true" || attempts <= 0) onComplete()
+            else target.postDelayed({ awaitRemoteCleanup(target, attempts - 1, onComplete) }, 50)
         }
     }
 
@@ -422,9 +424,17 @@ class MainActivity : Activity() {
         const val FILE_CHOOSER_REQUEST_CODE = 1001
         val CLEAR_REMOTE_STATE_SCRIPT = """
             (() => {
-              try { localStorage.clear(); sessionStorage.clear(); } catch (_) {}
-              try { navigator.serviceWorker.getRegistrations().then(items => items.forEach(item => item.unregister())); } catch (_) {}
-              try { caches.keys().then(keys => keys.forEach(key => caches.delete(key))); } catch (_) {}
+              window.__jcgoCleanupDone = false;
+              for (const storage of [localStorage, sessionStorage]) {
+                for (const key of Object.keys(storage)) if (key.startsWith('jcgo.')) storage.removeItem(key);
+              }
+              const base = location.pathname === '/jcgo' || location.pathname.startsWith('/jcgo/') ? '/jcgo/' : '/';
+              const prefix = base === '/' ? 'jcgo-' : 'jcgo-' + encodeURIComponent(base) + '-';
+              const owns = name => base === '/' ? /^jcgo-(static-v[0-9]+|shared-v[0-9]+)$/.test(name) : name.startsWith(prefix);
+              Promise.all([
+                'serviceWorker' in navigator ? navigator.serviceWorker.getRegistrations().then(items => Promise.all(items.filter(item => item.scope === new URL(base, location.origin).href).map(item => item.unregister()))) : Promise.resolve(),
+                'caches' in window ? caches.keys().then(keys => Promise.all(keys.filter(owns).map(key => caches.delete(key)))) : Promise.resolve()
+              ]).finally(() => { window.__jcgoCleanupDone = true; });
               return true;
             })()
         """.trimIndent()

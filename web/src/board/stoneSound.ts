@@ -1,5 +1,7 @@
-const moveAudio = new Audio('/move.mp3')
-const captureAudio = new Audio('/capture.mp3')
+import { appPath } from '../appPaths'
+
+const moveAudio = new Audio(appPath('move.mp3'))
+const captureAudio = new Audio(appPath('capture.mp3'))
 
 moveAudio.preload = 'auto'
 captureAudio.preload = 'auto'

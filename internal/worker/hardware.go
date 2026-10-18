@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"jcgo/internal/managed"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -15,7 +16,9 @@ func DetectHardware(ctx context.Context) HardwareInfo {
 	script := `$cpu = (Get-CimInstance Win32_Processor | Select-Object -First 1 -ExpandProperty Name)
 $gpus = @(Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name })
 [pscustomobject]@{ cpu = $cpu; gpus = $gpus } | ConvertTo-Json -Compress`
-	out, err := exec.CommandContext(ctx, "powershell.exe", "-NoLogo", "-NoProfile", "-Command", script).Output()
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoLogo", "-NoProfile", "-Command", script)
+	managed.HideWindow(cmd)
+	out, err := cmd.Output()
 	if err != nil {
 		return HardwareInfo{}
 	}

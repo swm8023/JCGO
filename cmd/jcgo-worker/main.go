@@ -6,11 +6,16 @@ import (
 	"flag"
 	"io"
 	"log"
+	"net/url"
 	"os"
+	"os/signal"
+	"sync"
+	"syscall"
 	"time"
 
 	"jcgo/internal/config"
 	"jcgo/internal/katago"
+	"jcgo/internal/managed"
 	"jcgo/internal/worker"
 )
 
@@ -23,36 +28,93 @@ type runOptions struct {
 	StartLocal      startLocalFunc
 	ServeConnection serveConnectionFunc
 	Sleep           func(time.Duration)
+	Ready           func() error
+	Health          *workerHealth
+}
+
+type workerHealth struct {
+	mu              sync.RWMutex
+	runtime         *worker.Runtime
+	connected       bool
+	connectionError string
+	secrets         []string
+}
+
+func (s *workerHealth) snapshot() managed.Health {
+	s.mu.RLock()
+	engine := s.runtime
+	connected := s.connected
+	message := s.connectionError
+	secrets := s.secrets
+	s.mu.RUnlock()
+	connectionState := "reconnecting"
+	if connected {
+		connectionState = "connected"
+	}
+	engineState := "initializing"
+	engineError := ""
+	if engine != nil {
+		info := engine.Info()
+		engineError = managed.Redact(info.Error, secrets...)
+		engineState = "ready"
+		if engineError != "" {
+			engineState = "unavailable"
+		}
+	}
+	state := "healthy"
+	if !connected || engineState != "ready" {
+		state = "degraded"
+	}
+	return managed.Health{State: state, Components: []managed.Component{{ID: "server", State: connectionState, Message: message}, {ID: "katago", State: engineState, Message: engineError}}}
 }
 
 func main() {
+	if err := execute(); err != nil {
+		log.Print(err)
+		os.Exit(1)
+	}
+}
+func execute() error {
 	dirFlag := flag.String("dir", "", "JCGO home directory")
-	_ = flag.CommandLine.Parse(os.Args[1:])
+	flag.Parse()
 	dir := *dirFlag
 	if dir == "" {
 		var err error
 		dir, err = config.DefaultDir()
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 	}
 	cfg, err := config.LoadDir(dir)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	if err := config.EnsureDirs(cfg); err != nil {
-		log.Fatal(err)
+		return err
 	}
-	logFile, err := os.OpenFile(cfg.WorkerLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(cfg.WorkerLogPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-	defer logFile.Close()
-
-	logger := log.New(io.MultiWriter(os.Stdout, logFile), "", log.LstdFlags)
-	if err := run(context.Background(), runOptions{Dir: dir, Logger: logger}); err != nil {
-		logger.Fatal(err)
+	defer file.Close()
+	writer := managed.RedactingWriter{Writer: io.MultiWriter(os.Stderr, file), Secrets: []string{cfg.Server.Token, cfg.Worker.Token}}
+	previous := log.Writer()
+	log.SetOutput(writer)
+	defer log.SetOutput(previous)
+	logger := log.New(writer, "", log.LstdFlags)
+	parent, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	health := &workerHealth{secrets: []string{cfg.Server.Token, cfg.Worker.Token}}
+	control := managed.Start(parent, managed.Options{Enabled: managed.Enabled(), Input: os.Stdin, Output: os.Stdout, Health: health.snapshot})
+	defer control.Close()
+	err = run(control.Context(), runOptions{Dir: dir, Logger: logger, Ready: func() error { return control.Ready("1.0.0") }, Health: health})
+	if control.Err() != nil {
+		return control.Err()
 	}
+	if errors.Is(err, context.Canceled) {
+		return nil
+	}
+	return err
 }
 
 func run(ctx context.Context, opts runOptions) error {
@@ -69,32 +131,47 @@ func run(ctx context.Context, opts runOptions) error {
 	if opts.StartLocal == nil {
 		opts.StartLocal = katago.StartLocal
 	}
+	if opts.Health == nil {
+		opts.Health = &workerHealth{}
+	}
 	if opts.ServeConnection == nil {
-		opts.ServeConnection = worker.ServeConnection
+		opts.ServeConnection = func(ctx context.Context, endpoint, token string, runtime worker.ClientRuntime) error {
+			return worker.ServeConnectionWithStatus(ctx, endpoint, token, runtime, func(connected bool) {
+				opts.Health.mu.Lock()
+				opts.Health.connected = connected
+				if connected {
+					opts.Health.connectionError = ""
+				}
+				opts.Health.mu.Unlock()
+			})
+		}
 	}
-	if opts.Sleep == nil {
-		opts.Sleep = time.Sleep
-	}
-
 	cfg, err := config.LoadDir(opts.Dir)
 	if err != nil {
 		return err
 	}
 	if !cfg.Worker.Enabled {
-		opts.Logger.Printf("worker disabled in config")
+		opts.Logger.Print("worker disabled in config")
 		return nil
 	}
-
-	runtimeEngine, err := worker.NewRuntime(worker.RuntimeOptions{
-		Dir:        opts.Dir,
-		Logger:     opts.Logger,
-		StartLocal: opts.StartLocal,
-	})
+	instance, err := managed.Acquire(opts.Dir, "worker", managed.Enabled())
+	if err != nil {
+		return err
+	}
+	defer instance.Close()
+	if opts.Ready != nil {
+		if err := opts.Ready(); err != nil {
+			return err
+		}
+	}
+	runtimeEngine, err := worker.NewRuntime(worker.RuntimeOptions{Context: ctx, Dir: opts.Dir, Logger: opts.Logger, StartLocal: opts.StartLocal})
 	if err != nil {
 		return err
 	}
 	defer runtimeEngine.Close()
-
+	opts.Health.mu.Lock()
+	opts.Health.runtime = runtimeEngine
+	opts.Health.mu.Unlock()
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -103,12 +180,41 @@ func run(ctx context.Context, opts runOptions) error {
 		if err != nil {
 			return err
 		}
-		opts.Logger.Printf("connecting to %s as %s", cfg.Worker.URL, cfg.Worker.Name)
+		endpoint, _ := url.Parse(cfg.Worker.URL)
+		safeEndpoint := "configured server"
+		if endpoint != nil {
+			safeEndpoint = endpoint.Scheme + "://" + endpoint.Host + endpoint.EscapedPath()
+		}
+		opts.Logger.Printf("connecting to %s", safeEndpoint)
 		err = opts.ServeConnection(ctx, cfg.Worker.URL, cfg.Worker.Token, runtimeEngine)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if errors.Is(err, context.Canceled) {
 			return err
 		}
-		opts.Logger.Printf("connection ended: %v", err)
-		opts.Sleep(5 * time.Second)
+		message := managed.Redact("connection ended: "+errorMessage(err), cfg.Server.Token, cfg.Worker.Token, cfg.Worker.URL)
+		opts.Logger.Print(message)
+		opts.Health.mu.Lock()
+		opts.Health.connected = false
+		opts.Health.connectionError = message
+		opts.Health.mu.Unlock()
+		if opts.Sleep != nil {
+			opts.Sleep(5 * time.Second)
+		} else {
+			timer := time.NewTimer(5 * time.Second)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return ctx.Err()
+			case <-timer.C:
+			}
+		}
 	}
+}
+func errorMessage(err error) string {
+	if err == nil {
+		return "closed"
+	}
+	return err.Error()
 }

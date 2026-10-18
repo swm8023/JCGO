@@ -9,9 +9,47 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"jcgo/internal/katago"
 )
+
+type blockingRuntimeEngine struct{ started chan struct{} }
+
+func (e *blockingRuntimeEngine) Analyze(ctx context.Context, query katago.Query) (katago.Result, error) {
+	close(e.started)
+	<-ctx.Done()
+	return katago.Result{}, ctx.Err()
+}
+func (e *blockingRuntimeEngine) Available() bool       { return true }
+func (e *blockingRuntimeEngine) Status() katago.Status { return katago.Status{Available: true} }
+func (e *blockingRuntimeEngine) Close() error          { return nil }
+
+func TestRuntimeInfoDoesNotWaitForLongAnalysis(t *testing.T) {
+	engine := &blockingRuntimeEngine{started: make(chan struct{})}
+	runtime, err := NewRuntime(RuntimeOptions{Dir: writeRuntimeConfig(t, ""), ProbeHardware: func(context.Context) HardwareInfo { return HardwareInfo{} }, StartLocal: func(context.Context, string, string, string) (katago.Analyzer, error) { return engine, nil }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = runtime.Analyze(ctx, katago.Query{ID: "blocked"}, defaultRuntimeConfig())
+	}()
+	<-engine.started
+	info := make(chan Info, 1)
+	go func() { info <- runtime.Info() }()
+	select {
+	case <-info:
+	case <-time.After(150 * time.Millisecond):
+		t.Error("health info blocked behind active analysis")
+	}
+	cancel()
+	<-done
+	runtime.Close()
+}
 
 type runtimeFakeEngine struct {
 	queries []katago.Query

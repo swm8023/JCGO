@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { LogOut } from 'lucide-react'
 import { RPCClient } from './api/jsonrpc'
+import { appPath, websocketURL } from './appPaths'
 import type { AnalysisState, BadMove, BadMovePromptResult, CandidateMove, ChartPoint, GameRecord, Snapshot, StatePayload, WorkerConfigureInput, WorkerRecommendation, WorkerStatus, YunbisaiMyEventsAPI } from './api/types'
 import { AnalysisCharts } from './components/AnalysisCharts'
 import { AnalysisDetailTabs } from './components/AnalysisDetailTabs'
@@ -36,8 +37,8 @@ const accessTokenKey = 'jcgo.accessToken'
 const selectedGameKey = 'jcgo.selectedGameId'
 const viewGameKey = 'jcgo.view.gameId'
 const viewNodeKey = 'jcgo.view.nodeId'
-const sharedSGFURL = '/shared-sgf/latest'
-const shareTargetRedirectPath = '/?share-target=sgf'
+const sharedSGFURL = appPath('shared-sgf/latest')
+const shareTargetRedirectPath = appPath('?share-target=sgf')
 const emptySideActionPlacement = computeSideActionPlacement({
   layoutWidth: 0,
   layoutHeight: 0,
@@ -728,11 +729,6 @@ function appHistoryLayerFromState(state: unknown, session: number): AppHistoryLa
 
 function currentHistoryURL() {
   return `${window.location.pathname}${window.location.search}${window.location.hash}`
-}
-
-function websocketURL() {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}/ws`
 }
 
 function isShareTargetLaunch() {

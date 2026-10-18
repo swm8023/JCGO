@@ -35,6 +35,7 @@ type WorkerStatusProvider interface {
 }
 
 type Handler struct {
+	ctx          context.Context
 	repo         *store.Repository
 	files        store.FileStore
 	workspaces   *WorkspaceStore
@@ -45,6 +46,7 @@ type Handler struct {
 }
 
 type HandlerOptions struct {
+	Context               context.Context
 	YuanluoboAuthStore    YuanluoboAuthStore
 	YuanluoboHTTPClient   *http.Client
 	YuanluoboBaseURL      string
@@ -84,6 +86,9 @@ func NewHandler(repo *store.Repository, files store.FileStore, workspaces *Works
 }
 
 func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, workspaces *WorkspaceStore, analysis AnalysisController, opts HandlerOptions) *Handler {
+	if opts.Context == nil {
+		opts.Context = context.Background()
+	}
 	authStore := opts.YuanluoboAuthStore
 	if authStore == nil {
 		authStore = NewYuanluoboMemoryAuthStore()
@@ -103,6 +108,7 @@ func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, worksp
 		ClientConfig: opts.YunbisaiClientOptions,
 	})
 	h := &Handler{
+		ctx:  opts.Context,
 		repo: repo, files: files, workspaces: workspaces, analysis: analysis,
 		workerStatus: opts.WorkerStatusProvider, yuanluobo: ylb, yunbisai: yunbisai,
 	}
@@ -115,7 +121,7 @@ func NewHandlerWithOptions(repo *store.Repository, files store.FileStore, worksp
 			}
 			ws.SetAnalysis(event.GameID, event.NodeID, event.Analysis)
 			if !event.IsDuringSearch && strings.HasPrefix(event.NodeID, "main:") {
-				h.persistMainlineAnalysis(context.Background(), event.GameID, ws)
+				h.persistMainlineAnalysis(h.ctx, event.GameID, ws)
 			}
 		})
 	}
@@ -207,7 +213,7 @@ func (h *Handler) Call(ctx context.Context, token string, method string, params 
 func (h *Handler) ServeWS(token string, conn *websocket.Conn) {
 	defer conn.Close()
 	var writeMu sync.Mutex
-	ctx := context.Background()
+	ctx := h.ctx
 	if h.analysis != nil {
 		unsubscribe := h.analysis.Subscribe(func(event Event) {
 			if event.Token != token {

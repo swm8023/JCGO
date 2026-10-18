@@ -16,6 +16,7 @@ type Config struct {
 	Server             ServerConfig
 	Worker             WorkerConfig
 	Log                LogConfig
+	Hub                HubConfig
 	ListenAddr         string
 	AccessToken        string
 	DatabasePath       string
@@ -32,6 +33,11 @@ type ServerConfig struct {
 	Enabled bool   `json:"enabled"`
 	Port    int    `json:"port"`
 	Token   string `json:"token"`
+}
+
+type HubConfig struct {
+	Enabled  bool   `json:"enabled"`
+	StateDir string `json:"stateDir,omitempty"`
 }
 
 type WorkerConfig struct {
@@ -56,6 +62,7 @@ type fileConfig struct {
 	Server ServerConfig `json:"server"`
 	Worker WorkerConfig `json:"worker"`
 	Log    LogConfig    `json:"log"`
+	Hub    HubConfig    `json:"hub,omitempty"`
 }
 
 func DefaultDir() (string, error) {
@@ -96,6 +103,7 @@ func LoadDir(dir string) (Config, error) {
 		Server:             raw.Server,
 		Worker:             raw.Worker,
 		Log:                raw.Log,
+		Hub:                raw.Hub,
 		ListenAddr:         fmt.Sprintf("127.0.0.1:%d", raw.Server.Port),
 		AccessToken:        raw.Server.Token,
 		DatabasePath:       filepath.Join(dir, "db", "jcgo.sqlite"),
@@ -106,6 +114,13 @@ func LoadDir(dir string) (Config, error) {
 		KatagoPath:         filepath.Join(dir, "bin", exeName("katago")),
 		ModelPath:          filepath.Join(dir, "model", raw.Worker.Model),
 		AnalysisConfigPath: filepath.Join(dir, "config", "analysis_config.cfg"),
+	}
+	if cfg.Hub.StateDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return Config{}, err
+		}
+		cfg.Hub.StateDir = filepath.Join(home, ".wheelmaker")
 	}
 	return cfg, nil
 }

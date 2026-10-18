@@ -33,6 +33,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	workspaces := NewWorkspaceStore()
 	scheduler := NewScheduler(engine)
 	handler := NewHandlerWithOptions(repo, files, workspaces, scheduler, HandlerOptions{
+		Context:              ctx,
 		YuanluoboAuthStore:   NewYuanluoboFileAuthStore(filepath.Join(cfg.Dir, "config", "yuanluobo_auth.json")),
 		YunbisaiAuthStore:    NewYunbisaiFileAuthStore(filepath.Join(cfg.Dir, "config", "yunbisai_auth.json")),
 		WorkerStatusProvider: workers,

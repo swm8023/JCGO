@@ -8,14 +8,14 @@ const indexHtml = readFileSync(join(process.cwd(), 'index.html'), 'utf8')
 
 describe('PWA install metadata', () => {
   it('locks orientation to portrait for portrait-only layout', () => {
-    expect(manifest.id).toBe('/')
+    expect(manifest.id).toBe('./')
     expect(manifest.orientation).toBe('portrait-primary')
-    expect(indexHtml).toContain('<link rel="manifest" href="/manifest.webmanifest?v=portrait-primary" />')
+    expect(indexHtml).toContain('<link rel="manifest" href="./manifest.webmanifest?v=portrait-primary" />')
   })
 
   it('registers as an installed app share target for SGF files', () => {
     expect(manifest.share_target).toEqual({
-      action: '/share-target',
+      action: './share-target',
       method: 'POST',
       enctype: 'multipart/form-data',
       params: {
@@ -32,19 +32,19 @@ describe('PWA install metadata', () => {
   it('provides installable Go-themed app icons for desktop and mobile launchers', () => {
     expect(manifest.icons).toEqual([
       {
-        src: '/icons/jcgo-192.png',
+        src: './icons/jcgo-192.png',
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/jcgo-512.png',
+        src: './icons/jcgo-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: '/icons/jcgo-maskable-512.png',
+        src: './icons/jcgo-maskable-512.png',
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
@@ -64,11 +64,11 @@ describe('PWA install metadata', () => {
   })
 
   it('enables iOS home-screen standalone mode metadata', () => {
-    expect(indexHtml).toContain('<link rel="icon" type="image/png" href="/icons/jcgo-192.png" />')
+    expect(indexHtml).toContain('<link rel="icon" type="image/png" href="./icons/jcgo-192.png" />')
     expect(indexHtml).toContain('<meta name="apple-mobile-web-app-capable" content="yes" />')
     expect(indexHtml).toContain('<meta name="apple-mobile-web-app-title" content="JCGO" />')
     expect(indexHtml).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />')
-    expect(indexHtml).toContain('<link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />')
+    expect(indexHtml).toContain('<link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />')
     expect(pngSize('public/icons/apple-touch-icon.png')).toEqual({ width: 180, height: 180 })
   })
 

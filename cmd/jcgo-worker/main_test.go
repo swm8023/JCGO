@@ -139,6 +139,42 @@ type staticAnalyzer struct {
 	status katago.Status
 }
 
+func TestReadyHealthAndCancellationDuringSlowEngineInitialization(t *testing.T) {
+	dir := t.TempDir()
+	writeConfig(t, dir)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ready := make(chan struct{})
+	starting := make(chan struct{})
+	done := make(chan error, 1)
+	health := &workerHealth{}
+	go func() {
+		done <- run(ctx, runOptions{Dir: dir, Logger: log.New(&bytes.Buffer{}, "", 0), Health: health, Ready: func() error { close(ready); return nil }, StartLocal: func(ctx context.Context, _, _, _ string) (katago.Analyzer, error) {
+			close(starting)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}})
+	}()
+	select {
+	case <-ready:
+	case <-time.After(time.Second):
+		t.Fatal("readiness waited for engine")
+	}
+	<-starting
+	if got := health.snapshot(); got.State != "degraded" || got.Components[1].State != "initializing" {
+		t.Fatalf("health=%+v", got)
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("stop=%v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("slow initialization ignored shutdown")
+	}
+}
+
 func (a staticAnalyzer) Analyze(context.Context, katago.Query) (katago.Result, error) {
 	return katago.Result{}, errors.New("not used")
 }

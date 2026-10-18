@@ -31,6 +31,7 @@ type HardwareInfo struct {
 }
 
 type RuntimeOptions struct {
+	Context       context.Context
 	Dir           string
 	Logger        *log.Logger
 	StartLocal    func(context.Context, string, string, string) (katago.Analyzer, error)
@@ -39,6 +40,10 @@ type RuntimeOptions struct {
 
 type Runtime struct {
 	mu           sync.Mutex
+	stateMu      sync.RWMutex
+	statusEngine katago.Analyzer
+	ctx          context.Context
+	cancel       context.CancelFunc
 	dir          string
 	logger       *log.Logger
 	startLocal   func(context.Context, string, string, string) (katago.Analyzer, error)
@@ -50,6 +55,10 @@ type Runtime struct {
 }
 
 func NewRuntime(opts RuntimeOptions) (*Runtime, error) {
+	if opts.Context == nil {
+		opts.Context = context.Background()
+	}
+	ctx, cancelRuntime := context.WithCancel(opts.Context)
 	if opts.Logger == nil {
 		opts.Logger = log.Default()
 	}
@@ -61,13 +70,15 @@ func NewRuntime(opts RuntimeOptions) (*Runtime, error) {
 	}
 	cfg, err := config.LoadDir(opts.Dir)
 	if err != nil {
+		cancelRuntime()
 		return nil, err
 	}
 	applyRuntimeDefaults(&cfg)
-	probeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	probeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	hardware := opts.ProbeHardware(probeCtx)
 	cancel()
 	r := &Runtime{
+		ctx: ctx, cancel: cancelRuntime,
 		dir:          cfg.Dir,
 		logger:       opts.Logger,
 		startLocal:   opts.StartLocal,
@@ -77,7 +88,7 @@ func NewRuntime(opts RuntimeOptions) (*Runtime, error) {
 		currentModel: cfg.Worker.Model,
 	}
 	r.mu.Lock()
-	err = r.startLocked(context.Background())
+	err = r.startLocked(ctx)
 	r.mu.Unlock()
 	if err != nil {
 		r.logger.Printf("katago unavailable: %v", err)
@@ -86,14 +97,24 @@ func NewRuntime(opts RuntimeOptions) (*Runtime, error) {
 }
 
 func (r *Runtime) Info() Info {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.infoLocked()
+	r.stateMu.RLock()
+	engine := r.statusEngine
+	r.stateMu.RUnlock()
+	status := katago.Status{Error: "katago is initializing"}
+	if engine != nil {
+		status = engine.Status()
+	}
+	return Info{Name: r.cfg.Worker.Name, Platform: runtime.GOOS + "/" + runtime.GOARCH, Backend: r.backend.ID, CPU: r.hardware.CPU, GPUs: append([]string{}, r.hardware.GPUs...), Error: status.Error}
 }
 
 func (r *Runtime) Analyze(ctx context.Context, query katago.Query, cfg RuntimeConfig) (katago.Result, error) {
+	ctx, cancel := r.analysisContext(ctx)
+	defer cancel()
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return katago.Result{}, err
+	}
 	cfg = normalizeRuntimeConfig(cfg)
 	if err := r.ensureModelLocked(ctx, cfg.Model); err != nil {
 		return katago.Result{}, err
@@ -103,8 +124,13 @@ func (r *Runtime) Analyze(ctx context.Context, query katago.Query, cfg RuntimeCo
 }
 
 func (r *Runtime) AnalyzeWithProgress(ctx context.Context, query katago.Query, cfg RuntimeConfig, progress func(katago.Result)) (katago.Result, error) {
+	ctx, cancel := r.analysisContext(ctx)
+	defer cancel()
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return katago.Result{}, err
+	}
 	cfg = normalizeRuntimeConfig(cfg)
 	if err := r.ensureModelLocked(ctx, cfg.Model); err != nil {
 		return katago.Result{}, err
@@ -117,6 +143,7 @@ func (r *Runtime) AnalyzeWithProgress(ctx context.Context, query katago.Query, c
 }
 
 func (r *Runtime) Close() error {
+	r.cancel()
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.engine == nil {
@@ -125,19 +152,13 @@ func (r *Runtime) Close() error {
 	return r.engine.Close()
 }
 
-func (r *Runtime) infoLocked() Info {
-	status := katago.Status{Available: false, Error: "katago is not initialized"}
-	if r.engine != nil {
-		status = r.engine.Status()
+func (r *Runtime) analysisContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(ctx)
+	stop := context.AfterFunc(r.ctx, cancel)
+	if r.ctx.Err() != nil {
+		cancel()
 	}
-	return Info{
-		Name:     r.cfg.Worker.Name,
-		Platform: runtime.GOOS + "/" + runtime.GOARCH,
-		Backend:  r.backend.ID,
-		CPU:      r.hardware.CPU,
-		GPUs:     append([]string{}, r.hardware.GPUs...),
-		Error:    status.Error,
-	}
+	return ctx, func() { stop(); cancel() }
 }
 
 func (r *Runtime) ensureModelLocked(ctx context.Context, model string) error {
@@ -157,16 +178,22 @@ func (r *Runtime) ensureModelLocked(ctx context.Context, model string) error {
 	r.currentModel = model
 	r.cfg.Worker.Model = model
 	r.cfg.ModelPath = modelPath
-	return r.startLocked(ctx)
+	return r.startLocked(r.ctx)
 }
 
 func (r *Runtime) startLocked(ctx context.Context) error {
 	engine, err := r.startLocal(ctx, r.cfg.KatagoPath, r.cfg.ModelPath, r.cfg.AnalysisConfigPath)
 	if err != nil {
 		r.engine = katago.NewUnavailable(err.Error())
+		r.stateMu.Lock()
+		r.statusEngine = r.engine
+		r.stateMu.Unlock()
 		return err
 	}
 	r.engine = engine
+	r.stateMu.Lock()
+	r.statusEngine = engine
+	r.stateMu.Unlock()
 	return nil
 }
 

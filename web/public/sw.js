@@ -1,8 +1,15 @@
-const CACHE_NAME = 'jcgo-static-v7'
-const SHARED_CACHE_NAME = 'jcgo-shared-v1'
-const SHARED_SGF_URL = '/shared-sgf/latest'
-const IMMUTABLE_ASSET_PREFIX = '/assets/'
-const STATIC_ASSETS = ['/icons/jcgo-192.png', '/icons/jcgo-512.png', '/icons/jcgo-maskable-512.png', '/icons/apple-touch-icon.png']
+const BASE_PATH = new URL(self.registration.scope).pathname
+const CACHE_PREFIX = BASE_PATH === '/' ? 'jcgo-' : 'jcgo-' + encodeURIComponent(BASE_PATH) + '-'
+const CACHE_NAME = CACHE_PREFIX + 'static-v8'
+const SHARED_CACHE_NAME = CACHE_PREFIX + 'shared-v1'
+const appPath = (path) => BASE_PATH + path
+const SHARED_SGF_URL = appPath('shared-sgf/latest')
+const IMMUTABLE_ASSET_PREFIX = appPath('assets/')
+const STATIC_ASSETS = ['icons/jcgo-192.png', 'icons/jcgo-512.png', 'icons/jcgo-maskable-512.png', 'icons/apple-touch-icon.png'].map(appPath)
+
+function ownsCache(name) {
+  return BASE_PATH === '/' ? /^jcgo-(static-v[0-9]+|shared-v[0-9]+)$/.test(name) : name.startsWith(CACHE_PREFIX)
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()))
@@ -12,14 +19,15 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((names) => Promise.all(names.filter((name) => name !== CACHE_NAME).map((name) => caches.delete(name))))
+      .then((names) => Promise.all(names.filter((name) => ownsCache(name) && name !== CACHE_NAME && name !== SHARED_CACHE_NAME).map((name) => caches.delete(name))))
       .then(() => self.clients.claim()),
   )
 })
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url)
-  if (url.pathname === '/share-target' && event.request.method === 'POST') {
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(BASE_PATH)) return
+  if (url.pathname === appPath('share-target') && event.request.method === 'POST') {
     event.respondWith(storeSharedSGF(event.request))
     return
   }
@@ -28,12 +36,12 @@ self.addEventListener('fetch', (event) => {
     return
   }
   if (event.request.method !== 'GET') return
-  if (url.pathname === '/sw.js' || url.pathname === '/manifest.webmanifest' || event.request.mode === 'navigate') {
+  if (url.pathname === appPath('sw.js') || url.pathname === appPath('manifest.webmanifest') || event.request.mode === 'navigate') {
     event.respondWith(networkFirst(event.request))
     return
   }
   if (url.pathname === SHARED_SGF_URL) {
-    event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)))
+    event.respondWith(caches.open(SHARED_CACHE_NAME).then((cache) => cache.match(event.request)).then((cached) => cached || fetch(event.request)))
     return
   }
   if (STATIC_ASSETS.includes(url.pathname) || isImmutableBuildAsset(url)) {
@@ -44,11 +52,11 @@ self.addEventListener('fetch', (event) => {
 })
 
 function networkFirst(request) {
-  return fetch(request).catch(() => caches.match(request))
+  return fetch(request).catch(() => caches.open(CACHE_NAME).then((cache) => cache.match(request)))
 }
 
 function cacheFirst(request) {
-  return caches.match(request).then((cached) => {
+  return caches.open(CACHE_NAME).then((cache) => cache.match(request)).then((cached) => {
     if (cached) return cached
     return fetch(request).then((response) => {
       if (!response.ok) return response
@@ -82,7 +90,7 @@ async function storeSharedSGF(request) {
       },
     }),
   )
-  return Response.redirect('/?share-target=sgf', 303)
+  return Response.redirect(new URL(appPath('?share-target=sgf'), self.location.origin).href, 303)
 }
 
 async function clearSharedSGF() {

@@ -6,11 +6,56 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+func TestPrefixedStaticAndAuthenticatedWebSockets(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("APP"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "asset.txt"), []byte("ASSET"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(New(Config{AccessToken: "secret", StaticDir: dir}, nil).Handler())
+	defer srv.Close()
+	resp, err := http.Get(srv.URL + "/jcgo/asset.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if string(body) != "ASSET" {
+		t.Errorf("prefixed asset = %q", body)
+	}
+	for _, path := range []string{"/ws", "/jcgo/ws", "/worker", "/jcgo/worker"} {
+		protocol := "jcgo-jsonrpc"
+		if strings.HasSuffix(path, "worker") {
+			protocol = "jcgo-worker"
+		}
+		for _, token := range []string{"secret", "wrong"} {
+			dialer := websocket.Dialer{Subprotocols: []string{protocol, "token." + token}}
+			conn, response, err := dialer.Dial("ws"+strings.TrimPrefix(srv.URL, "http")+path, nil)
+			if token == "secret" {
+				if err != nil {
+					t.Errorf("%s authenticated handshake: %v", path, err)
+				}
+			} else if response == nil || response.StatusCode != http.StatusUnauthorized {
+				t.Errorf("%s accepted wrong token: %v", path, err)
+			}
+			if conn != nil {
+				conn.Close()
+			}
+			if response != nil {
+				response.Body.Close()
+			}
+		}
+	}
+}
 
 func TestWebSocketRejectsMissingToken(t *testing.T) {
 	srv := httptest.NewServer(New(Config{AccessToken: "secret"}, nil).Handler())

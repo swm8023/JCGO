@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"jcgo/internal/config"
+	"jcgo/internal/managed"
 )
 
 type Options struct {
@@ -97,6 +98,9 @@ func Stage(ctx context.Context, opts Options, runner Runner) (stage StagedReleas
 
 func Publish(ctx context.Context, opts Options, runner Runner, stage StagedRelease) error {
 	opts = resolve(opts)
+	if err := managed.CheckMaintenance(StateDir(opts)); err != nil {
+		return err
+	}
 	if runner == nil {
 		runner = ExecRunner{}
 	}
@@ -304,7 +308,7 @@ func copyFile(src string, dst string) error {
 }
 
 func startScript(state string) string {
-	return strings.ReplaceAll(`@echo off
+	return renderRuntimeScript(`@echo off
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { param([string]$bat) $lines = Get-Content -LiteralPath $bat; $idx = [Array]::IndexOf($lines, '# POWERSHELL'); if ($idx -lt 0) { throw 'start.bat payload marker missing' }; $script = ($lines[($idx + 1)..($lines.Count - 1)] -join [Environment]::NewLine); & ([ScriptBlock]::Create($script)) -StateDir {{STATE}} }" "%~f0"
 exit /b %ERRORLEVEL%
 # POWERSHELL
@@ -376,6 +380,7 @@ try {
   Write-Host "============================================"
   Write-Host
   Write-Status "state dir: $script:StateDir"
+  Assert-MaintenanceAllowed
   Start-Component "jcgo.exe"
   Start-Component "jcgo-worker.exe"
   Write-Host
@@ -392,11 +397,11 @@ try {
   Wait-ForExit
   exit 1
 }
-`, "{{STATE}}", psSingleQuote(filepath.Clean(state)))
+`, state)
 }
 
 func stopScript(state string) string {
-	return strings.ReplaceAll(`@echo off
+	return renderRuntimeScript(`@echo off
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "& { param([string]$bat) $lines = Get-Content -LiteralPath $bat; $idx = [Array]::IndexOf($lines, '# POWERSHELL'); if ($idx -lt 0) { throw 'stop.bat payload marker missing' }; $script = ($lines[($idx + 1)..($lines.Count - 1)] -join [Environment]::NewLine); & ([ScriptBlock]::Create($script)) -StateDir {{STATE}} }" "%~f0"
 exit /b %ERRORLEVEL%
 # POWERSHELL
@@ -489,6 +494,7 @@ try {
   Write-Host
   Write-Status "state dir: $script:StateDir"
 
+  Assert-MaintenanceAllowed
   $processes = @(Get-InstalledProcessSet | Sort-Object ProcessId -Descending)
   if ($processes.Count -eq 0) {
     Write-Status "no installed JCGO processes found"
@@ -517,7 +523,7 @@ try {
   Wait-ForExit
   exit 1
 }
-`, "{{STATE}}", psSingleQuote(filepath.Clean(state)))
+`, state)
 }
 
 func psSingleQuote(value string) string {
@@ -525,6 +531,9 @@ func psSingleQuote(value string) string {
 }
 
 func stopExistingRuntime(ctx context.Context, opts Options, runner Runner) error {
+	if err := managed.CheckMaintenance(StateDir(opts)); err != nil {
+		return err
+	}
 	stop := filepath.Join(StateDir(opts), "stop.bat")
 	if _, err := os.Stat(stop); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -544,3 +553,31 @@ func exeName(name string) string {
 	}
 	return name
 }
+
+func renderRuntimeScript(script, state string) string {
+	script = strings.ReplaceAll(script, "{{STATE}}", psSingleQuote(filepath.Clean(state)))
+	return strings.Replace(script, "$ErrorActionPreference = \"Stop\"", "$ErrorActionPreference = \"Stop\"\n"+maintenanceGuardScript, 1)
+}
+
+const maintenanceGuardScript = `
+function Assert-MaintenanceAllowed {
+  foreach ($role in @("server", "worker")) {
+    $lockPath = Join-Path $script:StateDir ("run/" + $role + ".lock")
+    if (-not (Test-Path -LiteralPath $lockPath)) { continue }
+    $stream = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::ReadWrite)
+    try {
+      $active = $false
+      try { $stream.Lock(2147483647, 1); $stream.Unlock(2147483647, 1) }
+      catch [System.IO.IOException] { $active = $true }
+      if ($active) {
+        $stream.Position = 0
+        $reader = [System.IO.StreamReader]::new($stream, [System.Text.Encoding]::UTF8, $true, 1024, $true)
+        try { $owner = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
+        if ($owner.role -ne $role -or $owner.managed) {
+          throw "JCGO $role is managed by WheelMaker; stop it in Hub Monitor before maintenance."
+        }
+      }
+    } finally { $stream.Dispose() }
+  }
+}
+`

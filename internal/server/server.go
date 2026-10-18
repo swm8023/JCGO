@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/gorilla/websocket"
 )
@@ -26,6 +27,10 @@ type Server struct {
 	cfg           Config
 	handler       RPCHandler
 	workerHandler WorkerHandler
+	mu            sync.Mutex
+	connections   map[*websocket.Conn]struct{}
+	closing       bool
+	wg            sync.WaitGroup
 }
 
 const (
@@ -38,7 +43,7 @@ func New(cfg Config, handler RPCHandler) *Server {
 }
 
 func NewWithWorker(cfg Config, handler RPCHandler, workerHandler WorkerHandler) *Server {
-	return &Server{cfg: cfg, handler: handler, workerHandler: workerHandler}
+	return &Server{cfg: cfg, handler: handler, workerHandler: workerHandler, connections: make(map[*websocket.Conn]struct{})}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -46,7 +51,40 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/ws", s.handleWS)
 	mux.HandleFunc("/worker", s.handleWorkerWS)
 	mux.HandleFunc("/", s.serveStatic)
-	return mux
+	root := http.NewServeMux()
+	root.Handle("/jcgo/", http.StripPrefix("/jcgo", mux))
+	root.Handle("/", mux)
+	return root
+}
+
+// Close also terminates upgraded connections, which http.Server.Shutdown does not own.
+func (s *Server) Close() {
+	s.mu.Lock()
+	s.closing = true
+	for conn := range s.connections {
+		_ = conn.Close()
+	}
+	s.mu.Unlock()
+	s.wg.Wait()
+}
+
+func (s *Server) track(conn *websocket.Conn) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closing {
+		_ = conn.Close()
+		return false
+	}
+	s.connections[conn] = struct{}{}
+	s.wg.Add(1)
+	return true
+}
+
+func (s *Server) untrack(conn *websocket.Conn) {
+	s.mu.Lock()
+	delete(s.connections, conn)
+	s.mu.Unlock()
+	s.wg.Done()
 }
 
 func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +94,14 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clean := filepath.Clean(strings.TrimPrefix(r.URL.Path, "/"))
+	if !filepath.IsLocal(clean) {
+		http.NotFound(w, r)
+		return
+	}
+	if clean == "index.html" || clean == "." {
+		s.serveIndex(w, r)
+		return
+	}
 	if clean != "." {
 		path := filepath.Join(s.cfg.StaticDir, clean)
 		if info, err := os.Stat(path); err == nil && !info.IsDir() {
@@ -64,8 +110,25 @@ func (s *Server) serveStatic(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	s.serveIndex(w, r)
+}
+
+func (s *Server) serveIndex(w http.ResponseWriter, r *http.Request) {
+	data, err := os.ReadFile(filepath.Join(s.cfg.StaticDir, "index.html"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	base := "/"
+	if strings.HasPrefix(r.RequestURI, "/jcgo/") {
+		base = "/jcgo/"
+	}
+	data = []byte(strings.ReplaceAll(string(data), `<base href="/" data-jcgo-base />`, `<base href="`+base+`" data-jcgo-base />`))
 	w.Header().Set("Cache-Control", staticRevalidationCacheControl)
-	http.ServeFile(w, r, filepath.Join(s.cfg.StaticDir, "index.html"))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if r.Method != http.MethodHead {
+		_, _ = w.Write(data)
+	}
 }
 
 func setStaticCacheControl(w http.ResponseWriter, requestPath string) {
@@ -90,6 +153,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	if !s.track(conn) {
+		return
+	}
+	defer s.untrack(conn)
 	if s.handler == nil {
 		_ = conn.Close()
 		return
@@ -111,6 +178,10 @@ func (s *Server) handleWorkerWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
+	if !s.track(conn) {
+		return
+	}
+	defer s.untrack(conn)
 	if s.workerHandler == nil {
 		_ = conn.Close()
 		return

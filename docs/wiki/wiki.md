@@ -9,3 +9,4 @@
 ## 专题页面
 
 - [`cloud-events.md`](cloud-events.md)：云比赛公开赛事、“我的比赛”及组别对阵数据流。
+- [`wheelmaker-integration.md`](wheelmaker-integration.md)：Server 与 Worker 的独立管理、应用转发和部署维护约定。

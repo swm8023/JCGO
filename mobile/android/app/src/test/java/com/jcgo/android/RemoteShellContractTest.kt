@@ -61,11 +61,13 @@ class RemoteShellContractTest {
     }
 
     @Test
-    fun serverSwitchClearsWebViewStorageAcrossRemoteOrigins() {
+    fun serverSwitchClearsOnlyJcgoState() {
         val activity = source("src/main/java/com/jcgo/android/MainActivity.kt")
 
-        assertTrue(activity.contains("WebStorage.getInstance().deleteAllData()"))
-        assertTrue(activity.contains("CookieManager.getInstance().removeAllCookies"))
+        assertTrue(!activity.contains("WebStorage.getInstance().deleteAllData()"))
+        assertTrue(activity.contains("key.startsWith('jcgo.')"))
+        assertTrue(!activity.contains("CookieManager.getInstance().removeAllCookies"))
+        assertTrue(activity.contains("awaitRemoteCleanup"))
     }
 
     @Test

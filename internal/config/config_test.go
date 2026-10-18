@@ -1,11 +1,40 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestHubConfigSurvivesWorkerUpdate(t *testing.T) {
+	dir := t.TempDir()
+	var raw map[string]any
+	if err := json.Unmarshal(DefaultFile(""), &raw); err != nil {
+		t.Fatal(err)
+	}
+	raw["hub"] = map[string]any{"enabled": true, "stateDir": filepath.Join(dir, "hub")}
+	data, _ := json.Marshal(raw)
+	path := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(path, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadDir(dir); err != nil {
+		t.Fatalf("optional Hub config rejected: %v", err)
+	}
+	if err := UpdateWorkerRuntime(dir, "changed.bin.gz", 123); err != nil {
+		t.Fatal(err)
+	}
+	data, _ = os.ReadFile(path)
+	var updated map[string]any
+	if err := json.Unmarshal(data, &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated["hub"].(map[string]any)["stateDir"] != filepath.Join(dir, "hub") {
+		t.Fatal("Hub configuration lost on model update")
+	}
+}
 
 func TestLoadDirReadsStrictConfigAndDerivesRuntimePaths(t *testing.T) {
 	dir := t.TempDir()

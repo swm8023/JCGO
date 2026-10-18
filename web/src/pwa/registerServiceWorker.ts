@@ -1,7 +1,8 @@
 export function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+      navigator.serviceWorker.register(appPath('sw.js'), { scope: appBasePath() }).catch(() => undefined)
     })
   }
 }
+import { appBasePath, appPath } from '../appPaths'

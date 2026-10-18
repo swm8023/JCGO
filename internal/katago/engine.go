@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"jcgo/internal/managed"
+	"log"
 	"os/exec"
 	"strings"
 	"sync"
@@ -90,6 +92,7 @@ type localEngine struct {
 
 func StartLocal(ctx context.Context, katagoPath, modelPath, configPath string) (Analyzer, error) {
 	cmd := exec.CommandContext(ctx, katagoPath, "analysis", "-model", modelPath, "-config", configPath)
+	managed.HideWindow(cmd)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -108,7 +111,7 @@ func StartLocal(ctx context.Context, katagoPath, modelPath, configPath string) (
 	}
 	stderrDone := make(chan struct{})
 	go func() {
-		_, _ = io.Copy(stderr, stderrPipe)
+		_, _ = io.Copy(io.MultiWriter(stderr, log.Writer()), stderrPipe)
 		close(stderrDone)
 	}()
 	engine := &localEngine{

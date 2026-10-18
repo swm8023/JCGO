@@ -21,6 +21,10 @@ type ClientProgressRuntime interface {
 }
 
 func ServeConnection(ctx context.Context, serverURL string, accessToken string, runtime ClientRuntime) error {
+	return ServeConnectionWithStatus(ctx, serverURL, accessToken, runtime, nil)
+}
+
+func ServeConnectionWithStatus(ctx context.Context, serverURL string, accessToken string, runtime ClientRuntime, connected func(bool)) error {
 	dialer := websocket.Dialer{Subprotocols: []string{Subprotocol, "token." + accessToken}}
 	conn, _, err := dialer.DialContext(ctx, serverURL, nil)
 	if err != nil {
@@ -75,6 +79,10 @@ func ServeConnection(ctx context.Context, serverURL string, accessToken string, 
 	info := runtime.Info()
 	if err := writeEnvelope(Envelope{Type: MessageRegister, Worker: &info}); err != nil {
 		return err
+	}
+	if connected != nil {
+		connected(true)
+		defer connected(false)
 	}
 
 	for {
