@@ -47,25 +47,25 @@ func (s *workerHealth) snapshot() managed.Health {
 	message := s.connectionError
 	secrets := s.secrets
 	s.mu.RUnlock()
-	connectionState := "reconnecting"
-	if connected {
-		connectionState = "connected"
+	health := managed.Health{State: "healthy"}
+	if !connected {
+		if message == "" {
+			message = "Connecting to server. Reconnecting automatically."
+		}
+		health.Components = append(health.Components, managed.Component{ID: "server", State: "reconnecting", Message: managed.Redact(message, secrets...)})
 	}
-	engineState := "initializing"
-	engineError := ""
 	if engine != nil {
 		info := engine.Info()
-		engineError = managed.Redact(info.Error, secrets...)
-		engineState = "ready"
-		if engineError != "" {
-			engineState = "unavailable"
+		if info.Error != "" {
+			health.Components = append(health.Components, managed.Component{ID: "katago", State: "unavailable", Message: managed.Redact(info.Error, secrets...)})
 		}
+	} else {
+		health.Components = append(health.Components, managed.Component{ID: "katago", State: "initializing", Message: "KataGo is initializing."})
 	}
-	state := "healthy"
-	if !connected || engineState != "ready" {
-		state = "degraded"
+	if len(health.Components) > 0 {
+		health.State = "degraded"
 	}
-	return managed.Health{State: state, Components: []managed.Component{{ID: "server", State: connectionState, Message: message}, {ID: "katago", State: engineState, Message: engineError}}}
+	return health
 }
 
 func main() {

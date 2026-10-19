@@ -67,13 +67,10 @@ func run(args []string) (result error) {
 			return managed.ErrorHealth("http", "initializing", nil)
 		}
 		status := current.Workers.StatusSnapshot()
-		state := "healthy"
-		workerState := "available"
 		if status.Available == 0 {
-			state = "degraded"
-			workerState = "unavailable"
+			return managed.ErrorHealth("workers", "unavailable", errors.New("No available analysis worker. Start or reconnect a worker."))
 		}
-		return managed.Health{State: state, Components: []managed.Component{{ID: "http", State: "running"}, {ID: "storage", State: "ready"}, {ID: "workers", State: workerState}}}
+		return managed.Health{State: "healthy"}
 	}})
 	defer control.Close()
 	defer func() {

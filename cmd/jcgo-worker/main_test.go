@@ -139,6 +139,41 @@ type staticAnalyzer struct {
 	status katago.Status
 }
 
+func TestWorkerHealthReportsOnlyIssuesAndClearsOnRecovery(t *testing.T) {
+	dir := t.TempDir()
+	writeConfig(t, dir)
+	engine := &staticAnalyzer{status: katago.Status{Available: true}}
+	runtime, err := worker.NewRuntime(worker.RuntimeOptions{
+		Context: context.Background(), Dir: dir, Logger: log.New(&bytes.Buffer{}, "", 0),
+		ProbeHardware: func(context.Context) worker.HardwareInfo { return worker.HardwareInfo{} },
+		StartLocal:    func(context.Context, string, string, string) (katago.Analyzer, error) { return engine, nil },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer runtime.Close()
+	health := &workerHealth{runtime: runtime, connected: true, secrets: []string{"private-token"}}
+	if got := health.snapshot(); got.State != "healthy" || len(got.Components) != 0 || got.Message != "" {
+		t.Fatalf("healthy report should contain no diagnostics: %+v", got)
+	}
+	health.connected = false
+	health.connectionError = "dial failed: private-token"
+	got := health.snapshot()
+	if got.State != "degraded" || len(got.Components) != 1 || got.Components[0].ID != "server" || got.Components[0].Message == "" || strings.Contains(got.Components[0].Message, "private-token") {
+		t.Fatalf("expected only redacted connection issue: %+v", got)
+	}
+	health.connected = true
+	engine.status = katago.Status{Error: "GPU unavailable: private-token"}
+	got = health.snapshot()
+	if got.State != "degraded" || len(got.Components) != 1 || got.Components[0].ID != "katago" || strings.Contains(got.Components[0].Message, "private-token") {
+		t.Fatalf("expected only redacted engine issue: %+v", got)
+	}
+	engine.status = katago.Status{Available: true}
+	if got := health.snapshot(); got.State != "healthy" || len(got.Components) != 0 || got.Message != "" {
+		t.Fatalf("recovered report retained issues: %+v", got)
+	}
+}
+
 func TestReadyHealthAndCancellationDuringSlowEngineInitialization(t *testing.T) {
 	dir := t.TempDir()
 	writeConfig(t, dir)
